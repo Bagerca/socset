@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>GlassNet - Лента</title>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.1.1/css/all.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="css/main.css">
+</head>
+<body>
+    <div class="app-container">
+        <!-- Сайдбар -->
+        <nav class="sidebar glass-pill">
+            <div class="logo-icon">
+                <a href="index.html" title="На главную"><i class="fa-solid fa-droplet"></i></a>
+            </div>
+            <div class="nav-links">
+                <a href="index.html" class="nav-item active" title="Лента"><i class="fa-solid fa-house"></i></a>
+                <div class="nav-item" title="Поиск"><i class="fa-solid fa-magnifying-glass"></i></div>
+                <div class="nav-item" title="Уведомления"><i class="fa-solid fa-bell"></i></div>
+                <!-- ССЫЛКА НА ПРОФИЛЬ -->
+                <a href="profile.html" class="nav-item" title="Профиль"><i class="fa-solid fa-user"></i></a>
+            </div>
+        </nav>
+
+        <!-- Главный контент -->
+        <main class="feed">
+            <div class="compose-box">
+                <textarea id="postInput" placeholder="Что происходит?"></textarea>
+                <div id="pollCreator" class="poll-creator" style="display: none;">
+                    <div class="poll-header">
+                        <span class="poll-title">Создание опроса</span>
+                        <button id="closePollBtn" class="icon-btn-small"><i class="fa-solid fa-xmark"></i></button>
+                    </div>
+                    <div id="pollInputs" class="poll-inputs">
+                        <input type="text" class="poll-input" placeholder="Вариант 1">
+                        <input type="text" class="poll-input" placeholder="Вариант 2">
+                    </div>
+                    <div class="poll-footer-controls">
+                        <button id="addOptionBtn" class="text-btn">+ Добавить вариант</button>
+                        <select id="pollDuration" class="poll-select">
+                            <option value="1">1 день</option>
+                            <option value="3" selected>3 дня</option>
+                            <option value="7">7 дней</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="compose-actions">
+                    <div class="action-icons">
+                        <button id="togglePollBtn" class="icon-btn" title="Добавить опрос"><i class="fa-solid fa-list-ul"></i></button>
+                        <button class="icon-btn" title="Прикрепить медиа"><i class="fa-regular fa-image"></i></button>
+                    </div>
+                    <button id="publishBtn" class="btn-post" disabled>Опубликовать</button>
+                </div>
+            </div>
+            <div id="postsContainer"></div>
+        </main>
+    </div>
+    <!-- ПОДКЛЮЧАЕМ НОВЫЙ СКРИПТ -->
+    <script type="module" src="js/feed.js"></script>
+</body>
+</html>

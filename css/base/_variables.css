@@ -1,0 +1,17 @@
+:root {
+    --bg-base: #0a0a0c; 
+    --surface: #141416; 
+    --pill-bg: #111111; 
+    --border-color: rgba(255, 255, 255, 0.08);
+    
+    --text-main: #ffffff;
+    --text-muted: #6b6b6b;
+    
+    --accent-bg: #e8e8e8; 
+    --accent-icon: #000000;
+    --danger: #ff453a;
+    
+    --radius-pill: 100px;
+    --radius-large: 20px;
+    --radius-medium: 12px;
+}

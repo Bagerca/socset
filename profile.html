@@ -1,0 +1,125 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>GlassNet - Профиль</title>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.1.1/css/all.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="css/main.css">
+</head>
+<body>
+    <div class="app-container">
+        <!-- Сайдбар -->
+        <nav class="sidebar glass-pill">
+            <div class="logo-icon">
+                <a href="index.html" title="На главную"><i class="fa-solid fa-droplet"></i></a>
+            </div>
+            <div class="nav-links">
+                <a href="index.html" class="nav-item" title="Лента"><i class="fa-solid fa-house"></i></a>
+                <div class="nav-item" title="Поиск"><i class="fa-solid fa-magnifying-glass"></i></div>
+                <div class="nav-item" title="Уведомления"><i class="fa-solid fa-bell"></i></div>
+                <a href="profile.html" class="nav-item active" title="Профиль"><i class="fa-solid fa-user"></i></a>
+            </div>
+        </nav>
+
+        <!-- Контент Профиля -->
+        <main class="feed">
+            <div class="profile-container">
+                <!-- Баннер -->
+                <div class="profile-banner">
+                    <img id="bannerImage" src="https://via.placeholder.com/800x250/111111/111111" alt="Баннер профиля">
+                    <label class="edit-overlay" for="bannerInput" title="Сменить баннер">
+                        <i class="fa-solid fa-camera"></i>
+                    </label>
+                    <input type="file" id="bannerInput" accept="image/*" class="hidden-file-input">
+                </div>
+
+                <!-- Шапка профиля -->
+                <div class="profile-header">
+                    <div class="profile-avatar">
+                        <img id="avatarImage" src="https://via.placeholder.com/128/333333/333333" alt="Аватар">
+                        <label class="edit-overlay" for="avatarInput" title="Сменить аватар">
+                            <i class="fa-solid fa-camera"></i>
+                        </label>
+                        <input type="file" id="avatarInput" accept="image/*" class="hidden-file-input">
+                    </div>
+                    <button id="saveProfileBtn" class="btn-post btn-save-profile">Сохранить</button>
+                </div>
+                
+                <!-- Информация о пользователе -->
+                <div class="profile-info">
+                    <h1 id="profileName">Имя Пользователя</h1>
+                    <p id="profileUsername" class="text-muted">@username</p>
+                    
+                    <textarea id="bioTextarea" class="profile-bio-textarea" placeholder="Расскажите о себе..." maxlength="160"></textarea>
+
+                    <div class="profile-music-track">
+                        <div class="music-info">
+                            <i class="fa-solid fa-music text-muted"></i>
+                            <span id="musicTrackName">Музыка не выбрана</span>
+                        </div>
+                        <div class="music-controls">
+                            <button id="playMusicBtn" class="icon-btn-small" title="Воспроизвести"><i class="fa-solid fa-play"></i></button>
+                            <label for="musicInput" class="icon-btn-small" title="Загрузить трек"><i class="fa-solid fa-upload"></i></label>
+                            <input type="file" id="musicInput" accept="audio/*" class="hidden-file-input">
+                            <audio id="audioPlayer"></audio>
+                        </div>
+                    </div>
+
+                    <div class="social-links-editor">
+                        <div class="social-input-group">
+                            <i class="fa-brands fa-telegram"></i>
+                            <input type="text" id="telegramInput" placeholder="Ник в Telegram">
+                        </div>
+                        <div class="social-input-group">
+                            <i class="fa-brands fa-github"></i>
+                            <input type="text" id="githubInput" placeholder="Ник на GitHub">
+                        </div>
+                    </div>
+                </div>
+
+                <!-- БЛОК: Создание поста в профиле -->
+                <div style="padding: 24px; border-top: 1px solid var(--border-color);">
+                    <div class="compose-box" style="box-shadow: none; border: 1px solid var(--border-color); background: #1a1a1c;">
+                        <textarea id="postInput" placeholder="Написать в профиль..."></textarea>
+                        
+                        <!-- Скрытый блок опроса -->
+                        <div id="pollCreator" class="poll-creator" style="display: none;">
+                            <div class="poll-header">
+                                <span class="poll-title">Создание опроса</span>
+                                <button id="closePollBtn" class="icon-btn-small"><i class="fa-solid fa-xmark"></i></button>
+                            </div>
+                            <div id="pollInputs" class="poll-inputs">
+                                <input type="text" class="poll-input" placeholder="Вариант 1">
+                                <input type="text" class="poll-input" placeholder="Вариант 2">
+                            </div>
+                            <div class="poll-footer-controls">
+                                <button id="addOptionBtn" class="text-btn">+ Добавить вариант</button>
+                                <select id="pollDuration" class="poll-select">
+                                    <option value="1">1 день</option>
+                                    <option value="3" selected>3 дня</option>
+                                    <option value="7">7 дней</option>
+                                </select>
+                            </div>
+                        </div>
+
+                        <div class="compose-actions">
+                            <div class="action-icons">
+                                <button id="togglePollBtn" class="icon-btn" title="Добавить опрос"><i class="fa-solid fa-list-ul"></i></button>
+                                <button class="icon-btn" title="Прикрепить медиа"><i class="fa-regular fa-image"></i></button>
+                            </div>
+                            <button id="publishBtn" class="btn-post" disabled>Опубликовать</button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- БЛОК: Лента постов профиля -->
+                <div id="profilePostsContainer" style="padding: 0 24px 24px 24px; display: flex; flex-direction: column; gap: 12px;">
+                    <!-- Посты пользователя будут рендериться здесь -->
+                </div>
+            </div>
+        </main>
+    </div>
+    <script type="module" src="js/profile.js"></script>
+</body>
+</html>
