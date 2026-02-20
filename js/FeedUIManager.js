@@ -3,6 +3,8 @@ import { escapeHTML } from './utils.js';
 export class FeedUIManager {
     constructor(dataManager) {
         this.dataManager = dataManager;
+        // Мы будем получать current user непосредственно при проверке, чтобы данные были свежими
+        
         this.container = document.getElementById('postsContainer');
         this.input = document.getElementById('postInput');
         this.publishBtn = document.getElementById('publishBtn');
@@ -14,15 +16,8 @@ export class FeedUIManager {
         
         this.isPollActive = false;
         this.mediaRecorder = null;
-        this.audioChunks =[];
+        this.audioChunks = [];
         this.recordingPostId = null;
-
-        // --- НОВЫЕ ПЕРЕМЕННЫЕ ДЛЯ ЗАПИСИ И СОСТОЯНИЙ ---
-        this.recordingStartTime = null;
-        this.recordingInterval = null;
-        this.recordedAudioBlob = null;
-        this.playbackAudio = new Audio();
-        // --- ---
 
         this.createGlobalContextMenu();
         this.initEventListeners();
@@ -40,6 +35,7 @@ export class FeedUIManager {
         this.contextTargetPostId = null;
 
         document.addEventListener('click', () => { this.contextMenu.style.display = 'none'; });
+        // Добавляем скролл - при скролле меню должно исчезать
         document.addEventListener('scroll', () => { this.contextMenu.style.display = 'none'; }, true);
     }
 
@@ -49,6 +45,7 @@ export class FeedUIManager {
         this.addOptionBtn.addEventListener('click', () => this.addPollOption());
         this.input.addEventListener('input', () => this.checkPublishState());
         this.pollInputsContainer.addEventListener('input', () => this.checkPublishState());
+        
         this.publishBtn.addEventListener('click', () => {
             const text = this.input.value.trim();
             let pollData = null;
@@ -62,16 +59,31 @@ export class FeedUIManager {
             }
         });
 
-        // --- ОБРАБОТЧИК КЛИКОВ (Обновлено) ---
+        // КЛИК ПО "УДАЛИТЬ" В КОНТЕКСТНОМ МЕНЮ
+        document.getElementById('ctxDeleteComment').addEventListener('click', () => {
+            if (this.contextTargetPostId && this.contextTargetCommentId) {
+                this.dataManager.deleteComment(this.contextTargetPostId, this.contextTargetCommentId);
+                this.rerenderComments(this.contextTargetPostId);
+                this.contextMenu.style.display = 'none';
+            }
+        });
+
+        // ОБРАБОТЧИК ПКМ
         this.container.addEventListener('contextmenu', (e) => {
             const commentItem = e.target.closest('.comment-item');
             if (commentItem) {
                 const authorUsername = commentItem.dataset.author;
+                // Получаем свежие данные о текущем пользователе
                 const currentUser = this.dataManager.getProfileData();
+                
+                // Проверяем: это наш коммент или нет?
                 if (authorUsername === currentUser.username) {
-                    e.preventDefault(); 
+                    e.preventDefault(); // Блокируем меню браузера
+                    
                     this.contextTargetCommentId = commentItem.dataset.id;
                     this.contextTargetPostId = commentItem.dataset.postId;
+                    
+                    // Показываем меню под курсором
                     this.contextMenu.style.display = 'block';
                     this.contextMenu.style.top = `${e.pageY}px`;
                     this.contextMenu.style.left = `${e.pageX}px`;
@@ -81,64 +93,8 @@ export class FeedUIManager {
 
         this.container.addEventListener('click', (e) => {
             const target = e.target;
-
-            // --- ОБРАБОТКА КОММЕНТАРИЕВ И АУДИО (обновлено) ---
-            const postId = target.closest('.comment-input-area')?.dataset.id || target.closest('.comment-item')?.dataset.postId;
-
-            // 1. Старт записи
-            const micBtn = target.closest('.mic-btn-start');
-            if (micBtn) {
-                this.startRecordingUI(postId, target.closest('.comment-input-area'));
-                return;
-            }
-
-            // 2. Управление записью (Пауза/Возобновить)
-            const pauseResumeBtn = target.closest('.record-pause-btn');
-            if (pauseResumeBtn) {
-                this.pauseResumeRecording(pauseResumeBtn);
-                return;
-            }
-
-            // 3. Отмена записи
-            const cancelBtn = target.closest('.record-cancel-btn');
-            if (cancelBtn) {
-                this.cancelRecordingUI(target.closest('.comment-input-area'));
-                return;
-            }
-
-            // 4. Стоп и переход к прослушиванию
-            const stopBtn = target.closest('.mic-btn-stop');
-            if (stopBtn) {
-                this.stopRecordingUI(target.closest('.comment-input-area'));
-                return;
-            }
-
-            // 5. Прослушивание перед отправкой
-            const previewPlayBtn = target.closest('.preview-play-btn');
-            if (previewPlayBtn) {
-                this.togglePlaybackUI(previewPlayBtn);
-                return;
-            }
-
-            // 6. Отправка аудио
-            const sendAudioBtn = target.closest('.preview-send-btn');
-            if (sendAudioBtn) {
-                this.sendRecordedAudio(target.closest('.comment-input-area'));
-                return;
-            }
             
-            // 7. Отправка текста
-            const sendCommentBtn = target.closest('.send-text-btn');
-            if (sendCommentBtn) {
-                const input = document.getElementById(`comment-input-${postId}`);
-                if (input.value.trim()) {
-                    this.dataManager.addComment(postId, input.value.trim(), 'text');
-                    input.value = ''; this.rerenderComments(postId);
-                }
-                return;
-            }
-
-            // 8. Лайки комментариев
+            // Лайки комментов
             const reactionBtn = target.closest('.comment-action-btn');
             if (reactionBtn) {
                 this.dataManager.toggleCommentReaction(reactionBtn.dataset.postId, reactionBtn.dataset.id, reactionBtn.dataset.type);
@@ -146,138 +102,85 @@ export class FeedUIManager {
                 return;
             }
 
-            // 9. Открыть/Закрыть комментарии
+            // Открыть комменты
             const commentBtn = target.closest('.action-btn-comment');
-            if (commentBtn) { document.getElementById(`comments-${commentBtn.dataset.id}`).classList.toggle('active'); return; }
+            if (commentBtn) {
+                document.getElementById(`comments-${commentBtn.dataset.id}`).classList.toggle('active');
+                return;
+            }
 
-            // 10. Пост действия
+            // Отправка коммента
+            const sendCommentBtn = target.closest('.send-comment-btn');
+            if (sendCommentBtn) {
+                const postId = sendCommentBtn.dataset.id;
+                const input = document.getElementById(`comment-input-${postId}`);
+                if (input.value.trim()) {
+                    this.dataManager.addComment(postId, input.value.trim(), 'text');
+                    input.value = '';
+                    this.rerenderComments(postId);
+                }
+                return;
+            }
+
+            // Аудио запись
+            const recordBtn = target.closest('.record-btn');
+            if (recordBtn) {
+                if (this.mediaRecorder && this.mediaRecorder.state === 'recording') { this.stopRecording(recordBtn); } 
+                else { this.startRecording(recordBtn.dataset.id, recordBtn); }
+                return;
+            }
+
+            // Плеер
+            const playAudioBtn = target.closest('.audio-control-btn');
+            if (playAudioBtn) {
+                const audio = playAudioBtn.nextElementSibling;
+                const progressBar = playAudioBtn.parentElement.querySelector('.audio-progress');
+                if (audio.paused) {
+                    document.querySelectorAll('audio').forEach(a => { if(a!==audio){a.pause();a.currentTime=0;}});
+                    audio.play();
+                    playAudioBtn.innerHTML = '<i class="fa-solid fa-pause"></i>';
+                    audio.ontimeupdate = () => progressBar.style.width = `${(audio.currentTime/audio.duration)*100}%`;
+                    audio.onended = () => { playAudioBtn.innerHTML = '<i class="fa-solid fa-play"></i>'; progressBar.style.width='0%'; };
+                } else {
+                    audio.pause(); playAudioBtn.innerHTML = '<i class="fa-solid fa-play"></i>';
+                }
+                return;
+            }
+
+            // Опции поста и Лайки поста
             if (target.closest('.post-options-btn')) { target.closest('.post-options-btn').nextElementSibling.classList.toggle('active'); return; }
             if (target.closest('.like-btn')) { const updated = this.dataManager.toggleLike(target.closest('.like-btn').dataset.id); if(updated) this.renderAll(); return; } 
             if (target.closest('.delete-post-btn')) { if(confirm('Удалить?')) { this.dataManager.deletePost(target.closest('.delete-post-btn').dataset.id); this.renderAll(); } return; }
         });
     }
 
-    // --- ФУНКЦИИ УПРАВЛЕНИЯ ЗАПИСЬЮ И UI ---
-
-    // 1. НАЧАЛО ЗАПИСИ
-    async startRecordingUI(postId, inputArea) {
+    async startRecording(postId, btn) {
         try {
             const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
             this.mediaRecorder = new MediaRecorder(stream);
-            this.audioChunks =[];
+            this.audioChunks = [];
             this.recordingPostId = postId;
-
             this.mediaRecorder.ondataavailable = event => this.audioChunks.push(event.data);
+            this.mediaRecorder.onstop = () => {
+                const audioBlob = new Blob(this.audioChunks, { type: 'audio/mp3' });
+                const reader = new FileReader();
+                reader.readAsDataURL(audioBlob);
+                reader.onloadend = () => {
+                    this.dataManager.addComment(this.recordingPostId, reader.result, 'audio');
+                    this.rerenderComments(this.recordingPostId);
+                };
+                stream.getTracks().forEach(track => track.stop());
+            };
             this.mediaRecorder.start();
-
-            // Показываем UI записи и запускаем таймер
-            this.showRecordingUI(inputArea);
-
+            btn.classList.add('recording');
         } catch (err) { alert('Нужен микрофон!'); console.error(err); }
     }
+    stopRecording(btn) { if(this.mediaRecorder){this.mediaRecorder.stop(); btn.classList.remove('recording');} }
 
-    // 2. ОТОБРАЖЕНИЕ UI ЗАПИСИ
-    showRecordingUI(inputArea) {
-        const defaultState = inputArea.querySelector('.input-state-default');
-        const recordUI = inputArea.querySelector('.record-ui');
-        const previewUI = inputArea.querySelector('.preview-player');
-        
-        defaultState.style.display = 'none';
-        previewUI.classList.remove('active');
-        recordUI.classList.add('active');
-        
-        // Запускаем таймер
-        const timerElement = recordUI.querySelector('.timer');
-        this.recordingStartTime = Date.now();
-        this.recordingInterval = setInterval(() => {
-            const elapsed = Math.floor((Date.now() - this.recordingStartTime) / 1000);
-            const minutes = String(Math.floor(elapsed / 60)).padStart(2, '0');
-            const seconds = String(elapsed % 60).padStart(2, '0');
-            timerElement.textContent = `${minutes}:${seconds}`;
-        }, 1000);
-    }
-
-    // 3. ПАУЗА / ВОЗОБНОВЛЕНИЕ
-    pauseResumeRecording(btn) {
-        if (this.mediaRecorder.state === 'recording') {
-            this.mediaRecorder.pause();
-            btn.innerHTML = '<i class="fa-solid fa-play"></i>';
-            clearInterval(this.recordingInterval);
-        } else if (this.mediaRecorder.state === 'paused') {
-            this.mediaRecorder.resume();
-            btn.innerHTML = '<i class="fa-solid fa-pause"></i>';
-            this.recordingStartTime = Date.now() - (this.recordingStartTime - this.recordingStartTime); // Возобновляем таймер
-            this.recordingInterval = setInterval(() => {
-                const elapsed = Math.floor((Date.now() - this.recordingStartTime) / 1000);
-                const minutes = String(Math.floor(elapsed / 60)).padStart(2, '0');
-                const seconds = String(elapsed % 60).padStart(2, '0');
-                document.querySelector('.record-ui .timer').textContent = `${minutes}:${seconds}`;
-            }, 1000);
-        }
-    }
-
-    // 4. ОСТАНОВКА (ПЕРЕХОД К ПРЕДПРОСМОТРУ)
-    stopRecordingUI(inputArea) {
-        clearInterval(this.recordingInterval);
-        this.mediaRecorder.stop();
-        
-        const recordUI = inputArea.querySelector('.record-ui');
-        const previewUI = inputArea.querySelector('.preview-player');
-        
-        recordUI.classList.remove('active');
-        previewUI.classList.add('active');
-
-        // Конвертируем аудио для прослушивания
-        this.mediaRecorder.onstop = () => {
-            this.recordedAudioBlob = new Blob(this.audioChunks, { type: 'audio/mp3' });
-            this.playbackAudio.src = URL.createObjectURL(this.recordedAudioBlob);
-        };
-    }
-
-    // 5. ОТМЕНА ЗАПИСИ
-    cancelRecordingUI(inputArea) {
-        clearInterval(this.recordingInterval);
-        this.mediaRecorder.stop(); // Очищаем запись
-        this.recordedAudioBlob = null;
-        this.playbackAudio.src = '';
-        this.audioChunks =[];
-        
-        inputArea.querySelector('.record-ui').classList.remove('active');
-        inputArea.querySelector('.preview-player').classList.remove('active');
-        inputArea.querySelector('.input-state-default').style.display = 'flex';
-    }
-
-    // 6. ОТПРАВКА АУДИО
-    sendRecordedAudio(inputArea) {
-        const reader = new FileReader();
-        reader.readAsDataURL(this.recordedAudioBlob);
-        reader.onloadend = () => {
-            this.dataManager.addComment(this.recordingPostId, reader.result, 'audio');
-            this.rerenderComments(this.recordingPostId);
-            // Возвращаемся в исходное состояние
-            this.recordedAudioBlob = null;
-            inputArea.querySelector('.preview-player').classList.remove('active');
-            inputArea.querySelector('.input-state-default').style.display = 'flex';
-        };
-    }
-
-    // 7. ВОСПРОИЗВЕДЕНИЕ ПРЕДПРОСМОТРА
-    togglePlaybackUI(btn) {
-        if (this.playbackAudio.paused) {
-            this.playbackAudio.play();
-            btn.innerHTML = '<i class="fa-solid fa-pause"></i>';
-        } else {
-            this.playbackAudio.pause();
-            btn.innerHTML = '<i class="fa-solid fa-play"></i>';
-        }
-        this.playbackAudio.onended = () => btn.innerHTML = '<i class="fa-solid fa-play"></i>';
-    }
-
-    // --- ФУНКЦИИ РЕНДЕРИНГА (частично обновлено) ---
     rerenderComments(postId) {
         const post = this.dataManager.getAllPosts().find(p => p.id === postId);
         const commentsList = document.getElementById(`comments-list-${postId}`);
-        const commentCountBtn = this.container.querySelector(`.action-btn-comment span`);
+        const commentCountBtn = this.container.querySelector(`.action-btn-comment[data-id="${postId}"] span`);
         if (commentCountBtn) commentCountBtn.textContent = post.comments ? post.comments.length : 0;
         if (post && commentsList) {
             commentsList.innerHTML = post.comments.map(c => this.createCommentHTML(c, postId)).join('');
@@ -285,44 +188,12 @@ export class FeedUIManager {
         }
     }
 
-    // Генерация псевдо-случайной волны для войса (улучшено)
-    generateWaveform() {
-        const numBars = 20; 
-        const minHeight = 4; 
-        const maxHeight = 20; 
-        const heights = [];
-        let barsHTML = '';
-
-        for (let i = 0; i < numBars; i++) {
-            // Более естественная генерация волн
-            const height = Math.floor(Math.random() * (maxHeight - minHeight + 1)) + minHeight;
-            heights.push(height);
-        }
-        
-        // Добавим сглаживание, чтобы волны не были "зубчатыми"
-        const smoothedHeights = heights.map((h, i, arr) => {
-            if (i === 0 || i === arr.length - 1) return h;
-            return Math.floor((arr[i - 1] + h + arr[i + 1]) / 3);
-        });
-
-        smoothedHeights.forEach(h => {
-            barsHTML += `<span class="wave-bar" style="height: ${h}px"></span>`;
-        });
-        return barsHTML;
-    }
-
     createCommentHTML(comment, postId) {
         let contentHTML = '';
         if (comment.type === 'audio') {
-            contentHTML = `
-                <div class="audio-message">
-                    <button class="audio-control-btn"><i class="fa-solid fa-play"></i></button>
-                    <audio src="${comment.content}" style="display:none;"></audio>
-                    <div class="audio-waveform-container">${this.generateWaveform()}</div>
-                </div>
-            `;
+            contentHTML = `<div class="audio-message"><button class="audio-control-btn"><i class="fa-solid fa-play"></i></button><audio src="${comment.content}" style="display:none;"></audio><div class="audio-waveform"><div class="audio-progress"></div></div></div>`;
         } else {
-            contentHTML = `<div class="comment-text-bubble">${escapeHTML(comment.content)}</div>`;
+            contentHTML = `<div class="comment-text">${escapeHTML(comment.content)}</div>`;
         }
         
         const likes = comment.likes || 0;
@@ -355,7 +226,7 @@ export class FeedUIManager {
     togglePoll(){this.isPollActive=!this.isPollActive;this.pollCreator.style.display=this.isPollActive?"flex":"none";this.togglePollBtn.classList.toggle("active",this.isPollActive);this.checkPublishState()}closePoll(){this.isPollActive=!1;this.pollCreator.style.display="none";this.togglePollBtn.classList.remove("active");this.pollInputsContainer.innerHTML='<input type="text" class="poll-input" placeholder="Вариант 1"><input type="text" class="poll-input" placeholder="Вариант 2">';this.addOptionBtn.style.display="block";this.checkPublishState()}addPollOption(){const e=this.pollInputsContainer.querySelectorAll(".poll-input");if(e.length<4){const t=document.createElement("input");t.type="text",t.className="poll-input",t.placeholder=`Вариант ${e.length+1}`,this.pollInputsContainer.appendChild(t),e.length+1>=4&&(this.addOptionBtn.style.display="none")}this.checkPublishState()}checkPublishState(){let e=!1;if(this.isPollActive){if(Array.from(this.pollInputsContainer.querySelectorAll(".poll-input")).filter(e=>e.value.trim().length>0).length>=2)e=!0}this.publishBtn.disabled=!(this.input.value.trim().length>0||e)}
 
     createPostHTML(post) {
-        const currentUser = this.dataManager.getProfileData();
+        const currentUser = this.dataManager.getProfileData(); // Получаем юзера для рендера меню
         const isPrivate = post.visibility === 'private';
         let optionsMenuHTML = '';
         if (post.author.username === currentUser.username) {
@@ -372,7 +243,8 @@ export class FeedUIManager {
              post.poll.options.forEach(opt => {
                  if (post.poll.votedOptionId) {
                      const percent = post.poll.totalVotes === 0 ? 0 : Math.round((opt.votes / post.poll.totalVotes) * 100);
-                     pollHTML += `<div class="poll-result-item ${post.poll.votedOptionId === opt.id ?'voted':''}"><div class="poll-bar" style="width: ${percent}%"></div><span class="poll-item-text">${escapeHTML(opt.text)}</span><span class="poll-item-percent">${percent}%</span></div>`;
+                     const isVoted = post.poll.votedOptionId === opt.id;
+                     pollHTML += `<div class="poll-result-item ${isVoted?'voted':''}"><div class="poll-bar" style="width: ${percent}%"></div><span class="poll-item-text">${escapeHTML(opt.text)}</span><span class="poll-item-percent">${percent}%</span></div>`;
                  } else { pollHTML += `<div class="poll-vote-btn" data-post-id="${post.id}" data-option-id="${opt.id}">${escapeHTML(opt.text)}</div>`; }
              });
              pollHTML += `<div class="poll-meta">${post.poll.totalVotes} голосов · Завершится через ${post.poll.days} дн.</div></div>`;
@@ -380,6 +252,7 @@ export class FeedUIManager {
 
         const commentsHTML = post.comments ? post.comments.map(c => this.createCommentHTML(c, post.id)).join('') : '';
 
+        // ВОТ ЗДЕСЬ ИЗМЕНЕНИЕ СТРУКТУРЫ: post-main-body обертывает верхнюю часть, а comments-section идет следом
         return `
             <article class="post ${isPrivate ? 'private-post' : ''}" data-id="${post.id}">
                 ${optionsMenuHTML}
@@ -395,49 +268,26 @@ export class FeedUIManager {
                         <div class="post-text">${post.content ? escapeHTML(post.content) : ''}</div>
                         ${pollHTML}
                         
-                        <div class="post-actions-wrapper">
-                            <div class="post-actions-left">
-                                <div class="action-btn like-btn ${post.isLiked ? 'liked' : ''}" data-id="${post.id}">
-                                    <i class="fa-${post.isLiked ? 'solid' : 'regular'} fa-heart"></i><span>${post.likes}</span>
-                                </div>
-                                <div class="action-btn"><i class="fa-solid fa-retweet"></i><span>0</span></div>
-                                <div class="action-btn action-btn-comment" data-id="${post.id}">
-                                    <i class="fa-regular fa-comment"></i><span>${post.comments ? post.comments.length : 0}</span>
-                                </div>
+                        <div class="post-actions">
+                            <div class="action-btn like-btn ${post.isLiked ? 'liked' : ''}" data-id="${post.id}">
+                                <i class="fa-${post.isLiked ? 'solid' : 'regular'} fa-heart"></i><span>${post.likes}</span>
                             </div>
-                            <div class="post-views">
-                                <i class="fa-regular fa-eye"></i> ${post.views || 0}
+                            <div class="action-btn"><i class="fa-solid fa-retweet"></i><span>0</span></div>
+                            <div class="action-btn action-btn-comment" data-id="${post.id}">
+                                <i class="fa-regular fa-comment"></i><span>${post.comments ? post.comments.length : 0}</span>
                             </div>
                         </div>
                     </div>
                 </div>
 
-                <!-- Блок комментариев -->
                 <div class="comments-section" id="comments-${post.id}">
                     <div class="comments-list" id="comments-list-${post.id}">
                         ${commentsHTML}
                     </div>
-                    <!-- НОВЫЙ ИНТЕРФЕЙС ВВОДА -->
-                    <div class="comment-input-area" data-id="${post.id}">
-                        <div class="input-state-default">
-                            <input type="text" class="comment-input" id="comment-input-${post.id}" placeholder="Написать комментарий...">
-                            <button class="record-btn mic-btn-start" title="Голосовое сообщение"><i class="fa-solid fa-microphone"></i></button>
-                            <button class="send-comment-btn send-text-btn">Отпр.</button>
-                        </div>
-                        <!-- UI записи -->
-                        <div class="record-ui">
-                            <button class="record-cancel-btn action-btn" title="Отмена"><i class="fa-solid fa-xmark"></i></button>
-                            <span class="timer">00:00</span>
-                            <button class="record-pause-btn action-btn" title="Пауза"><i class="fa-solid fa-pause"></i></button>
-                            <button class="mic-btn-stop action-btn" title="Стоп"><i class="fa-solid fa-check"></i></button>
-                        </div>
-                        <!-- UI предпросмотра -->
-                        <div class="preview-player">
-                            <button class="preview-play-btn action-btn" title="Прослушать"><i class="fa-solid fa-play"></i></button>
-                            <span class="waveform"></span>
-                            <button class="preview-send-btn action-btn" title="Отправить"><i class="fa-solid fa-paper-plane"></i></button>
-                            <button class="record-cancel-btn action-btn" title="Отмена"><i class="fa-solid fa-trash"></i></button>
-                        </div>
+                    <div class="comment-input-area">
+                        <input type="text" class="comment-input" id="comment-input-${post.id}" placeholder="Написать комментарий...">
+                        <button class="record-btn" data-id="${post.id}" title="Голосовое сообщение"><i class="fa-solid fa-microphone"></i></button>
+                        <button class="send-comment-btn" data-id="${post.id}">Отпр.</button>
                     </div>
                 </div>
             </article>

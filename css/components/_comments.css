@@ -1,97 +1,107 @@
-:root {
-    /* ... (переменные без изменений) ... */
-    --accent: #0088cc; /* Цвет Telegram для волн */
+.comments-section {
+    width: 100%; /* Занимаем всю ширину */
+    margin-top: 20px;
+    padding-top: 20px;
+    border-top: 1px solid var(--border-color);
+    display: none;
+    flex-direction: column;
+    gap: 20px;
+    animation: fadeIn 0.3s ease;
 }
 
-.comments-section {
-    width: 100%; margin-top: 20px; padding-top: 20px; border-top: 1px solid var(--border-color);
-    display: none; flex-direction: column; gap: 20px; animation: fadeIn 0.3s ease;
-}
 .comments-section.active { display: flex; }
 
-.comments-list { display: flex; flex-direction: column; gap: 20px; max-height: 500px; overflow-y: auto; padding-right: 5px; }
+/* Список комментариев */
+.comments-list {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    max-height: 500px;
+    overflow-y: auto;
+    padding-right: 5px; 
+}
+
 .comments-list::-webkit-scrollbar { width: 4px; }
 .comments-list::-webkit-scrollbar-thumb { background: #333; border-radius: 4px; }
 
-.comment-item { display: flex; gap: 12px; align-items: flex-start; position: relative; }
-.comment-avatar { width: 36px; height: 36px; border-radius: 50%; object-fit: cover; flex-shrink: 0;}
-.comment-content-wrapper { flex: 1; display: flex; flex-direction: column; gap: 6px; }
+.comment-item {
+    display: flex;
+    gap: 12px;
+    align-items: flex-start;
+    position: relative;
+    padding: 8px;
+    border-radius: 12px;
+    transition: background 0.2s;
+}
+.comment-item:hover { background: rgba(255, 255, 255, 0.02); }
 
-.comment-header { display: flex; align-items: center; gap: 8px; }
+.comment-avatar {
+    width: 36px; height: 36px; border-radius: 50%; object-fit: cover; flex-shrink: 0; margin-top: 2px;
+}
+
+.comment-content-wrapper { flex: 1; display: flex; flex-direction: column; gap: 4px; }
+
+.comment-header { display: flex; justify-content: space-between; align-items: center; }
 .comment-author { font-size: 14px; font-weight: 700; color: var(--text-main); }
 .comment-date { font-size: 12px; color: var(--text-muted); }
 
-/* Пузырь для текста */
-.comment-text-bubble {
-    font-size: 15px; color: #e0e0e0; line-height: 1.5; word-wrap: break-word;
-    background: rgba(255, 255, 255, 0.04); padding: 10px 14px; border-radius: 0 16px 16px 16px;
-    width: fit-content; max-width: 90%;
+.comment-text {
+    font-size: 15px; color: #e0e0e0; line-height: 1.5; word-wrap: break-word; margin-bottom: 4px;
 }
 
-/* --- КНОПКИ ДЕЙСТВИЙ (Лайк/Дизлайк) --- */
-.comment-actions { display: flex; gap: 16px; margin-left: 4px; }
-.comment-action-btn { background: transparent; border: none; color: var(--text-muted); font-size: 12px; cursor: pointer; display: flex; align-items: center; gap: 6px; transition: 0.2s;}
+/* Действия (Лайк/Дизлайк) */
+.comment-actions { display: flex; gap: 16px; margin-top: 4px; }
+.comment-action-btn {
+    background: transparent; border: none; color: var(--text-muted); font-size: 12px;
+    cursor: pointer; display: flex; align-items: center; gap: 6px; transition: 0.2s;
+}
 .comment-action-btn:hover { color: var(--text-main); }
 .comment-action-btn.active-like { color: #ff453a; }
 .comment-action-btn.active-dislike { color: #5dade2; }
 
-/* --- ГОЛОСОВОЕ СООБЩЕНИЕ (ВОЛНЫ) --- */
+/* Аудио */
 .audio-message {
-    display: flex; align-items: center; gap: 12px; background: rgba(51, 144, 236, 0.1);
-    padding: 6px 16px 6px 6px; border-radius: 30px; width: fit-content; border: 1px solid rgba(51, 144, 236, 0.2);
+    display: flex; align-items: center; gap: 12px; background: rgba(255, 255, 255, 0.05);
+    padding: 8px 16px; border-radius: 20px; width: fit-content; border: 1px solid var(--border-color);
 }
 .audio-control-btn {
-    width: 36px; height: 36px; border-radius: 50%; background: var(--accent); color: white;
-    border: none; display: flex; align-items: center; justify-content: center; cursor: pointer; font-size: 14px; transition: transform 0.2s;
+    width: 32px; height: 32px; border-radius: 50%; background: var(--text-main); color: #000;
+    border: none; display: flex; align-items: center; justify-content: center; cursor: pointer; font-size: 14px;
 }
-.audio-control-btn:hover { transform: scale(1.05); }
+.audio-waveform {
+    width: 120px; height: 4px; background: rgba(255,255,255,0.2); border-radius: 2px; position: relative; overflow: hidden;
+}
+.audio-progress { height: 100%; background: var(--text-main); width: 0%; transition: width 0.1s linear; }
 
-/* Контейнер волн */
-.audio-waveform-container {
-    display: flex; align-items: center; gap: 2px; height: 24px; width: 120px;
-}
-/* Один столбик волны */
-.wave-bar {
-    flex: 1; background: rgba(255,255,255,0.3); border-radius: 2px; transition: background 0.1s;
-}
-/* Закрашенный столбик */
-.wave-bar.played { background: var(--accent); }
-
-/* --- ПОЛЕ ВВОДА КОММЕНТАРИЯ (РАЗНЫЕ СОСТОЯНИЯ) --- */
+/* Ввод */
 .comment-input-area {
     display: flex; align-items: center; gap: 10px; background: var(--surface);
     padding: 8px 12px; border-radius: 24px; border: 1px solid var(--border-color); margin-top: 8px;
-    position: relative;
 }
-
-/* Состояние: Обычный ввод (по умолчанию) */
-.input-state-default { display: flex; align-items: center; flex: 1; gap: 10px; }
-.input-state-default input { flex: 1; background: transparent; border: none; color: var(--text-main); font-size: 15px; outline: none; }
-.input-state-default .mic-btn { color: var(--text-muted); font-size: 16px; transition: 0.2s; }
-.input-state-default .mic-btn:hover { color: var(--danger); }
-.input-state-default .send-btn { color: var(--text-main); font-weight: 600; font-size: 14px; }
-
-/* Состояние: Запись (поверх обычного) */
-.record-ui {
-    position: absolute; top: 0; left: 0; right: 0; bottom: 0;
-    display: none; align-items: center; justify-content: space-between; gap: 12px;
-    background: #1a1a1c; border-radius: 24px; padding: 8px 16px;
+.comment-input { flex: 1; background: transparent; border: none; color: var(--text-main); font-size: 15px; outline: none; }
+.record-btn, .send-comment-btn {
+    background: transparent; border: none; cursor: pointer; transition: 0.2s; display: flex; align-items: center; justify-content: center;
 }
-.record-ui.active { display: flex; }
+.record-btn { color: var(--text-muted); font-size: 16px; }
+.record-btn:hover { color: var(--danger); }
+.record-btn.recording { color: var(--danger); animation: pulse 1.5s infinite; }
+.send-comment-btn { color: var(--text-main); font-weight: 600; font-size: 14px; }
 
-.record-ui .mic-btn { color: var(--danger); animation: pulse 1.5s infinite; font-size: 16px; }
-.record-ui .timer { color: var(--text-main); font-size: 14px; font-weight: 500; }
-.record-ui .action-btn { background: transparent; border: none; color: var(--text-muted); cursor: pointer; font-size: 16px; transition: 0.2s; }
-.record-ui .action-btn:hover { color: var(--text-main); }
-
-/* Состояние: Прослушивание перед отправкой */
-.preview-player {
-    position: absolute; top: 0; left: 0; right: 0; bottom: 0;
-    display: none; align-items: center; justify-content: space-between; gap: 12px;
-    background: #1a1a1c; border-radius: 24px; padding: 8px 16px;
+/* --- КОНТЕКСТНОЕ МЕНЮ (ПКМ) --- */
+/* ВАЖНО: z-index очень большой, чтобы перекрывать всё */
+#customContextMenu {
+    position: absolute;
+    background: #222;
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    padding: 6px 0;
+    min-width: 150px;
+    box-shadow: 0 10px 40px rgba(0,0,0,0.8);
+    z-index: 999999; 
+    display: none;
 }
-.preview-player.active { display: flex; }
-.preview-player .audio-control-btn { background: var(--accent); color: white; border-radius: 50%; width: 36px; height: 36px; display: flex; align-items: center; justify-content: center; font-size: 14px; }
-.preview-player .action-btn { background: transparent; border: none; color: var(--text-main); cursor: pointer; font-size: 16px; font-weight: 600; transition: 0.2s; }
-.preview-player .action-btn:hover { color: var(--accent); }
-.preview-player .waveform { flex: 1; height: 4px; background: rgba(255,255,255,0.2); border-radius: 2px; position: relative; overflow: hidden; }
+.context-menu-item {
+    padding: 8px 16px; font-size: 14px; color: var(--text-main); cursor: pointer; display: flex; align-items: center; gap: 8px;
+}
+.context-menu-item:hover { background: rgba(255,255,255,0.1); }
+.context-menu-item.danger { color: var(--danger); }
