@@ -6,6 +6,7 @@
     <title>GlassNet - Профиль</title>
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.1.1/css/all.min.css" rel="stylesheet">
     <link rel="stylesheet" href="css/main.css">
+    <link rel="icon" href="data:,">
 </head>
 <body>
     <div class="app-container">
@@ -83,6 +84,11 @@
                     <div class="compose-box" style="box-shadow: none; border: 1px solid var(--border-color); background: #1a1a1c;">
                         <textarea id="postInput" placeholder="Написать в профиль..."></textarea>
                         
+                        <!-- КОНТЕЙНЕР ПРЕДПРОСМОТРА МЕДИА -->
+                        <div id="mediaPreviewContainer" class="media-preview-container"></div>
+                        <!-- СКРЫТЫЙ INPUT ДЛЯ ФАЙЛОВ -->
+                        <input type="file" id="mediaInput" accept="image/*,video/*" multiple hidden>
+
                         <!-- Скрытый блок опроса -->
                         <div id="pollCreator" class="poll-creator" style="display: none;">
                             <div class="poll-header">
@@ -106,7 +112,8 @@
                         <div class="compose-actions">
                             <div class="action-icons">
                                 <button id="togglePollBtn" class="icon-btn" title="Добавить опрос"><i class="fa-solid fa-list-ul"></i></button>
-                                <button class="icon-btn" title="Прикрепить медиа"><i class="fa-regular fa-image"></i></button>
+                                <!-- Кнопка теперь имеет id для связи с JS -->
+                                <button id="mediaBtn" class="icon-btn" title="Прикрепить медиа"><i class="fa-regular fa-image"></i></button>
                             </div>
                             <button id="publishBtn" class="btn-post" disabled>Опубликовать</button>
                         </div>

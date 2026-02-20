@@ -2,11 +2,12 @@ import { generateId } from './utils.js';
 
 export class DataManager {
     constructor() {
-        const storedPosts = JSON.parse(localStorage.getItem('glassnet_posts')) ||[];
+        const storedPosts = JSON.parse(localStorage.getItem('glassnet_posts')) || [];
         this.posts = storedPosts.map(post => ({
             ...post,
-            comments: post.comments ||[],
-            views: post.views || Math.floor(Math.random() * 500) + 50 // Если просмотров не было, генерируем
+            comments: post.comments || [],
+            views: post.views || 0,
+            attachments: post.attachments || [] // Загружаем вложения
         }));
 
         if (this.posts.length === 0) {
@@ -19,8 +20,9 @@ export class DataManager {
                 timestamp: 'Недавно',
                 poll: null,
                 visibility: 'public',
-                comments:[],
-                views: 1250 // Просмотры для демо-поста
+                comments: [],
+                views: 1250,
+                attachments: [] // Пустой массив для старого поста
             });
         }
         
@@ -35,10 +37,21 @@ export class DataManager {
         };
     }
 
-    _savePosts() { localStorage.setItem('glassnet_posts', JSON.stringify(this.posts)); }
+    _savePosts() { 
+        try {
+            localStorage.setItem('glassnet_posts', JSON.stringify(this.posts)); 
+        } catch (e) {
+            console.warn("localStorage переполнен! Большие файлы не сохранятся после перезагрузки.", e);
+            alert('Ошибка: Хранилище переполнено! Не удалось сохранить пост с большими файлами. Пожалуйста, используйте файлы меньшего размера.');
+            // Можно добавить логику очистки старых постов, но пока просто предупреждаем
+            // Чтобы не ломать приложение, отменим последнее изменение
+            this.posts.shift(); // Удаляем последний (несохраненный) пост
+        }
+    }
     _saveProfile() { localStorage.setItem('glassnet_profile', JSON.stringify(this.profile)); }
 
-    addPost(content, pollData = null) {
+    // ОБНОВЛЕНО: добавлен аргумент attachments
+    addPost(content, pollData = null, attachments = []) {
         let poll = null;
         if (pollData && pollData.options.length >= 2) {
             poll = { totalVotes: 0, votedOptionId: null, days: pollData.duration, options: pollData.options.map(text => ({ id: generateId(), text: text, votes: 0 })) };
@@ -46,23 +59,32 @@ export class DataManager {
         const newPost = {
             id: generateId(),
             author: { name: this.profile.name, username: this.profile.username, avatar: this.profile.avatar },
-            content, likes: 0, isLiked: false, timestamp: 'Только что', poll: poll,
+            content, 
+            likes: 0, 
+            isLiked: false, 
+            timestamp: 'Только что', 
+            poll: poll,
             visibility: 'public',
-            comments:[],
-            views: 0 // У нового поста 0 просмотров
+            comments: [],
+            views: 0,
+            attachments: attachments // Сохраняем массив медиа
         };
         this.posts.unshift(newPost);
         this._savePosts();
         return newPost;
     }
 
-    addComment(postId, content, type = 'text') {
+    addComment(postId, content, type = 'text', waveform = null) {
         const post = this.posts.find(p => p.id === postId);
         if (post) {
             const newComment = {
                 id: generateId(),
                 author: { username: this.profile.username, name: this.profile.name, avatar: this.profile.avatar },
-                content: content, type: type, timestamp: 'Только что', likes: 0, dislikes: 0, userReaction: null
+                content: content, 
+                type: type, 
+                waveform: waveform,
+                timestamp: 'Только что', 
+                likes: 0, dislikes: 0, userReaction: null
             };
             post.comments.push(newComment);
             this._savePosts();
