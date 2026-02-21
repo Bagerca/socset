@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>GlassNet - Лента</title>
+    <title>Cycle - Лента</title>
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.1.1/css/all.min.css" rel="stylesheet">
     <link rel="stylesheet" href="css/main.css">
     <link rel="icon" href="data:,">
@@ -13,13 +13,18 @@
         <!-- Сайдбар -->
         <nav class="sidebar glass-pill">
             <div class="logo-icon">
-                <a href="index.html" title="На главную"><i class="fa-solid fa-droplet"></i></a>
+                <a href="index.html" title="На главную">
+                    <img src="img/logo.svg" alt="Cycle Logo" class="brand-logo">
+                </a>
             </div>
             <div class="nav-links">
                 <a href="index.html" class="nav-item active" title="Лента"><i class="fa-solid fa-house"></i></a>
+                <!-- Новые разделы: Музыка и Игры -->
+                <a href="music.html" class="nav-item" title="Музыка"><i class="fa-solid fa-music"></i></a>
+                <a href="games.html" class="nav-item" title="Игры"><i class="fa-solid fa-gamepad"></i></a>
+                
                 <div class="nav-item" title="Поиск"><i class="fa-solid fa-magnifying-glass"></i></div>
                 <div class="nav-item" title="Уведомления"><i class="fa-solid fa-bell"></i></div>
-                <!-- ССЫЛКА НА ПРОФИЛЬ -->
                 <a href="profile.html" class="nav-item" title="Профиль"><i class="fa-solid fa-user"></i></a>
             </div>
         </nav>
@@ -29,11 +34,10 @@
             <div class="compose-box">
                 <textarea id="postInput" placeholder="Что происходит?"></textarea>
 
-                <!-- КОНТЕЙНЕР ПРЕДПРОСМОТРА МЕДИА -->
-                <div id="mediaPreviewContainer" class="media-preview-container"></div>
-                <!-- СКРЫТЫЙ INPUT ДЛЯ ФАЙЛОВ -->
-                <input type="file" id="mediaInput" accept="image/*,video/*" multiple hidden>
+                <!-- Контейнер для превью выбранного ID-контента -->
+                <div id="attachmentPreview" style="display: none;"></div>
 
+                <!-- Скрытый блок опроса -->
                 <div id="pollCreator" class="poll-creator" style="display: none;">
                     <div class="poll-header">
                         <span class="poll-title">Создание опроса</span>
@@ -48,15 +52,16 @@
                         <select id="pollDuration" class="poll-select">
                             <option value="1">1 день</option>
                             <option value="3" selected>3 дня</option>
-                            <option value="7">7 дней</option>
                         </select>
                     </div>
                 </div>
+
                 <div class="compose-actions">
                     <div class="action-icons">
-                        <button id="togglePollBtn" class="icon-btn" title="Добавить опрос"><i class="fa-solid fa-list-ul"></i></button>
-                        <!-- Кнопка теперь имеет id для связи с JS -->
-                        <button id="mediaBtn" class="icon-btn" title="Прикрепить медиа"><i class="fa-regular fa-image"></i></button>
+                        <button id="togglePollBtn" class="icon-btn" title="Опрос"><i class="fa-solid fa-list-ul"></i></button>
+                        <!-- Новые кнопки выбора -->
+                        <button id="attachMusicBtn" class="icon-btn" title="Прикрепить музыку"><i class="fa-solid fa-music"></i></button>
+                        <button id="attachGameBtn" class="icon-btn" title="Прикрепить игру"><i class="fa-solid fa-gamepad"></i></button>
                     </div>
                     <button id="publishBtn" class="btn-post" disabled>Опубликовать</button>
                 </div>
@@ -64,7 +69,20 @@
             <div id="postsContainer"></div>
         </main>
     </div>
-    <!-- ПОДКЛЮЧАЕМ НОВЫЙ СКРИПТ -->
+
+    <!-- МОДАЛЬНОЕ ОКНО ВЫБОРА (ОБЩЕЕ) -->
+    <div id="selectionModal" class="modal-overlay">
+        <div class="modal-content">
+            <div class="modal-header">
+                <span id="modalTitle" class="modal-title">Выбрать...</span>
+                <button id="closeModalBtn" class="icon-btn-small"><i class="fa-solid fa-xmark"></i></button>
+            </div>
+            <div id="modalList" class="modal-body">
+                <!-- Сюда JS будет рендерить список -->
+            </div>
+        </div>
+    </div>
+
     <script type="module" src="js/feed.js"></script>
 </body>
 </html>

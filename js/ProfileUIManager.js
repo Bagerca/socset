@@ -1,464 +1,472 @@
 import { escapeHTML } from './utils.js';
+import { PostRenderer } from './PostRenderer.js';
+import { PostEventHandler } from './PostEventHandler.js';
 
 export class ProfileUIManager {
     constructor(dataManager) {
         this.dataManager = dataManager;
-        this.currentUser = this.dataManager.getProfileData();
+        this.currentUser = null;
+        this.postRenderer = new PostRenderer(dataManager);
+        this.postEvents = new PostEventHandler(dataManager, this.postRenderer, () => this.renderPosts());
 
+        this.bgLayer = document.getElementById('profileBackgroundLayer');
         this.avatarImg = document.getElementById('avatarImage');
+        this.avatarFrame = document.getElementById('avatarFrame');
         this.bannerImg = document.getElementById('bannerImage');
-        this.avatarInput = document.getElementById('avatarInput');
-        this.bannerInput = document.getElementById('bannerInput');
-        this.bioTextarea = document.getElementById('bioTextarea');
-        this.telegramInput = document.getElementById('telegramInput');
-        this.githubInput = document.getElementById('githubInput');
-        this.saveBtn = document.getElementById('saveProfileBtn');
-        
-        this.musicInput = document.getElementById('musicInput');
-        this.playMusicBtn = document.getElementById('playMusicBtn');
-        this.audioPlayer = document.getElementById('audioPlayer');
-        this.musicTrackName = document.getElementById('musicTrackName');
-
+        this.nameEl = document.getElementById('profileName');
+        this.usernameEl = document.getElementById('profileUsername');
+        this.bioEl = document.getElementById('profileBio');
+        this.titleBadge = document.getElementById('userTitleBadge');
+        this.playerContainer = document.getElementById('profileAudioPlayerContainer');
+        this.modulesContainer = document.getElementById('profileModules');
         this.postsContainer = document.getElementById('profilePostsContainer');
-        this.input = document.getElementById('postInput');
+        this.openSettingsBtn = document.getElementById('openSettingsBtn');
+        this.settingsModal = document.getElementById('settingsModal');
+        this.closeSettingsBtn = document.getElementById('closeSettingsBtn');
+        this.saveSettingsBtn = document.getElementById('saveSettingsBtn');
+        this.selectionModal = document.getElementById('selectionModal');
+        this.selectionList = document.getElementById('modalList');
+        this.closeSelectionBtn = document.getElementById('closeSelectionBtn');
+        this.selectionModalTitle = document.getElementById('modalTitle');
         this.publishBtn = document.getElementById('publishBtn');
-        this.togglePollBtn = document.getElementById('togglePollBtn');
-        this.pollCreator = document.getElementById('pollCreator');
-        this.closePollBtn = document.getElementById('closePollBtn');
-        this.pollInputsContainer = document.getElementById('pollInputs');
-        this.addOptionBtn = document.getElementById('addOptionBtn');
-        
-        this.isPollActive = false;
-        this.mediaRecorder = null;
-        this.audioChunks = [];
-        this.recordingPostId = null;
+        this.postInput = document.getElementById('postInput');
 
         this.createGlobalContextMenu();
+        this.init();
+    }
+
+    async init() {
+        await this.dataManager.loadCatalogs();
+        this.currentUser = this.dataManager.getProfileData();
+        this.renderProfileHeader();
+        this.renderModules();
+        this.renderPosts();
+        this.initSettingsDropdowns();
         this.initEventListeners();
-        this.loadProfileData();
-        this.renderProfileFeed(); 
     }
 
     createGlobalContextMenu() {
-        let menu = document.getElementById('customContextMenu');
-        if (!menu) {
-            menu = document.createElement('div');
-            menu.id = 'customContextMenu';
-            menu.innerHTML = `<div class="context-menu-item danger" id="ctxDeleteComment"><i class="fa-solid fa-trash"></i> Удалить комментарий</div>`;
-            document.body.appendChild(menu);
-
-            document.getElementById('ctxDeleteComment').addEventListener('click', () => {
-                if (this.contextTargetPostId && this.contextTargetCommentId) {
-                    this.dataManager.deleteComment(this.contextTargetPostId, this.contextTargetCommentId);
-                    this.rerenderComments(this.contextTargetPostId);
-                    this.contextMenu.style.display = 'none';
-                }
-            });
-
-            document.addEventListener('click', () => { this.contextMenu.style.display = 'none'; });
-            document.addEventListener('scroll', () => { this.contextMenu.style.display = 'none'; }, true);
-        }
+        if (document.getElementById('customContextMenu')) return;
+        const menu = document.createElement('div');
+        menu.id = 'customContextMenu';
+        menu.innerHTML = `<div class="context-menu-item danger" id="ctxDeleteComment"><i class="fa-solid fa-trash"></i> Удалить комментарий</div>`;
+        document.body.appendChild(menu);
         this.contextMenu = menu;
         this.contextTargetCommentId = null;
         this.contextTargetPostId = null;
+
+        document.addEventListener('click', () => { this.contextMenu.style.display = 'none'; });
+        document.addEventListener('scroll', () => { this.contextMenu.style.display = 'none'; }, true);
+        
+        const ctxDeleteBtn = document.getElementById('ctxDeleteComment');
+        if (ctxDeleteBtn) {
+            ctxDeleteBtn.addEventListener('click', () => {
+                if (this.contextTargetPostId && this.contextTargetCommentId) {
+                    this.dataManager.deleteComment(this.contextTargetPostId, this.contextTargetCommentId);
+                    this.postEvents._rerenderComments(this.contextTargetPostId);
+                    this.contextMenu.style.display = 'none';
+                }
+            });
+        }
     }
 
-    loadProfileData() {
-        const profile = this.dataManager.getProfileData();
-        this.avatarImg.src = profile.avatar;
-        this.bannerImg.src = profile.banner;
-        this.bioTextarea.value = profile.bio;
-        this.telegramInput.value = profile.socials.telegram;
-        this.githubInput.value = profile.socials.github;
-        this.musicTrackName.textContent = profile.music.name;
-        if(profile.music.data) this.audioPlayer.src = profile.music.data;
+    renderProfileHeader() {
+        const p = this.currentUser;
+        
+        this.nameEl.textContent = p.name;
+        this.usernameEl.textContent = p.username;
+        this.bioEl.innerHTML = escapeHTML(p.bio).replace(/\n/g, '<br>'); 
+        this.avatarImg.src = p.avatar;
+        this.avatarImg.onerror = () => { this.avatarImg.src = 'https://dummyimage.com/128x128/333333/ffffff&text=U'; };
+        this.bannerImg.src = p.banner;
+        this.bannerImg.onerror = () => { this.bannerImg.src = 'https://dummyimage.com/800x250/111111/ffffff&text=Banner'; };
+
+        const bg = this.dataManager.getBackgrounds().find(b => b.id === p.backgroundId);
+        if (bg && bg.image) {
+            this.bgLayer.style.backgroundImage = `url('${bg.image}')`;
+            this.bgLayer.style.backgroundColor = 'transparent';
+        } else {
+            this.bgLayer.style.backgroundImage = 'none';
+            this.bgLayer.style.backgroundColor = bg ? bg.color : '#0a0a0c';
+        }
+
+        const frame = this.dataManager.getFrames().find(f => f.id === p.frameId);
+        if (frame && frame.url) {
+            this.avatarFrame.style.backgroundImage = `url('${frame.url}')`;
+            this.avatarFrame.style.display = 'block';
+        } else {
+            this.avatarFrame.style.backgroundImage = 'none';
+            this.avatarFrame.style.display = 'none';
+        }
+
+        const title = this.dataManager.getTitles().find(t => t.id === p.titleId);
+        if (title && title.id !== 'title_none') {
+            this.titleBadge.textContent = title.text;
+            this.titleBadge.style.color = title.color || '#fff';
+            this.titleBadge.style.display = 'inline-block';
+        } else {
+            this.titleBadge.style.display = 'none';
+        }
+
+        if (p.musicId) {
+            const track = this.dataManager.getTrackById(p.musicId);
+            if (track) {
+                this.playerContainer.innerHTML = `
+                    <div id="profilePlayerWrapper" class="profile-dynamic-player">
+                        <!-- ИНТЕРАКТИВНАЯ ОБЕРТКА С ИКОНКАМИ -->
+                        <div id="profilePlayerClickArea" class="profile-cover-wrapper" title="Play / Pause">
+                            <img src="${track.cover}" class="profile-player-cover">
+                            <div class="profile-player-overlay">
+                                <i class="fa-solid fa-play play-icon"></i>
+                                <i class="fa-solid fa-pause pause-icon"></i>
+                            </div>
+                        </div>
+
+                        <div class="profile-player-info">
+                            <span class="profile-player-title">${escapeHTML(track.title)}</span>
+                            <span class="profile-player-artist">${escapeHTML(track.artist)}</span>
+                        </div>
+                        <div class="profile-player-visualizer">
+                            <canvas id="profileAudioCanvas"></canvas>
+                        </div>
+                        <audio id="profileAudioTag" src="${track.url}" crossorigin="anonymous"></audio>
+                    </div>
+                `;
+                setTimeout(() => this.initAudioVisualizer(), 50);
+            }
+        } else {
+            this.playerContainer.innerHTML = '';
+        }
+    }
+
+    initAudioVisualizer() {
+        const audio = document.getElementById('profileAudioTag');
+        const clickArea = document.getElementById('profilePlayerClickArea'); 
+        const canvas = document.getElementById('profileAudioCanvas');
+        const wrapper = document.getElementById('profilePlayerWrapper');
+        
+        if (!audio || !clickArea || !canvas) return;
+
+        // --- ЛОГИКА ИСЧЕЗНОВЕНИЯ ОВЕРЛЕЯ ---
+        const overlay = clickArea.querySelector('.profile-player-overlay');
+        let hideOverlayTimeout;
+
+        const startOverlayTimer = () => {
+            clearTimeout(hideOverlayTimeout);
+            // Прячем через 3 секунды
+            hideOverlayTimeout = setTimeout(() => {
+                if (overlay) overlay.classList.add('hidden-overlay');
+            }, 3000);
+        };
+
+        const showOverlay = () => {
+            clearTimeout(hideOverlayTimeout);
+            if (overlay) overlay.classList.remove('hidden-overlay');
+        };
+
+        // Слушатели мыши для управления видимостью оверлея
+        clickArea.addEventListener('mouseenter', showOverlay);
+        clickArea.addEventListener('mouseleave', startOverlayTimer);
+        
+        // Запускаем таймер сразу при рендере плеера
+        startOverlayTimer();
+        // ------------------------------------
+
+        const ctx = canvas.getContext('2d');
+        canvas.width = 200; 
+        canvas.height = 60;
+
+        let audioCtx, analyser, source;
+        let isInitialized = false;
+
+        audio.onerror = () => {
+            if (audio.crossOrigin === 'anonymous') {
+                console.warn("CORS issue. Retrying without CORS.");
+                audio.removeAttribute('crossorigin'); 
+                audio.src = audio.src; 
+                if(canvas) canvas.style.opacity = '0.3';
+            }
+        };
+
+        clickArea.addEventListener('click', async () => {
+            // При клике сбрасываем таймер
+            showOverlay();
+            startOverlayTimer();
+
+            // Инициализация при первом клике
+            if (!isInitialized && audio.crossOrigin === 'anonymous') {
+                try {
+                    const AudioContext = window.AudioContext || window.webkitAudioContext;
+                    audioCtx = new AudioContext();
+                    analyser = audioCtx.createAnalyser();
+                    analyser.fftSize = 2048; // Для плавной волны
+                    source = audioCtx.createMediaElementSource(audio);
+                    source.connect(analyser);
+                    analyser.connect(audioCtx.destination);
+                    isInitialized = true;
+                    drawWaveform();
+                } catch (e) {
+                    console.log("Visualizer init failed.");
+                }
+            }
+
+            if (audio.paused) {
+                document.querySelectorAll('audio').forEach(a => { if (a !== audio) a.pause(); });
+                if (audioCtx && audioCtx.state === 'suspended') await audioCtx.resume();
+                try {
+                    await audio.play();
+                    wrapper.classList.add('playing');
+                } catch (err) { console.error(err); }
+            } else {
+                audio.pause();
+                wrapper.classList.remove('playing');
+            }
+        });
+
+        audio.addEventListener('ended', () => {
+            wrapper.classList.remove('playing');
+        });
+
+        const drawWaveform = () => {
+            if (!document.getElementById('profileAudioCanvas')) return; 
+            requestAnimationFrame(drawWaveform);
+
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            ctx.lineWidth = 2;
+            ctx.strokeStyle = 'rgba(255, 255, 255, 0.8)';
+            ctx.beginPath();
+
+            // Если пауза — рисуем прямую линию
+            if (audio.paused) {
+                ctx.moveTo(0, canvas.height / 2);
+                ctx.lineTo(canvas.width, canvas.height / 2);
+                ctx.stroke();
+                return;
+            }
+
+            if (!analyser) return;
+
+            const bufferLength = analyser.frequencyBinCount;
+            const dataArray = new Uint8Array(bufferLength);
+            
+            // Используем TimeDomainData для отрисовки волны (осциллограммы)
+            analyser.getByteTimeDomainData(dataArray);
+
+            const sliceWidth = canvas.width * 1.0 / bufferLength;
+            let x = 0;
+
+            for(let i = 0; i < bufferLength; i++) {
+                const v = dataArray[i] / 128.0; 
+                const y = v * canvas.height / 2;
+
+                if(i === 0) {
+                    ctx.moveTo(x, y);
+                } else {
+                    ctx.lineTo(x, y);
+                }
+
+                x += sliceWidth;
+            }
+
+            ctx.lineTo(canvas.width, canvas.height / 2);
+            ctx.stroke();
+        };
+    }
+
+    renderModules() {
+        this.modulesContainer.innerHTML = '';
+        const m = this.currentUser.modules;
+        if (m.games) this.renderGamesModule();
+        if (m.socials) this.renderSocialsModule();
+    }
+
+    renderGamesModule() {
+        const favGames = (this.currentUser.favoriteGames || []).map(id => this.dataManager.getGameById(id)).filter(Boolean); 
+        let contentHTML = '';
+        if (favGames.length > 0) {
+            contentHTML = `<div class="showcase-grid">${favGames.map(g => `<div class="showcase-item" title="${escapeHTML(g.title)}"><img src="${g.icon}" onerror="this.src='https://dummyimage.com/100x100/333333/ffffff&text=Game'"></div>`).join('')}</div>`;
+        } else {
+            contentHTML = '<div style="color:var(--text-muted); font-size:14px; padding:10px;">Игры еще не выбраны</div>';
+        }
+        this.modulesContainer.insertAdjacentHTML('beforeend', `<div class="module-card"><div class="module-header"><i class="fa-solid fa-gamepad"></i> Любимые игры <button class="text-btn" id="addFavGameBtn" style="font-size:13px; margin-left:auto">+ Добавить</button></div>${contentHTML}</div>`);
+        document.getElementById('addFavGameBtn').addEventListener('click', () => this.openSelectionModal('game'));
+    }
+
+    renderSocialsModule() {
+        const s = this.currentUser.socials;
+        if ((!s.telegram || s.telegram === '') && (!s.github || s.github === '')) return;
+        let linksHTML = '<div class="socials-row">';
+        if (s.telegram) linksHTML += `<a href="https://t.me/${s.telegram}" target="_blank" class="social-badge"><i class="fa-brands fa-telegram"></i> ${escapeHTML(s.telegram)}</a>`;
+        if (s.github) linksHTML += `<a href="https://github.com/${s.github}" target="_blank" class="social-badge"><i class="fa-brands fa-github"></i> ${escapeHTML(s.github)}</a>`;
+        linksHTML += '</div>';
+        this.modulesContainer.insertAdjacentHTML('beforeend', `<div class="module-card"><div class="module-header"><i class="fa-solid fa-link"></i> Контакты</div>${linksHTML}</div>`);
+    }
+
+    renderPosts() {
+        const posts = this.dataManager.getUserPosts(this.currentUser.username);
+        if (posts.length === 0) {
+            this.postsContainer.innerHTML = `<div style="text-align:center; padding: 40px; color: var(--text-muted);">Нет публикаций</div>`;
+        } else {
+            this.postsContainer.innerHTML = posts.map(post => this.postRenderer.createPostHTML(post)).join('');
+        }
+    }
+
+    initSettingsDropdowns() {
+        const fillSelect = (id, items) => {
+            const el = document.getElementById(id);
+            if(el) el.innerHTML = items.map(i => `<option value="${i.id}">${i.name || i.text}</option>`).join('');
+        };
+        fillSelect('editFrame', this.dataManager.getFrames());
+        fillSelect('editBackground', this.dataManager.getBackgrounds());
+        fillSelect('editTitle', this.dataManager.getTitles());
+    }
+
+    openSettings() {
+        const p = this.currentUser;
+        document.getElementById('editName').value = p.name;
+        document.getElementById('editBio').value = p.bio || '';
+        document.getElementById('editTelegram').value = p.socials.telegram || '';
+        document.getElementById('editGithub').value = p.socials.github || '';
+        document.getElementById('editFrame').value = p.frameId;
+        document.getElementById('editBackground').value = p.backgroundId;
+        document.getElementById('editTitle').value = p.titleId;
+        
+        document.getElementById('checkGamesModule').checked = p.modules.games;
+        document.getElementById('checkSocialsModule').checked = p.modules.socials;
+        
+        this.settingsModal.classList.add('active');
+    }
+
+    saveSettings() {
+        let tg = document.getElementById('editTelegram').value.trim();
+        let gh = document.getElementById('editGithub').value.trim();
+        tg = tg.replace(/https?:\/\/(www\.)?(t\.me|telegram\.me)\//g, '').replace('@', '');
+        gh = gh.replace(/https?:\/\/(www\.)?github\.com\//g, '').replace('@', '');
+
+        const newData = {
+            name: document.getElementById('editName').value,
+            bio: document.getElementById('editBio').value,
+            socials: { telegram: tg, github: gh },
+            frameId: document.getElementById('editFrame').value,
+            backgroundId: document.getElementById('editBackground').value,
+            titleId: document.getElementById('editTitle').value,
+            modules: {
+                music: false, 
+                games: document.getElementById('checkGamesModule').checked,
+                socials: document.getElementById('checkSocialsModule').checked
+            }
+        };
+
+        this.dataManager.saveProfileData(newData);
+        this.currentUser = this.dataManager.getProfileData();
+        this.renderProfileHeader();
+        this.renderModules();
+        this.renderPosts(); 
+        this.settingsModal.classList.remove('active');
+    }
+
+    openSelectionModal(type, target = 'showcase') {
+        this.selectionModal.classList.add('active');
+        this.selectionList.innerHTML = '';
+        this.selectionModalTitle.textContent = type === 'game' ? 'Добавить игру' : 'Добавить трек';
+        
+        const items = type === 'game' ? this.dataManager.getGamesCatalog() : this.dataManager.getMusicCatalog();
+        
+        if (items.length === 0) {
+            this.selectionList.innerHTML = '<div style="padding:20px; text-align:center; color: var(--text-muted);">Список пуст или не загружен</div>';
+            return;
+        }
+
+        items.forEach(item => {
+            const el = document.createElement('div');
+            el.className = 'select-item';
+            const img = type === 'game' ? item.icon : item.cover;
+            const title = item.title;
+            const sub = type === 'game' ? item.genre : item.artist;
+
+            el.innerHTML = `<img src="${img}"><div class="select-info"><span class="select-title">${escapeHTML(title)}</span><span class="select-subtitle">${escapeHTML(sub)}</span></div>`;
+            
+            el.addEventListener('click', () => {
+                if (target === 'profileMusic') {
+                    this.setProfileMusic(item.id);
+                } else {
+                    this.addToShowcase(type, item.id);
+                }
+                this.selectionModal.classList.remove('active');
+            });
+            this.selectionList.appendChild(el);
+        });
+    }
+
+    addToShowcase(type, id) {
+        if (type === 'game') {
+            const list = this.currentUser.favoriteGames || [];
+            if (!list.includes(id)) list.push(id);
+            this.dataManager.saveProfileData({ favoriteGames: list });
+        }
+        this.currentUser = this.dataManager.getProfileData(); 
+        this.renderModules();
+    }
+
+    setProfileMusic(id) {
+        this.dataManager.saveProfileData({ musicId: id });
+        this.currentUser = this.dataManager.getProfileData();
+        this.renderProfileHeader();
     }
 
     initEventListeners() {
-        this.avatarInput.addEventListener('change', e => this.previewFile(e.target.files, this.avatarImg));
-        this.bannerInput.addEventListener('change', e => this.previewFile(e.target.files, this.bannerImg));
-        this.musicInput.addEventListener('change', e => this.handleMusicUpload(e.target.files));
-        this.saveBtn.addEventListener('click', () => this.saveProfile());
-        this.playMusicBtn.addEventListener('click', () => this.toggleMusic());
-
-        this.togglePollBtn.addEventListener('click', () => this.togglePoll());
-        this.closePollBtn.addEventListener('click', () => this.closePoll());
-        this.addOptionBtn.addEventListener('click', () => this.addPollOption());
-        this.input.addEventListener('input', () => this.checkPublishState());
-        this.pollInputsContainer.addEventListener('input', () => this.checkPublishState());
-        
-        this.publishBtn.addEventListener('click', () => {
-            const text = this.input.value.trim();
-            let pollData = null;
-            if (this.isPollActive) {
-                const options = Array.from(this.pollInputsContainer.querySelectorAll('.poll-input')).map(i => i.value.trim()).filter(v => v !== '');
-                if (options.length >= 2) pollData = { options, duration: parseInt(document.getElementById('pollDuration').value) };
-            }
-            if (text.length > 0 || pollData) {
-                this.dataManager.addPost(text, pollData);
-                this.input.value = ''; this.closePoll(); 
-                this.renderProfileFeed();
-            }
-        });
-
+        this.postsContainer.addEventListener('click', (e) => this.postEvents.handleEvent(e));
         this.postsContainer.addEventListener('contextmenu', (e) => {
             const commentItem = e.target.closest('.comment-item');
-            if (commentItem) {
-                const authorUsername = commentItem.dataset.author;
-                const currentUser = this.dataManager.getProfileData();
-                if (authorUsername === currentUser.username) {
-                    e.preventDefault();
-                    this.contextTargetCommentId = commentItem.dataset.id;
-                    this.contextTargetPostId = commentItem.dataset.postId;
-                    this.contextMenu.style.display = 'block';
-                    this.contextMenu.style.top = `${e.pageY}px`;
-                    this.contextMenu.style.left = `${e.pageX}px`;
-                }
+            if (commentItem && commentItem.dataset.author === this.currentUser.username) {
+                e.preventDefault();
+                this.contextTargetCommentId = commentItem.dataset.id;
+                this.contextTargetPostId = commentItem.dataset.postId;
+                this.contextMenu.style.display = 'block';
+                this.contextMenu.style.top = `${e.pageY}px`;
+                this.contextMenu.style.left = `${e.pageX}px`;
             }
         });
 
-        this.postsContainer.addEventListener('click', (e) => {
-            const target = e.target;
-            
-            const commentBtn = target.closest('.action-btn-comment');
-            if (commentBtn) { document.getElementById(`comments-${commentBtn.dataset.id}`).classList.toggle('active'); return; }
-
-            const sendCommentBtn = target.closest('.send-comment-btn');
-            if (sendCommentBtn) {
-                const postId = sendCommentBtn.dataset.id;
-                const input = document.getElementById(`comment-input-${postId}`);
-                if (input.value.trim()) {
-                    this.dataManager.addComment(postId, input.value.trim(), 'text');
-                    input.value = '';
-                    this.rerenderComments(postId);
-                }
-                return;
-            }
-
-            const reactionBtn = target.closest('.comment-action-btn');
-            if (reactionBtn) {
-                this.dataManager.toggleCommentReaction(reactionBtn.dataset.postId, reactionBtn.dataset.id, reactionBtn.dataset.type);
-                this.rerenderComments(reactionBtn.dataset.postId);
-                return;
-            }
-
-            const recordBtn = target.closest('.record-btn');
-            if (recordBtn) {
-                if (this.mediaRecorder && this.mediaRecorder.state === 'recording') this.stopRecording(recordBtn);
-                else this.startRecording(recordBtn.dataset.id, recordBtn);
-                return;
-            }
-
-            const playAudioBtn = target.closest('.audio-control-btn');
-            if (playAudioBtn) {
-                const audio = playAudioBtn.nextElementSibling;
-                const progressBar = playAudioBtn.parentElement.querySelector('.wave-progress'); 
-                if (audio.paused) {
-                    document.querySelectorAll('audio').forEach(a => { if(a!==audio && a.id!=='audioPlayer'){a.pause();a.currentTime=0;}});
-                    audio.play();
-                    playAudioBtn.innerHTML = '<i class="fa-solid fa-pause"></i>';
-                    audio.ontimeupdate = () => progressBar.style.width = `${(audio.currentTime/audio.duration)*100}%`;
-                    audio.onended = () => { playAudioBtn.innerHTML = '<i class="fa-solid fa-play"></i>'; progressBar.style.width='0%'; };
-                } else {
-                    audio.pause(); playAudioBtn.innerHTML = '<i class="fa-solid fa-play"></i>';
-                }
-                return;
-            }
-            
-            const optionsBtn = target.closest('.post-options-btn');
-            if (optionsBtn) {
-                const menu = optionsBtn.nextElementSibling;
-                document.querySelectorAll('.options-menu.active').forEach(m => { if(m!==menu) m.classList.remove('active'); });
-                menu.classList.toggle('active');
-                return;
-            }
-            
-            const deleteBtn = target.closest('.delete-post-btn');
-            if (deleteBtn) {
-                if (confirm('Удалить этот пост?')) {
-                    this.dataManager.deletePost(deleteBtn.dataset.id);
-                    const postArticle = deleteBtn.closest('.post');
-                    if (postArticle) {
-                        postArticle.style.transition = 'opacity 0.3s ease, transform 0.3s ease';
-                        postArticle.style.opacity = '0';
-                        postArticle.style.transform = 'scale(0.95)';
-                        setTimeout(() => postArticle.remove(), 300);
-                    }
-                }
-                return;
-            }
-
-            const visibilityBtn = target.closest('.toggle-visibility-btn');
-            if (visibilityBtn) {
-                const updatedPost = this.dataManager.togglePostVisibility(visibilityBtn.dataset.id);
-                if (updatedPost) {
-                    const isPrivate = updatedPost.visibility === 'private';
-                    const icon = visibilityBtn.querySelector('i');
-                    const span = visibilityBtn.querySelector('span');
-                    icon.className = `fa-solid ${isPrivate ? 'fa-eye' : 'fa-eye-slash'}`;
-                    span.textContent = isPrivate ? 'Сделать публичным' : 'Скрыть для всех';
-                    const postArticle = visibilityBtn.closest('.post');
-                    if (postArticle) postArticle.classList.toggle('private-post', isPrivate);
-                }
-                return;
-            }
-
-            const likeBtn = target.closest('.like-btn');
-            if (likeBtn) {
-                const updatedPost = this.dataManager.toggleLike(likeBtn.dataset.id);
-                if (updatedPost) {
-                    likeBtn.classList.toggle('liked', updatedPost.isLiked); 
-                    const icon = likeBtn.querySelector('i'); const span = likeBtn.querySelector('span');
-                    icon.className = `fa-${updatedPost.isLiked ? 'solid' : 'regular'} fa-heart`;
-                    span.textContent = updatedPost.likes;
-                }
-                return;
-            }
-
-            const voteBtn = target.closest('.poll-vote-btn');
-            if (voteBtn) {
-                this.dataManager.votePoll(voteBtn.dataset.postId, voteBtn.dataset.optionId);
-                this.renderProfileFeed();
-            }
-        });
-
-        document.addEventListener('click', (e) => {
-            if (!e.target.closest('.post-options-btn') && !e.target.closest('.options-menu')) {
-                document.querySelectorAll('.options-menu.active').forEach(m => m.classList.remove('active'));
-            }
-        });
-    }
-
-    previewFile(file, imgElement) {
-        if (!file) return;
-        const reader = new FileReader();
-        reader.onload = (e) => imgElement.src = e.target.result;
-        reader.readAsDataURL(file);
-    }
-    handleMusicUpload(file) {
-        if (!file) return;
-        const reader = new FileReader();
-        reader.onload = (e) => { this.audioPlayer.src = e.target.result; this.musicTrackName.textContent = file.name; };
-        reader.readAsDataURL(file);
-    }
-    toggleMusic() {
-        const icon = this.playMusicBtn.querySelector('i');
-        if (this.audioPlayer.paused) { this.audioPlayer.play(); icon.classList.remove('fa-play'); icon.classList.add('fa-pause'); }
-        else { this.audioPlayer.pause(); icon.classList.remove('fa-pause'); icon.classList.add('fa-play'); }
-    }
-    saveProfile() {
-        const newData = {
-            bio: this.bioTextarea.value, avatar: this.avatarImg.src, banner: this.bannerImg.src,
-            music: { name: this.musicTrackName.textContent, data: this.audioPlayer.src },
-            socials: { telegram: this.telegramInput.value, github: this.githubInput.value }
-        };
-        this.dataManager.saveProfileData(newData);
-        alert('Профиль сохранен!');
-    }
-
-    async startRecording(postId, btn) {
-        try {
-            const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-            this.mediaRecorder = new MediaRecorder(stream);
-            this.audioChunks = [];
-            this.recordingPostId = postId;
-            this.mediaRecorder.ondataavailable = event => this.audioChunks.push(event.data);
-            
-            this.mediaRecorder.onstop = async () => {
-                const audioBlob = new Blob(this.audioChunks, { type: 'audio/mp3' });
-                const waveform = await this.analyzeAudioWaveform(audioBlob);
-                const reader = new FileReader();
-                reader.readAsDataURL(audioBlob);
-                reader.onloadend = () => {
-                    this.dataManager.addComment(this.recordingPostId, reader.result, 'audio', waveform);
-                    this.rerenderComments(this.recordingPostId);
-                };
-                stream.getTracks().forEach(track => track.stop());
-            };
-            this.mediaRecorder.start();
-            btn.classList.add('recording');
-        } catch (err) { alert('Нужен микрофон!'); console.error(err); }
-    }
-    
-    async analyzeAudioWaveform(audioBlob) {
-        try {
-            const arrayBuffer = await audioBlob.arrayBuffer();
-            const audioContext = new (window.AudioContext || window.webkitAudioContext)();
-            const audioBuffer = await audioContext.decodeAudioData(arrayBuffer);
-            const rawData = audioBuffer.getChannelData(0);
-            const samples = 20;
-            const blockSize = Math.floor(rawData.length / samples);
-            const waveform = [];
-
-            for (let i = 0; i < samples; i++) {
-                let max = 0;
-                for (let j = 0; j < blockSize; j++) {
-                    if (Math.abs(rawData[i * blockSize + j]) > max) {
-                        max = Math.abs(rawData[i * blockSize + j]);
-                    }
-                }
-                let percent = Math.round(max * 100);
-                if (percent < 15) percent = 15;
-                if (percent > 100) percent = 100;
-                waveform.push(percent);
-            }
-            return waveform;
-        } catch (e) {
-            console.error("Ошибка анализа аудио:", e);
-            return [30,50,45,70,40,60,35,80,55,30,65,50,40,75,45,35,60,40,30,50];
-        }
-    }
-    
-    stopRecording(btn) { if(this.mediaRecorder){this.mediaRecorder.stop(); btn.classList.remove('recording');} }
-
-    rerenderComments(postId) {
-        const post = this.dataManager.getAllPosts().find(p => p.id === postId);
-        const commentsList = document.getElementById(`comments-list-${postId}`);
-        const commentCountBtn = this.postsContainer.querySelector(`.action-btn-comment span`);
-        if (commentCountBtn) commentCountBtn.textContent = post.comments ? post.comments.length : 0;
-        if (post && commentsList) {
-            commentsList.innerHTML = post.comments.map(c => this.createCommentHTML(c, postId)).join('');
-            commentsList.scrollTop = commentsList.scrollHeight;
-        }
-    }
-
-    createCommentHTML(comment, postId) {
-        let contentHTML = '';
-        if (comment.type === 'audio') {
-            const heights = comment.waveform || [20,20,20,20,20,20,20,20,20,20,20,20,20,20,20,20,20,20,20,20];
-            const barsHTML = heights.map(h => `<div class="wave-bar" style="height: ${h}%;"></div>`).join('');
-            
-            contentHTML = `
-                <div class="audio-message">
-                    <button class="audio-control-btn"><i class="fa-solid fa-play"></i></button>
-                    <audio src="${comment.content}" style="display:none;"></audio>
-                    <div class="audio-waveform-new">
-                        <div class="wave-bg">${barsHTML}</div>
-                        <div class="wave-progress"><div class="wave-progress-inner">${barsHTML}</div></div>
-                    </div>
-                </div>`;
-        } else {
-            contentHTML = `<div class="comment-text">${escapeHTML(comment.content)}</div>`;
-        }
+        this.openSettingsBtn.addEventListener('click', () => this.openSettings());
+        this.closeSettingsBtn.addEventListener('click', () => this.settingsModal.classList.remove('active'));
+        this.saveSettingsBtn.addEventListener('click', () => this.saveSettings());
         
-        const likes = comment.likes || 0;
-        const dislikes = comment.dislikes || 0;
-        const likedClass = comment.userReaction === 'like' ? 'active-like' : '';
-        const dislikedClass = comment.userReaction === 'dislike' ? 'active-dislike' : '';
+        document.getElementById('selectProfileTrackBtn').addEventListener('click', () => {
+            this.openSelectionModal('music', 'profileMusic');
+        });
+        document.getElementById('removeProfileTrackBtn').addEventListener('click', () => {
+            this.setProfileMusic(null);
+        });
 
-        return `
-            <div class="comment-item" data-id="${comment.id}" data-post-id="${postId}" data-author="${comment.author.username}">
-                <img src="${comment.author.avatar}" class="comment-avatar" alt="Аватар">
-                <div class="comment-content-wrapper">
-                    <div class="comment-header">
-                        <span class="comment-author">${escapeHTML(comment.author.name)}</span>
-                        <span class="comment-date">· Только что</span>
-                    </div>
-                    ${contentHTML}
-                    <div class="comment-actions">
-                        <button class="comment-action-btn ${likedClass}" data-type="like" data-id="${comment.id}" data-post-id="${postId}">
-                            <i class="fa-solid fa-thumbs-up"></i> ${likes > 0 ? likes : ''}
-                        </button>
-                        <button class="comment-action-btn ${dislikedClass}" data-type="dislike" data-id="${comment.id}" data-post-id="${postId}">
-                            <i class="fa-solid fa-thumbs-down"></i> ${dislikes > 0 ? dislikes : ''}
-                        </button>
-                    </div>
-                </div>
-            </div>
-        `;
-    }
-
-    togglePoll(){this.isPollActive=!this.isPollActive;this.pollCreator.style.display=this.isPollActive?"flex":"none";this.togglePollBtn.classList.toggle("active",this.isPollActive);this.checkPublishState()}closePoll(){this.isPollActive=!1;this.pollCreator.style.display="none";this.togglePollBtn.classList.remove("active");this.pollInputsContainer.innerHTML='<input type="text" class="poll-input" placeholder="Вариант 1"><input type="text" class="poll-input" placeholder="Вариант 2">';this.addOptionBtn.style.display="block";this.checkPublishState()}addPollOption(){const e=this.pollInputsContainer.querySelectorAll(".poll-input");if(e.length<4){const t=document.createElement("input");t.type="text",t.className="poll-input",t.placeholder=`Вариант ${e.length+1}`,this.pollInputsContainer.appendChild(t),e.length+1>=4&&(this.addOptionBtn.style.display="none")}this.checkPublishState()}checkPublishState(){let e=!1;if(this.isPollActive){if(Array.from(this.pollInputsContainer.querySelectorAll(".poll-input")).filter(e=>e.value.trim().length>0).length>=2)e=!0}this.publishBtn.disabled=!(this.input.value.trim().length>0||e)}
-
-    createPostHTML(post) {
-        const isPrivate = post.visibility === 'private';
-        const visibilityText = isPrivate ? 'Сделать публичным' : 'Скрыть для всех';
-        const visibilityIcon = isPrivate ? 'fa-eye' : 'fa-eye-slash';
+        this.closeSelectionBtn.addEventListener('click', () => this.selectionModal.classList.remove('active'));
         
-        const optionsMenuHTML = `
-            <button class="icon-btn post-options-btn"><i class="fa-solid fa-ellipsis"></i></button>
-            <div class="options-menu">
-                <div class="menu-item toggle-visibility-btn" data-id="${post.id}">
-                    <i class="fa-solid ${visibilityIcon}"></i><span>${visibilityText}</span>
-                </div>
-                <div class="menu-item menu-item-danger delete-post-btn" data-id="${post.id}">
-                    <i class="fa-solid fa-trash-can"></i><span>Удалить пост</span>
-                </div>
-            </div>
-        `;
+        window.addEventListener('click', (e) => {
+            if (e.target === this.settingsModal) this.settingsModal.classList.remove('active');
+            if (e.target === this.selectionModal) this.selectionModal.classList.remove('active');
+        });
 
-        let pollHTML = '';
-        if (post.poll) {
-            pollHTML += `<div class="poll-wrapper">`;
-            post.poll.options.forEach(opt => {
-                if (post.poll.votedOptionId) {
-                    const percent = post.poll.totalVotes === 0 ? 0 : Math.round((opt.votes / post.poll.totalVotes) * 100);
-                    const isVoted = post.poll.votedOptionId === opt.id;
-                    pollHTML += `<div class="poll-result-item ${isVoted?'voted':''}"><div class="poll-bar" style="width: ${percent}%"></div><span class="poll-item-text">${escapeHTML(opt.text)}</span><span class="poll-item-percent">${percent}%</span></div>`;
-                } else {
-                    pollHTML += `<div class="poll-vote-btn" data-post-id="${post.id}" data-option-id="${opt.id}">${escapeHTML(opt.text)}</div>`;
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape') {
+                this.settingsModal.classList.remove('active');
+                this.selectionModal.classList.remove('active');
+                if (this.contextMenu) this.contextMenu.style.display = 'none';
+            }
+        });
+        
+        if (this.publishBtn) {
+            this.publishBtn.addEventListener('click', () => {
+                const text = this.postInput.value.trim();
+                if (text) {
+                    this.dataManager.addPost(text);
+                    this.postInput.value = '';
+                    this.publishBtn.disabled = true;
+                    this.renderPosts(); 
                 }
             });
-            pollHTML += `<div class="poll-meta">${post.poll.totalVotes} голосов · Завершится через ${post.poll.days} дн.</div></div>`;
+            this.postInput.addEventListener('input', () => {
+                this.publishBtn.disabled = this.postInput.value.trim().length === 0;
+            });
         }
-
-        const commentsHTML = post.comments ? post.comments.map(c => this.createCommentHTML(c, post.id)).join('') : '';
-        const privateClass = isPrivate ? 'private-post' : '';
-
-        // --- ВОТ ТУТ ГЛАВНОЕ ИЗМЕНЕНИЕ ---
-        return `
-            <article class="post ${privateClass}" data-id="${post.id}">
-                ${optionsMenuHTML}
-                
-                <div class="post-main-body">
-                    <div class="avatar"><img src="${post.author.avatar}" alt="Аватар"></div>
-                    <div class="post-content">
-                        <div class="post-header">
-                            <span class="post-name">${escapeHTML(post.author.name)}</span>
-                            <span class="post-username">${escapeHTML(post.author.username)}</span>
-                            <span class="post-time">· ${post.timestamp}</span>
-                        </div>
-                        <div class="post-text">${post.content ? escapeHTML(post.content) : ''}</div>
-                        ${pollHTML}
-                    </div>
-                </div>
-                
-                <!-- БЛОК ДЕЙСТВИЙ -->
-                <div class="post-actions">
-                    <div class="action-btn like-btn ${post.isLiked ? 'liked' : ''}" data-id="${post.id}">
-                        <i class="fa-${post.isLiked ? 'solid' : 'regular'} fa-heart"></i><span>${post.likes}</span>
-                    </div>
-                    <div class="action-btn"><i class="fa-solid fa-retweet"></i><span>0</span></div>
-                    <div class="action-btn action-btn-comment" data-id="${post.id}">
-                        <i class="fa-regular fa-comment"></i><span>${post.comments ? post.comments.length : 0}</span>
-                    </div>
-                    
-                    <div class="action-btn views-btn" title="Просмотры">
-                        <i class="fa-solid fa-chart-simple"></i><span>${post.views || 0}</span>
-                    </div>
-                </div>
-
-                <div class="comments-section" id="comments-${post.id}">
-                    <div class="comments-list" id="comments-list-${post.id}">
-                        ${commentsHTML}
-                    </div>
-                    <div class="comment-input-area">
-                        <input type="text" class="comment-input" id="comment-input-${post.id}" placeholder="Написать комментарий...">
-                        <button class="record-btn" data-id="${post.id}" title="Голосовое сообщение"><i class="fa-solid fa-microphone"></i></button>
-                        <button class="send-comment-btn" data-id="${post.id}">Отпр.</button>
-                    </div>
-                </div>
-            </article>
-        `;
-    }
-
-    renderProfileFeed() {
-        const posts = this.dataManager.getUserPosts(this.currentUser.username);
-        if (posts.length === 0) {
-            this.postsContainer.innerHTML = `<div style="text-align:center; padding: 40px; color: var(--text-muted);">У вас пока нет публикаций</div>`;
-        } else {
-            this.postsContainer.innerHTML = posts.map(post => this.createPostHTML(post)).join('');
-        }
-        this.checkPublishState();
     }
 }

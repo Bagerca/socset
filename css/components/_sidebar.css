@@ -14,10 +14,31 @@
     box-shadow: 0 20px 40px rgba(0, 0, 0, 0.5);
 }
 
+/* --- СТИЛИ ЛОГОТИПА CYCLE --- */
 .logo-icon { 
-    font-size: 22px; 
-    color: var(--text-main); 
+    display: flex;
+    align-items: center;
+    justify-content: center;
 }
+
+.logo-icon a {
+    display: block;
+    line-height: 0;
+}
+
+/* Настройки размера и тени картинки */
+.brand-logo {
+    width: 44px; /* УВЕЛИЧЕННЫЙ РАЗМЕР */
+    height: 44px;
+    filter: drop-shadow(0 4px 12px rgba(0, 0, 0, 0.4));
+    transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* Легкое увеличение лого при наведении (орбиты крутятся сами) */
+.logo-icon a:hover .brand-logo {
+    transform: scale(1.1);
+}
+/* -------------------------------------- */
 
 .nav-links { 
     display: flex; 
@@ -51,7 +72,7 @@
     box-shadow: 0 8px 16px rgba(255, 255, 255, 0.1); 
 }
 
-/* Адаптив для сайдбара */
+/* Адаптив для сайдбара (мобильные устройства) */
 @media (max-width: 768px) {
     .sidebar.glass-pill {
         width: auto; 

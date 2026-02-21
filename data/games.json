@@ -1,0 +1,20 @@
+[
+    {
+        "id": "game_1",
+        "title": "Cyberpunk 2077",
+        "genre": "RPG / Action",
+        "icon": "https://upload.wikimedia.org/wikipedia/en/9/9f/Cyberpunk_2077_box_art.jpg"
+    },
+    {
+        "id": "game_2",
+        "title": "Elden Ring",
+        "genre": "Souls-like",
+        "icon": "https://upload.wikimedia.org/wikipedia/en/b/b9/Elden_Ring_Box_Art.jpg"
+    },
+    {
+        "id": "game_3",
+        "title": "Minecraft",
+        "genre": "Sandbox",
+        "icon": "https://upload.wikimedia.org/wikipedia/en/5/51/Minecraft_cover.png"
+    }
+]

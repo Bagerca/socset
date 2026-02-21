@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Cycle - Игры</title>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.1.1/css/all.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="css/main.css">
+    <link rel="icon" href="data:,">
+</head>
+<body>
+    <div class="app-container">
+        <!-- Сайдбар -->
+        <nav class="sidebar glass-pill">
+            <div class="logo-icon">
+                <a href="index.html" title="На главную">
+                    <img src="img/logo.svg" alt="Cycle Logo" class="brand-logo">
+                </a>
+            </div>
+            <div class="nav-links">
+                <a href="index.html" class="nav-item" title="Лента"><i class="fa-solid fa-house"></i></a>
+                <a href="music.html" class="nav-item" title="Музыка"><i class="fa-solid fa-music"></i></a>
+                <!-- Активная вкладка -->
+                <a href="games.html" class="nav-item active" title="Игры"><i class="fa-solid fa-gamepad"></i></a>
+                
+                <div class="nav-item" title="Поиск"><i class="fa-solid fa-magnifying-glass"></i></div>
+                <div class="nav-item" title="Уведомления"><i class="fa-solid fa-bell"></i></div>
+                <a href="profile.html" class="nav-item" title="Профиль"><i class="fa-solid fa-user"></i></a>
+            </div>
+        </nav>
+
+        <!-- Контент Каталога -->
+        <main class="feed">
+            <div class="page-header">
+                <h1 class="page-title">Каталог игр</h1>
+                <p class="page-subtitle">Популярные игры и сообщества</p>
+            </div>
+
+            <div id="gamesGrid" class="games-grid">
+                <!-- Сюда JS загрузит игры -->
+                <div style="color: var(--text-muted);">Загрузка...</div>
+            </div>
+        </main>
+    </div>
+    <script type="module" src="js/games.js"></script>
+</body>
+</html>

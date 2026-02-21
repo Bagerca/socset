@@ -3,20 +3,26 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>GlassNet - Профиль</title>
+    <title>Cycle - Профиль</title>
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.1.1/css/all.min.css" rel="stylesheet">
     <link rel="stylesheet" href="css/main.css">
     <link rel="icon" href="data:,">
 </head>
 <body>
+    <div id="profileBackgroundLayer" class="profile-background-layer"></div>
+
     <div class="app-container">
         <!-- Сайдбар -->
         <nav class="sidebar glass-pill">
             <div class="logo-icon">
-                <a href="index.html" title="На главную"><i class="fa-solid fa-droplet"></i></a>
+                <a href="index.html" title="На главную">
+                    <img src="img/logo.svg" alt="Cycle Logo" class="brand-logo">
+                </a>
             </div>
             <div class="nav-links">
                 <a href="index.html" class="nav-item" title="Лента"><i class="fa-solid fa-house"></i></a>
+                <a href="music.html" class="nav-item" title="Музыка"><i class="fa-solid fa-music"></i></a>
+                <a href="games.html" class="nav-item" title="Игры"><i class="fa-solid fa-gamepad"></i></a>
                 <div class="nav-item" title="Поиск"><i class="fa-solid fa-magnifying-glass"></i></div>
                 <div class="nav-item" title="Уведомления"><i class="fa-solid fa-bell"></i></div>
                 <a href="profile.html" class="nav-item active" title="Профиль"><i class="fa-solid fa-user"></i></a>
@@ -28,105 +34,113 @@
             <div class="profile-container">
                 <!-- Баннер -->
                 <div class="profile-banner">
-                    <img id="bannerImage" src="https://via.placeholder.com/800x250/111111/111111" alt="Баннер профиля">
-                    <label class="edit-overlay" for="bannerInput" title="Сменить баннер">
-                        <i class="fa-solid fa-camera"></i>
-                    </label>
-                    <input type="file" id="bannerInput" accept="image/*" class="hidden-file-input">
+                    <img id="bannerImage" src="" alt="Баннер">
                 </div>
 
-                <!-- Шапка профиля -->
+                <!-- Шапка с новым расположением Плеера -->
                 <div class="profile-header">
-                    <div class="profile-avatar">
-                        <img id="avatarImage" src="https://via.placeholder.com/128/333333/333333" alt="Аватар">
-                        <label class="edit-overlay" for="avatarInput" title="Сменить аватар">
-                            <i class="fa-solid fa-camera"></i>
-                        </label>
-                        <input type="file" id="avatarInput" accept="image/*" class="hidden-file-input">
+                    <div class="avatar-wrapper">
+                        <div class="profile-avatar">
+                            <img id="avatarImage" src="" alt="Аватар">
+                        </div>
+                        <div id="avatarFrame" class="avatar-frame"></div>
                     </div>
-                    <button id="saveProfileBtn" class="btn-post btn-save-profile">Сохранить</button>
+
+                    <!-- Контейнер для динамического плеера -->
+                    <div id="profileAudioPlayerContainer" class="profile-audio-player-container"></div>
+
+                    <button id="openSettingsBtn" class="btn-post btn-edit-profile"><i class="fa-solid fa-gear"></i> Настроить</button>
                 </div>
                 
-                <!-- Информация о пользователе -->
+                <!-- Информация -->
                 <div class="profile-info">
-                    <h1 id="profileName">Имя Пользователя</h1>
-                    <p id="profileUsername" class="text-muted">@username</p>
-                    
-                    <textarea id="bioTextarea" class="profile-bio-textarea" placeholder="Расскажите о себе..." maxlength="160"></textarea>
-
-                    <div class="profile-music-track">
-                        <div class="music-info">
-                            <i class="fa-solid fa-music text-muted"></i>
-                            <span id="musicTrackName">Музыка не выбрана</span>
-                        </div>
-                        <div class="music-controls">
-                            <button id="playMusicBtn" class="icon-btn-small" title="Воспроизвести"><i class="fa-solid fa-play"></i></button>
-                            <label for="musicInput" class="icon-btn-small" title="Загрузить трек"><i class="fa-solid fa-upload"></i></label>
-                            <input type="file" id="musicInput" accept="audio/*" class="hidden-file-input">
-                            <audio id="audioPlayer"></audio>
-                        </div>
+                    <div class="profile-name-row">
+                        <span id="profileName" class="profile-name">Loading...</span>
+                        <span id="userTitleBadge" class="user-title-badge" style="display:none"></span>
                     </div>
-
-                    <div class="social-links-editor">
-                        <div class="social-input-group">
-                            <i class="fa-brands fa-telegram"></i>
-                            <input type="text" id="telegramInput" placeholder="Ник в Telegram">
-                        </div>
-                        <div class="social-input-group">
-                            <i class="fa-brands fa-github"></i>
-                            <input type="text" id="githubInput" placeholder="Ник на GitHub">
-                        </div>
-                    </div>
+                    <p id="profileUsername" class="profile-username">@loading</p>
+                    <p id="profileBio" class="profile-bio"></p>
                 </div>
 
-                <!-- БЛОК: Создание поста в профиле -->
+                <!-- МОДУЛИ (ВИТРИНЫ) -->
+                <div id="profileModules" class="profile-modules"></div>
+
+                <!-- Блок создания поста -->
                 <div style="padding: 24px; border-top: 1px solid var(--border-color);">
-                    <div class="compose-box" style="box-shadow: none; border: 1px solid var(--border-color); background: #1a1a1c;">
+                     <div class="compose-box" style="box-shadow: none; border: 1px solid var(--border-color); background: #1a1a1c;">
                         <textarea id="postInput" placeholder="Написать в профиль..."></textarea>
-                        
-                        <!-- КОНТЕЙНЕР ПРЕДПРОСМОТРА МЕДИА -->
-                        <div id="mediaPreviewContainer" class="media-preview-container"></div>
-                        <!-- СКРЫТЫЙ INPUT ДЛЯ ФАЙЛОВ -->
-                        <input type="file" id="mediaInput" accept="image/*,video/*" multiple hidden>
-
-                        <!-- Скрытый блок опроса -->
-                        <div id="pollCreator" class="poll-creator" style="display: none;">
-                            <div class="poll-header">
-                                <span class="poll-title">Создание опроса</span>
-                                <button id="closePollBtn" class="icon-btn-small"><i class="fa-solid fa-xmark"></i></button>
-                            </div>
-                            <div id="pollInputs" class="poll-inputs">
-                                <input type="text" class="poll-input" placeholder="Вариант 1">
-                                <input type="text" class="poll-input" placeholder="Вариант 2">
-                            </div>
-                            <div class="poll-footer-controls">
-                                <button id="addOptionBtn" class="text-btn">+ Добавить вариант</button>
-                                <select id="pollDuration" class="poll-select">
-                                    <option value="1">1 день</option>
-                                    <option value="3" selected>3 дня</option>
-                                    <option value="7">7 дней</option>
-                                </select>
-                            </div>
-                        </div>
-
                         <div class="compose-actions">
-                            <div class="action-icons">
-                                <button id="togglePollBtn" class="icon-btn" title="Добавить опрос"><i class="fa-solid fa-list-ul"></i></button>
-                                <!-- Кнопка теперь имеет id для связи с JS -->
-                                <button id="mediaBtn" class="icon-btn" title="Прикрепить медиа"><i class="fa-regular fa-image"></i></button>
+                             <div class="action-icons">
+                                <button id="attachMusicBtn" class="icon-btn"><i class="fa-solid fa-music"></i></button>
+                                <button id="attachGameBtn" class="icon-btn"><i class="fa-solid fa-gamepad"></i></button>
                             </div>
-                            <button id="publishBtn" class="btn-post" disabled>Опубликовать</button>
+                            <button id="publishBtn" class="btn-post" disabled>Post</button>
                         </div>
                     </div>
                 </div>
 
-                <!-- БЛОК: Лента постов профиля -->
-                <div id="profilePostsContainer" style="padding: 0 24px 24px 24px; display: flex; flex-direction: column; gap: 12px;">
-                    <!-- Посты пользователя будут рендериться здесь -->
-                </div>
+                <div id="profilePostsContainer" style="padding: 0 24px 24px 24px; display: flex; flex-direction: column; gap: 12px;"></div>
             </div>
         </main>
     </div>
+
+    <!-- МОДАЛКА НАСТРОЕК -->
+    <div id="settingsModal" class="modal-overlay">
+        <div class="modal-content" style="max-width: 600px;">
+            <div class="modal-header">
+                <span class="modal-title">Настройки профиля</span>
+                <button id="closeSettingsBtn" class="icon-btn-small"><i class="fa-solid fa-xmark"></i></button>
+            </div>
+            <div class="modal-body" style="gap: 20px;">
+                <h3 class="module-header">Основное</h3>
+                <input type="text" id="editName" class="poll-input" placeholder="Имя">
+                <textarea id="editBio" class="poll-input" placeholder="О себе..."></textarea>
+                
+                <h3 class="module-header">Визуал</h3>
+                <label>Рамка аватара:</label>
+                <select id="editFrame" class="poll-select" style="width:100%"></select>
+                <label style="margin-top:10px; display:block">Фон профиля:</label>
+                <select id="editBackground" class="poll-select" style="width:100%"></select>
+                <label style="margin-top:10px; display:block">Звание (Title):</label>
+                <select id="editTitle" class="poll-select" style="width:100%"></select>
+
+                <!-- БЛОК ГЛАВНОГО ТРЕКА -->
+                <h3 class="module-header" style="margin-top:10px;">Главный трек профиля</h3>
+                <div style="display:flex; gap:10px;">
+                    <button id="selectProfileTrackBtn" class="btn-post" style="flex:1; background:#222; border:1px solid var(--border-color); color:#fff;">
+                        <i class="fa-solid fa-music"></i> Установить трек
+                    </button>
+                    <button id="removeProfileTrackBtn" class="icon-btn" style="width:40px; height:40px; border-radius:8px; background:rgba(255,69,58,0.1); color:var(--danger); border:1px solid rgba(255,69,58,0.3);" title="Удалить трек">
+                        <i class="fa-solid fa-trash"></i>
+                    </button>
+                </div>
+
+                <h3 class="module-header">Витрины</h3>
+                <div style="display:flex; gap:10px; flex-direction:column;">
+                <label><input type="checkbox" id="checkGamesModule"> Игровой блок</label>
+                <label><input type="checkbox" id="checkSocialsModule"> Социальные сети</label>
+                </div>
+
+                <h3 class="module-header">Ссылки</h3>
+                <input type="text" id="editTelegram" class="poll-input" placeholder="Telegram username">
+                <input type="text" id="editGithub" class="poll-input" placeholder="GitHub username">
+                
+                <button id="saveSettingsBtn" class="btn-post" style="width:100%; margin-top:20px;">Сохранить изменения</button>
+            </div>
+        </div>
+    </div>
+    
+    <!-- МОДАЛКА ВЫБОРА -->
+    <div id="selectionModal" class="modal-overlay">
+         <div class="modal-content">
+            <div class="modal-header">
+                <span id="modalTitle" class="modal-title">Выбрать</span>
+                <button id="closeSelectionBtn" class="icon-btn-small"><i class="fa-solid fa-xmark"></i></button>
+            </div>
+            <div id="modalList" class="modal-body"></div>
+        </div>
+    </div>
+
     <script type="module" src="js/profile.js"></script>
 </body>
 </html>
