@@ -98,7 +98,7 @@
 
 .profile-dynamic-player {
     position: relative; /* ВАЖНО ДЛЯ КАНВАСА */
-    overflow: hidden; /* обрезает волну, чтобы она не вылезала за скругленные углы */
+    overflow: hidden; /* обрезает волну */
     display: flex;
     align-items: center;
     gap: 16px;
@@ -118,22 +118,22 @@
     border-color: rgba(255, 255, 255, 0.3);
 }
 
-/* НОВЫЙ КЛАСС: Канвас на весь фон плеера */
+/* КАНВАС ВОЛНЫ */
 .profile-bg-canvas {
     position: absolute;
     top: 0;
     left: 0;
     width: 100%;
     height: 100%;
-    z-index: 0; /* Кладем на самый низ */
-    pointer-events: none; /* Пропускает клики сквозь себя */
-    opacity: 0.6; /* Делаем волну мягче */
+    z-index: 0; 
+    pointer-events: none; 
+    opacity: 0.6; 
 }
 
 /* ОБЕРТКА ОБЛОЖКИ */
 .profile-cover-wrapper {
     position: relative;
-    z-index: 1; /* Поднимаем над волной */
+    z-index: 1;
     width: 50px; 
     height: 50px;
     flex-shrink: 0;
@@ -181,7 +181,7 @@
 .profile-dynamic-player.playing .play-icon { display: none; }
 .profile-dynamic-player.playing .pause-icon { display: block; }
 
-/* ТЕКСТОВАЯ ИНФОРМАЦИЯ */
+/* ТЕКСТОВАЯ ИНФОРМАЦИЯ ПЛЕЕРА */
 .profile-player-info { 
     display: flex; 
     flex-direction: column; 
@@ -189,8 +189,8 @@
     margin-right: auto;
     justify-content: center;
     position: relative; 
-    z-index: 1; /* Поднимаем над волной */
-    text-shadow: 0 2px 4px rgba(0,0,0,0.8); /* Защита текста на фоне волны */
+    z-index: 1;
+    text-shadow: 0 2px 4px rgba(0,0,0,0.8);
 }
 
 .profile-player-title { 
@@ -204,11 +204,8 @@
     white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
 }
 
-/* Убираем старый класс визуализатора */
-.profile-player-visualizer { display: none; }
 
-
-/* ИНФОБЛОК */
+/* ИНФОБЛОК ПРОФИЛЯ */
 .profile-info { padding: 16px 24px; display: flex; flex-direction: column; gap: 8px; }
 .profile-name-row { display: flex; align-items: center; gap: 10px; }
 .profile-name { font-size: 24px; font-weight: 800; color: var(--text-main); }
@@ -226,27 +223,189 @@
 .profile-username { color: var(--text-muted); font-size: 15px; }
 .profile-bio { font-size: 15px; line-height: 1.5; margin-top: 8px; color: #e0e0e0; }
 
-/* МОДУЛИ */
+/* --- МОДУЛИ И ВИТРИНЫ --- */
 .profile-modules {
     display: flex;
     flex-direction: column;
-    gap: 24px;
+    gap: 32px; 
     padding: 24px;
     border-top: 1px solid var(--border-color);
 }
 
 .module-card { background: transparent; }
-.module-header { font-size: 18px; font-weight: 700; margin-bottom: 12px; display: flex; align-items: center; gap: 8px; }
-.module-header i { color: var(--text-muted); font-size: 16px; }
 
-.showcase-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(100px, 1fr)); gap: 12px; }
-.showcase-item { border-radius: 8px; overflow: hidden; position: relative; aspect-ratio: 1; border: 1px solid var(--border-color); transition: 0.2s; cursor: pointer; }
-.showcase-item:hover { transform: translateY(-3px); border-color: rgba(255,255,255,0.3); }
-.showcase-item img { width: 100%; height: 100%; object-fit: cover; }
+/* Заголовок модуля */
+.module-header {
+    font-size: 20px;
+    font-weight: 800;
+    margin-bottom: 20px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    color: var(--text-main);
+}
 
+/* Иконка в заголовке */
+.module-header i {
+    color: #fff;
+    font-size: 14px;
+    background: rgba(255,255,255,0.1);
+    width: 32px;
+    height: 32px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 8px;
+    box-shadow: 0 2px 10px rgba(0,0,0,0.2);
+}
+
+/* --- ВИТРИНА ИГР (КАРУСЕЛЬ) --- */
+.showcase-carousel { 
+    display: flex; 
+    gap: 16px; 
+    overflow-x: auto; 
+    
+    /* ВЕРТИКАЛЬНЫЕ ОТСТУПЫ: чтобы не резалась тень снизу и прыжок сверху */
+    padding-top: 20px;
+    padding-bottom: 30px;
+
+    /* ГОРИЗОНТАЛЬНЫЕ ОТСТУПЫ: чтобы не резалась тень слева/справа у крайних карточек */
+    padding-left: 20px;
+    padding-right: 20px;
+    
+    /* КОМПЕНСАЦИЯ: Растягиваем блок в стороны, чтобы отступы не ломали выравнивание */
+    margin-left: -20px;
+    margin-right: -20px;
+    width: calc(100% + 40px);
+    
+    margin-top: -15px;
+    margin-bottom: -15px;
+
+    scroll-behavior: smooth;
+    
+    /* Скрываем скроллбар (Firefox/IE) */
+    scrollbar-width: none; 
+    -ms-overflow-style: none;
+}
+
+/* Скрываем скроллбар (Chrome/Safari) */
+.showcase-carousel::-webkit-scrollbar { 
+    display: none;
+    width: 0;
+    height: 0;
+}
+
+/* Карточка игры */
+.showcase-item { 
+    flex: 0 0 130px; /* Размер карточки */
+    aspect-ratio: 2 / 3; 
+    border-radius: 12px; 
+    overflow: hidden; 
+    position: relative; 
+    border: 1px solid var(--border-color); 
+    transition: transform 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275), box-shadow 0.2s, border-color 0.2s; 
+    cursor: pointer; 
+    background: #1a1a1c;
+}
+
+.showcase-item:hover { 
+    transform: translateY(-8px) scale(1.02); 
+    border-color: rgba(255,255,255,0.4); 
+    box-shadow: 0 10px 25px rgba(0,0,0,0.6);
+    z-index: 2;
+}
+
+.showcase-item img { 
+    width: 100%; 
+    height: 100%; 
+    object-fit: cover; 
+    transition: transform 0.4s ease;
+}
+
+.showcase-item:hover img {
+    transform: scale(1.1); 
+}
+
+/* СОЦИАЛЬНЫЕ СЕТИ */
 .socials-row { display: flex; gap: 12px; flex-wrap: wrap; }
 .social-badge { display: flex; align-items: center; gap: 8px; padding: 8px 16px; background: #1a1a1c; border: 1px solid var(--border-color); border-radius: 8px; color: var(--text-main); text-decoration: none; font-size: 14px; transition: 0.2s; }
 .social-badge:hover { background: rgba(255,255,255,0.1); }
+
+
+/* --- ЭЛЕМЕНТЫ ВНУТРИ ОКНА НАСТРОЕК (Список игр) --- */
+.settings-hint {
+    font-size: 12px; 
+    color: var(--text-muted); 
+    margin-bottom: 8px;
+}
+
+.settings-games-list {
+    display: flex; 
+    flex-direction: column; 
+    gap: 8px;
+}
+
+.settings-list-item, .settings-current-item {
+    display: flex; 
+    align-items: center; 
+    gap: 12px;
+    background: rgba(255,255,255,0.03); 
+    border: 1px solid var(--border-color);
+    padding: 8px; 
+    border-radius: 8px; 
+    transition: 0.2s;
+}
+
+/* Drag & Drop стили */
+.settings-list-item.dragging {
+    opacity: 0.5; 
+    background: #2a2a2e; 
+    border-style: dashed;
+}
+
+.settings-list-item.drag-over {
+    border-color: #fff; 
+    transform: translateY(-2px); 
+    box-shadow: 0 4px 10px rgba(0,0,0,0.3);
+}
+
+.drag-handle {
+    color: var(--text-muted); 
+    cursor: grab; 
+    display: flex; 
+    align-items: center; 
+    padding: 4px;
+}
+.drag-handle:active { cursor: grabbing; }
+
+.settings-item-img {
+    width: 32px; 
+    height: 48px; 
+    object-fit: cover; 
+    border-radius: 4px;
+}
+
+.settings-item-title {
+    flex: 1; 
+    font-size: 14px; 
+    font-weight: 600; 
+    white-space: nowrap; 
+    overflow: hidden; 
+    text-overflow: ellipsis;
+}
+
+.remove-item-btn {
+    color: var(--text-muted); 
+    background: transparent; 
+    border-radius: 6px;
+    width: 28px;
+    height: 28px;
+}
+
+.remove-item-btn:hover { 
+    background: rgba(255, 69, 58, 0.2); 
+    color: var(--danger); 
+}
 
 /* Адаптив */
 @media (max-width: 600px) {

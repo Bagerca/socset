@@ -1,20 +1,58 @@
 [
     {
-        "id": "game_1",
+        "id": "game_val",
+        "title": "Valorant",
+        "genre": "Тактический шутер",
+        "icon": "img/games/valorant.jpg",
+        "description": "Многопользовательский тактический шутер от первого лица, разработанный Riot Games. Игроки берут на себя роль агентов с уникальными способностями в командных матчах 5 на 5.",
+        "trailer": "https://www.youtube.com/embed/e_E9W2vsRbQ?autoplay=1&mute=1"
+    },
+    {
+        "id": "game_bendy",
+        "title": "Bendy and the Ink Machine",
+        "genre": "Хоррор",
+        "icon": "img/games/bendy.jpg",
+        "description": "Эпизодическая компьютерная игра в жанре survival horror с элементами головоломки. Исследуйте заброшенную анимационную студию и раскройте её мрачные тайны.",
+        "trailer": "https://www.youtube.com/embed/Inl0c25t2d0?autoplay=1&mute=1"
+    },
+    {
+        "id": "game_bio",
+        "title": "BioShock",
+        "genre": "Шутер / РПГ",
+        "icon": "img/games/bioshock.jpg",
+        "description": "Культовый шутер от первого лица с элементами RPG. Отправляйтесь в подводный город Восторг (Rapture), который задумывался как утопия, но превратился в кошмар.",
+        "trailer": "https://www.youtube.com/embed/CoYorK3E4aM?autoplay=1&mute=1"
+    },
+    {
+        "id": "game_hk",
+        "title": "Hollow Knight",
+        "genre": "Метроидвания",
+        "icon": "img/games/hollow_knight.jpg",
+        "description": "Эпическое приключение в огромном разрушенном королевстве насекомых и героев. Исследуйте извилистые пещеры, сражайтесь с порченными тварями и заводите дружбу со странными жуками.",
+        "trailer": "https://www.youtube.com/embed/UAO2urG23S4?autoplay=1&mute=1"
+    },
+    {
+        "id": "game_cp",
         "title": "Cyberpunk 2077",
-        "genre": "RPG / Action",
-        "icon": "https://upload.wikimedia.org/wikipedia/en/9/9f/Cyberpunk_2077_box_art.jpg"
+        "genre": "РПГ / Экшен",
+        "icon": "img/games/cyberpunk.jpg",
+        "description": "Приключенческая ролевая игра с открытым миром, действие которой происходит в мегаполисе Найт-Сити, где власть, роскошь и модификации тела ценятся выше всего.",
+        "trailer": "https://www.youtube.com/embed/qIcTM8WXFjk?autoplay=1&mute=1"
     },
     {
-        "id": "game_2",
-        "title": "Elden Ring",
-        "genre": "Souls-like",
-        "icon": "https://upload.wikimedia.org/wikipedia/en/b/b9/Elden_Ring_Box_Art.jpg"
+        "id": "game_ht",
+        "title": "Helltaker",
+        "genre": "Головоломка",
+        "icon": "img/games/helltaker.jpg",
+        "description": "Короткая игра-головоломка про парня, который спустился в ад, чтобы собрать гарем из демонесс. Решайте пазлы, пинайте скелетов и готовьте блинчики.",
+        "trailer": "https://www.youtube.com/embed/q6oKxH3t-hU?autoplay=1&mute=1"
     },
     {
-        "id": "game_3",
-        "title": "Minecraft",
-        "genre": "Sandbox",
-        "icon": "https://upload.wikimedia.org/wikipedia/en/5/51/Minecraft_cover.png"
+        "id": "game_sub",
+        "title": "Subnautica",
+        "genre": "Выживание",
+        "icon": "img/games/subnautica.jpg",
+        "description": "Игра про выживание в открытом океане на чужой планете. Погружайтесь в глубины, собирайте ресурсы, стройте подводные базы и спасайтесь от ужасных морских левиафанов.",
+        "trailer": "https://www.youtube.com/embed/Rj2QdbF4vsM?autoplay=1&mute=1"
     }
 ]

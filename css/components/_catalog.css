@@ -1,15 +1,86 @@
-/* Заголовок страницы */
-.page-header {
-    margin-bottom: 24px;
-    padding-bottom: 16px;
-    border-bottom: 1px solid var(--border-color);
-}
-.page-title { font-size: 24px; font-weight: 800; }
-.page-subtitle { color: var(--text-muted); font-size: 14px; margin-top: 4px; }
+/* css/components/_catalog.css */
 
-/* Сетка для ИГР (Grid) */
-.games-grid {
+.games-page-container {
+    display: flex;
+    flex-direction: column;
+    gap: 24px;
+    width: 100%;
+}
+
+/* Верхняя панель (табы + поиск) */
+.games-header-panel {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 16px;
+    background: var(--surface);
+    padding: 16px 24px;
+    border-radius: var(--radius-large);
+    border: 1px solid var(--border-color);
+    box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+}
+
+.games-tabs {
+    display: flex;
+    gap: 8px;
+}
+
+.games-tab-btn {
+    background: transparent;
+    border: 1px solid transparent;
+    color: var(--text-muted);
+    padding: 10px 20px;
+    border-radius: 100px;
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: 0.2s;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.games-tab-btn:hover {
+    color: var(--text-main);
+    background: rgba(255,255,255,0.05);
+}
+
+.games-tab-btn.active {
+    background: var(--text-main);
+    color: var(--bg-base);
+}
+
+.games-search-box {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    background: #1a1a1c;
+    padding: 10px 20px;
+    border-radius: 100px;
+    border: 1px solid var(--border-color);
+    flex: 1;
+    max-width: 300px;
+    transition: 0.2s;
+}
+
+.games-search-box:focus-within {
+    border-color: rgba(255,255,255,0.3);
+}
+
+.games-search-box input {
+    background: transparent;
+    border: none;
+    outline: none;
+    color: var(--text-main);
+    font-size: 14px;
+    width: 100%;
+}
+
+/* Сетка игр */
+.games-grid-container {
     display: grid;
+    /* Умная адаптивная сетка: карточки не будут уже 180px */
     grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
     gap: 20px;
 }
@@ -19,66 +90,136 @@
     border: 1px solid var(--border-color);
     border-radius: 16px;
     overflow: hidden;
-    transition: transform 0.2s, box-shadow 0.2s;
-    cursor: pointer;
+    transition: transform 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275), box-shadow 0.2s;
     position: relative;
+    box-shadow: 0 5px 15px rgba(0,0,0,0.2);
 }
+
 .game-card:hover {
-    transform: translateY(-5px);
-    box-shadow: 0 10px 20px rgba(0,0,0,0.3);
+    transform: translateY(-6px);
+    box-shadow: 0 15px 30px rgba(0,0,0,0.4);
     border-color: rgba(255,255,255,0.2);
 }
 
 .game-cover-wrapper {
     width: 100%;
-    aspect-ratio: 3/4; /* Вертикальный формат обложки */
+    aspect-ratio: 3/4; /* Формат коробок дисков */
+    position: relative;
     overflow: hidden;
 }
+
 .game-cover {
     width: 100%;
     height: 100%;
     object-fit: cover;
-    transition: transform 0.3s;
-}
-.game-card:hover .game-cover { transform: scale(1.05); }
-
-.game-info { padding: 12px; }
-.game-title { font-weight: 700; font-size: 15px; margin-bottom: 4px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.game-genre { font-size: 12px; color: var(--text-muted); }
-
-/* Список для МУЗЫКИ (List) */
-.music-list {
-    display: flex;
-    flex-direction: column;
-    gap: 12px;
+    transition: transform 0.4s ease;
 }
 
-.track-item {
-    display: flex;
-    align-items: center;
-    gap: 16px;
-    padding: 12px;
-    background: var(--surface);
-    border: 1px solid var(--border-color);
-    border-radius: 12px;
-    transition: 0.2s;
+.game-card:hover .game-cover {
+    transform: scale(1.06);
 }
-.track-item:hover { background: rgba(255,255,255,0.05); }
 
-.track-cover { width: 48px; height: 48px; border-radius: 6px; object-fit: cover; }
-.track-info { flex: 1; }
-.track-title { font-weight: 600; font-size: 15px; }
-.track-artist { font-size: 13px; color: var(--text-muted); }
+/* Градиент при наведении (чтобы белое сердечко было лучше видно на светлых играх) */
+.game-overlay {
+    position: absolute;
+    top: 0; left: 0; width: 100%; height: 100%;
+    background: linear-gradient(to bottom, rgba(0,0,0,0.6) 0%, transparent 40%);
+    opacity: 0;
+    transition: opacity 0.3s ease;
+    pointer-events: none;
+}
 
-.track-controls { display: flex; align-items: center; gap: 12px; }
-.play-track-btn {
+.game-card:hover .game-overlay {
+    opacity: 1;
+}
+
+/* Кнопка Лайка (Сердечко) */
+.game-fav-btn {
+    position: absolute;
+    top: 12px; right: 12px;
+    background: rgba(0,0,0,0.5);
+    border: 1px solid rgba(255,255,255,0.1);
+    color: #fff;
     width: 36px; height: 36px;
     border-radius: 50%;
-    border: 1px solid var(--border-color);
-    background: transparent;
-    color: var(--text-main);
-    cursor: pointer;
     display: flex; align-items: center; justify-content: center;
+    font-size: 15px;
+    cursor: pointer;
     transition: 0.2s;
+    backdrop-filter: blur(4px);
+    
+    /* Скрыто по умолчанию, появляется при наведении на карточку */
+    opacity: 0;
+    transform: translateY(-10px);
 }
-.play-track-btn:hover { background: var(--text-main); color: var(--bg-base); }
+
+.game-card:hover .game-fav-btn {
+    opacity: 1;
+    transform: translateY(0);
+}
+
+/* Если уже в избранном — показываем всегда */
+.game-fav-btn.active {
+    opacity: 1;
+    transform: translateY(0);
+    color: var(--danger);
+    border-color: rgba(255,69,58,0.3);
+}
+
+.game-fav-btn:hover {
+    transform: scale(1.15) !important;
+    background: rgba(0,0,0,0.8);
+}
+
+.game-info {
+    padding: 14px;
+    position: relative;
+    z-index: 2;
+    background: var(--surface);
+}
+
+.game-title {
+    font-weight: 700;
+    font-size: 15px;
+    margin-bottom: 4px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.game-genre {
+    font-size: 12px;
+    color: var(--text-muted);
+}
+
+.games-empty-state {
+    grid-column: 1 / -1;
+    padding: 60px 20px;
+    text-align: center;
+    color: var(--text-muted);
+    font-size: 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    align-items: center;
+}
+
+.games-empty-state i {
+    font-size: 40px;
+    opacity: 0.3;
+}
+
+/* Мобильный адаптив */
+@media (max-width: 600px) {
+    .games-header-panel {
+        flex-direction: column;
+        align-items: stretch;
+    }
+    .games-search-box {
+        max-width: none;
+    }
+    .games-grid-container {
+        /* Делаем карточки чуть уже на мобилках */
+        grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+    }
+}

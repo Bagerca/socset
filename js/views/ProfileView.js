@@ -42,7 +42,6 @@ export const ProfileView = {
                     <textarea id="postInput" placeholder="Написать в профиль..."></textarea>
                     <div class="compose-actions">
                         <div class="action-icons">
-                            <!-- В профиле пока отключим прикрепление медиа для упрощения -->
                             <button id="attachMusicBtn" class="icon-btn" disabled><i class="fa-solid fa-music"></i></button>
                             <button id="attachGameBtn" class="icon-btn" disabled><i class="fa-solid fa-gamepad"></i></button>
                         </div>
@@ -78,16 +77,25 @@ export const ProfileView = {
 
                     <!-- БЛОК ГЛАВНОГО ТРЕКА -->
                     <h3 class="module-header" style="margin-top:10px;">Главный трек профиля</h3>
+                    <div id="settingsCurrentTrack" class="settings-current-item" style="display:none; margin-bottom:10px;"></div>
                     <div style="display:flex; gap:10px;">
                         <button id="selectProfileTrackBtn" class="btn-post" style="flex:1; background:#222; border:1px solid var(--border-color); color:#fff;">
-                            <i class="fa-solid fa-music"></i> Установить трек
+                            <i class="fa-solid fa-music"></i> Выбрать трек
                         </button>
                         <button id="removeProfileTrackBtn" class="icon-btn" style="width:40px; height:40px; border-radius:8px; background:rgba(255,69,58,0.1); color:var(--danger); border:1px solid rgba(255,69,58,0.3);" title="Удалить трек">
                             <i class="fa-solid fa-trash"></i>
                         </button>
                     </div>
 
-                    <h3 class="module-header">Витрины</h3>
+                    <!-- БЛОК ВИТРИНЫ ИГР (Drag & Drop) -->
+                    <h3 class="module-header" style="margin-top:10px;">Витрина игр</h3>
+                    <div class="settings-hint">Перетаскивайте игры за иконку слева, чтобы изменить их порядок на витрине</div>
+                    <div id="settingsGamesList" class="settings-games-list"></div>
+                    <button id="settingsAddGameBtn" class="btn-post" style="width:100%; margin-top:10px; background:#222; border:1px solid var(--border-color); color:#fff;">
+                        <i class="fa-solid fa-plus"></i> Добавить на витрину
+                    </button>
+
+                    <h3 class="module-header" style="margin-top:10px;">Виджеты</h3>
                     <div style="display:flex; gap:10px; flex-direction:column;">
                         <label><input type="checkbox" id="checkGamesModule"> Игровой блок</label>
                         <label><input type="checkbox" id="checkSocialsModule"> Социальные сети</label>
@@ -97,7 +105,7 @@ export const ProfileView = {
                     <input type="text" id="editTelegram" class="poll-input" placeholder="Telegram username">
                     <input type="text" id="editGithub" class="poll-input" placeholder="GitHub username">
                     
-                    <button id="saveSettingsBtn" class="btn-post" style="width:100%; margin-top:20px;">Сохранить изменения</button>
+                    <button id="saveSettingsBtn" class="btn-post" style="width:100%; margin-top:20px; font-size: 16px;">Сохранить изменения</button>
                 </div>
             </div>
         </div>
@@ -110,6 +118,30 @@ export const ProfileView = {
                     <button id="closeSelectionBtn" class="icon-btn-small"><i class="fa-solid fa-xmark"></i></button>
                 </div>
                 <div id="modalList" class="modal-body"></div>
+            </div>
+        </div>
+
+        <!-- МОДАЛКА ИНФОРМАЦИИ ОБ ИГРЕ -->
+        <div id="gameDetailsModal" class="modal-overlay">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <span class="modal-title">Об игре</span>
+                    <button id="closeGameDetailsBtn" class="icon-btn-small"><i class="fa-solid fa-xmark"></i></button>
+                </div>
+                <div class="modal-body game-details-body">
+                    <!-- Трейлер -->
+                    <div id="gdTrailer" class="game-trailer-container"></div>
+                    
+                    <!-- Контент -->
+                    <div class="game-details-content">
+                        <img id="gdCover" src="" class="gd-cover" onerror="this.src='https://placehold.co/600x900/333333/ffffff?text=Game'">
+                        <div class="gd-info">
+                            <div id="gdTitle" class="gd-title">Название</div>
+                            <div id="gdGenre" class="gd-genre">Жанр</div>
+                            <div id="gdDescription" class="gd-desc">Описание...</div>
+                        </div>
+                    </div>
+                </div>
             </div>
         </div>
     `,

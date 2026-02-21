@@ -29,9 +29,10 @@ export class DataManager {
             avatar: 'https://placehold.co/128x128/333333/ffffff?text=U', banner: 'https://placehold.co/800x250/111111/ffffff?text=Banner',
             frameId: 'frame_none', backgroundId: 'bg_default', titleId: 'title_newbie', musicId: null, 
             modules: { music: true, games: true, socials: true },
-            favoriteGames: [],
-            favoriteTracks: [], // ИЗБРАННЫЕ ТРЕКИ
-            customAlbums: [],   // ПОЛЬЗОВАТЕЛЬСКИЕ АЛЬБОМЫ
+            favoriteGames: [], // Только для вкладки "Избранное"
+            showcaseGames: [], // Только для Витрины профиля
+            favoriteTracks: [],
+            customAlbums: [],
             socials: { telegram: '', github: '' }
         };
 
@@ -66,14 +67,14 @@ export class DataManager {
     getTrackById(id) { return this.globalMusic.find(t => t.id === id) || null; }
     getGameById(id) { return this.globalGames.find(g => g.id === id) || null; }
 
-    // --- МЕТОДЫ ДЛЯ МУЗЫКИ (НОВОЕ) ---
+    // МУЗЫКА
     toggleFavoriteTrack(trackId) {
         if (!this.profile.favoriteTracks) this.profile.favoriteTracks = [];
         const index = this.profile.favoriteTracks.indexOf(trackId);
         if (index > -1) this.profile.favoriteTracks.splice(index, 1);
         else this.profile.favoriteTracks.push(trackId);
         this._saveProfile();
-        return index === -1; // возвращает true, если добавлено
+        return index === -1; 
     }
     
     getFavoriteTracks() { return this.profile.favoriteTracks || []; }
@@ -91,7 +92,7 @@ export class DataManager {
         const album = this.profile.customAlbums.find(a => a.id === albumId);
         if (album && !album.tracks.includes(trackId)) {
             album.tracks.push(trackId);
-            if (album.tracks.length === 1) { // Ставим обложку первого трека
+            if (album.tracks.length === 1) { 
                 const track = this.getTrackById(trackId);
                 if (track) album.cover = track.cover;
             }
@@ -105,7 +106,19 @@ export class DataManager {
         this._saveProfile();
     }
 
-    // Остальные базовые методы DataManager
+    // ИГРЫ
+    toggleFavoriteGame(gameId) {
+        if (!this.profile.favoriteGames) this.profile.favoriteGames = [];
+        const index = this.profile.favoriteGames.indexOf(gameId);
+        if (index > -1) this.profile.favoriteGames.splice(index, 1);
+        else this.profile.favoriteGames.push(gameId);
+        this._saveProfile();
+        return index === -1; 
+    }
+    
+    getFavoriteGames() { return this.profile.favoriteGames || []; }
+
+    // ПОСТЫ И ПРОФИЛЬ
     _savePosts() { localStorage.setItem('glassnet_posts', JSON.stringify(this.posts)); }
     addPost(content, pollData = null, attachment = null) {
         const newPost = { id: generateId(), author: { name: this.profile.name, username: this.profile.username, avatar: this.profile.avatar }, content, likes: 0, isLiked: false, timestamp: Date.now(), poll: null, visibility: 'public', comments: [], views: 0, attachment };

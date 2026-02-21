@@ -25,7 +25,7 @@
     border-radius: var(--radius-large);
     width: 100%;
     max-width: 500px;
-    max-height: 80vh;
+    max-height: 85vh; /* Чуть увеличили высоту */
     display: flex;
     flex-direction: column;
     box-shadow: 0 20px 50px rgba(0,0,0,0.5);
@@ -42,7 +42,7 @@
 .modal-title { font-size: 18px; font-weight: 700; color: var(--text-main); }
 
 .modal-body {
-    padding: 16px;
+    padding: 20px;
     overflow-y: auto;
     display: flex;
     flex-direction: column;
@@ -103,3 +103,99 @@
 .post-card-info { flex: 1; }
 .post-card-title { font-weight: 700; font-size: 15px; }
 .post-card-subtitle { font-size: 13px; color: var(--text-muted); }
+
+/* --- МОДАЛКА ОПИСАНИЯ ИГРЫ (ОБНОВЛЕННАЯ) --- */
+
+/* Увеличиваем ширину модалки только для окна игры */
+#gameDetailsModal .modal-content {
+    max-width: 800px;
+}
+
+.game-details-body {
+    display: flex;
+    flex-direction: column; /* Вертикальный стек: Трейлер -> Контент */
+    gap: 24px;
+    padding-top: 12px;
+}
+
+/* Контейнер для трейлера */
+.game-trailer-container {
+    width: 100%;
+    aspect-ratio: 16 / 9; /* Формат видео */
+    border-radius: 12px;
+    overflow: hidden;
+    background: #000;
+    box-shadow: 0 4px 20px rgba(0,0,0,0.5);
+    display: none; /* Скрыт, если нет ссылки */
+    flex-shrink: 0;
+}
+
+.game-trailer-container iframe {
+    width: 100%;
+    height: 100%;
+    border: none;
+}
+
+/* Нижняя часть: Обложка + Текст */
+.game-details-content {
+    display: flex;
+    gap: 24px;
+    align-items: flex-start;
+}
+
+.gd-cover {
+    width: 160px; /* Размер обложки в модалке */
+    aspect-ratio: 2/3;
+    object-fit: cover;
+    border-radius: 12px;
+    box-shadow: 0 4px 15px rgba(0,0,0,0.3);
+    flex-shrink: 0;
+}
+
+.gd-info {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.gd-title {
+    font-size: 28px;
+    font-weight: 800;
+    color: var(--text-main);
+    line-height: 1.1;
+}
+
+.gd-genre {
+    font-size: 14px;
+    color: var(--text-muted);
+    background: rgba(255,255,255,0.05);
+    padding: 6px 12px;
+    border-radius: 6px;
+    width: fit-content;
+    font-weight: 600;
+}
+
+.gd-desc {
+    font-size: 15px;
+    color: #d1d1d1;
+    line-height: 1.6;
+}
+
+/* Адаптив для модалки игры */
+@media (max-width: 600px) {
+    .game-details-content {
+        flex-direction: column;
+        align-items: center;
+        text-align: center;
+    }
+    
+    .gd-title { font-size: 24px; }
+    
+    .gd-cover {
+        width: 140px;
+        box-shadow: 0 8px 25px rgba(0,0,0,0.4);
+    }
+    
+    .gd-info { align-items: center; }
+}

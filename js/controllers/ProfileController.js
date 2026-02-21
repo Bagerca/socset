@@ -9,6 +9,11 @@ export class ProfileController {
         this.postRenderer = new PostRenderer(dataManager);
         this.postEvents = new PostEventHandler(dataManager, this.postRenderer, () => this.renderPosts());
 
+        // Временное состояние для Настроек (применяется только после нажатия "Сохранить")
+        this.tempShowcaseGames = [];
+        this.tempMusicId = null;
+
+        // UI Элементы
         this.bgLayer = document.getElementById('profileBackgroundLayer');
         this.avatarImg = document.getElementById('avatarImage');
         this.avatarFrame = document.getElementById('avatarFrame');
@@ -33,24 +38,27 @@ export class ProfileController {
         
         this.publishBtn = document.getElementById('publishBtn');
         this.postInput = document.getElementById('postInput');
+        
+        // Модалка деталей игры
+        this.gameDetailsModal = document.getElementById('gameDetailsModal');
 
-        // Обработчики для удаления в destroy()
+        // Глобальные обработчики (сохраняем ссылки для удаления в destroy)
         this.handleGlobalClick = (e) => {
-            if (this.contextMenu && this.contextMenu.style.display === 'block') {
-                this.contextMenu.style.display = 'none';
-            }
+            if (this.contextMenu && this.contextMenu.style.display === 'block') this.contextMenu.style.display = 'none';
             if (e.target === this.settingsModal) this.settingsModal.classList.remove('active');
             if (e.target === this.selectionModal) this.selectionModal.classList.remove('active');
+            if (this.gameDetailsModal && e.target === this.gameDetailsModal) this.closeGameModal();
         };
 
-        this.handleGlobalScroll = () => {
-            if (this.contextMenu) this.contextMenu.style.display = 'none';
+        this.handleGlobalScroll = () => { 
+            if (this.contextMenu) this.contextMenu.style.display = 'none'; 
         };
 
         this.handleEsc = (e) => {
             if (e.key === 'Escape') {
                 if (this.settingsModal) this.settingsModal.classList.remove('active');
                 if (this.selectionModal) this.selectionModal.classList.remove('active');
+                if (this.gameDetailsModal) this.closeGameModal();
                 if (this.contextMenu) this.contextMenu.style.display = 'none';
             }
         };
@@ -70,19 +78,21 @@ export class ProfileController {
     }
 
     destroy() {
-        // Очищаем слушатели глобального аудио при уходе со страницы профиля
+        // Очистка слушателей плеера
         const globalAudio = document.getElementById('globalAudioPlayer');
         if (globalAudio) {
             if (this.handleProfileAudioPlay) globalAudio.removeEventListener('play', this.handleProfileAudioPlay);
             if (this.handleProfileAudioPause) globalAudio.removeEventListener('pause', this.handleProfileAudioPause);
         }
-
+        
         if (this.contextMenu) this.contextMenu.remove();
         
+        // Удаляем глобальные слушатели
         document.removeEventListener('click', this.handleGlobalClick);
         document.removeEventListener('scroll', this.handleGlobalScroll, true);
         document.removeEventListener('keydown', this.handleEsc);
         
+        // Сбрасываем фон
         if (this.bgLayer) {
             this.bgLayer.style.backgroundImage = 'none';
             this.bgLayer.style.backgroundColor = 'transparent'; 
@@ -90,18 +100,12 @@ export class ProfileController {
     }
 
     createGlobalContextMenu() {
-        if (document.getElementById('customContextMenu')) {
-            document.getElementById('customContextMenu').remove();
-        }
-
+        if (document.getElementById('customContextMenu')) document.getElementById('customContextMenu').remove();
         const menu = document.createElement('div');
         menu.id = 'customContextMenu';
         menu.innerHTML = `<div class="context-menu-item danger" id="ctxDeleteComment"><i class="fa-solid fa-trash"></i> Удалить комментарий</div>`;
         document.body.appendChild(menu);
         this.contextMenu = menu;
-        this.contextTargetCommentId = null;
-        this.contextTargetPostId = null;
-
         document.addEventListener('click', this.handleGlobalClick);
         document.addEventListener('scroll', this.handleGlobalScroll, true);
         
@@ -117,16 +121,16 @@ export class ProfileController {
         }
     }
 
+    // --- РЕНДЕР ШАПКИ И ПЛЕЕРА ---
     renderProfileHeader() {
         const p = this.currentUser;
-        
         this.nameEl.textContent = p.name;
         this.usernameEl.textContent = p.username;
         this.bioEl.innerHTML = escapeHTML(p.bio).replace(/\n/g, '<br>'); 
         this.avatarImg.src = p.avatar;
-        this.avatarImg.onerror = () => { this.avatarImg.src = 'https://dummyimage.com/128x128/333333/ffffff&text=U'; };
+        this.avatarImg.onerror = () => { this.avatarImg.src = 'https://placehold.co/128x128/333333/ffffff?text=U'; };
         this.bannerImg.src = p.banner;
-        this.bannerImg.onerror = () => { this.bannerImg.src = 'https://dummyimage.com/800x250/111111/ffffff&text=Banner'; };
+        this.bannerImg.onerror = () => { this.bannerImg.src = 'https://placehold.co/800x250/111111/ffffff?text=Banner'; };
 
         const bg = this.dataManager.getBackgrounds().find(b => b.id === p.backgroundId);
         if (bg && bg.image) {
@@ -160,9 +164,7 @@ export class ProfileController {
             if (track) {
                 this.playerContainer.innerHTML = `
                     <div id="profilePlayerWrapper" class="profile-dynamic-player">
-                        <!-- НОВЫЙ ФОНОВЫЙ КАНВАС -->
                         <canvas id="profileAudioCanvas" class="profile-bg-canvas"></canvas>
-                        
                         <div id="profilePlayerClickArea" class="profile-cover-wrapper" title="Play / Pause">
                             <img src="${track.cover}" class="profile-player-cover">
                             <div class="profile-player-overlay">
@@ -176,7 +178,6 @@ export class ProfileController {
                         </div>
                     </div>
                 `;
-                // Передаем track.id в функцию визуализатора
                 setTimeout(() => this.initAudioVisualizer(track.id), 50);
             }
         } else {
@@ -189,20 +190,15 @@ export class ProfileController {
         const clickArea = document.getElementById('profilePlayerClickArea'); 
         const canvas = document.getElementById('profileAudioCanvas');
         const wrapper = document.getElementById('profilePlayerWrapper');
-        
         if (!globalAudio || !clickArea || !canvas) return;
 
-        // --- ЛОГИКА ИСЧЕЗНОВЕНИЯ ОВЕРЛЕЯ ---
         const overlay = clickArea.querySelector('.profile-player-overlay');
         let hideOverlayTimeout;
 
         const startOverlayTimer = () => {
             clearTimeout(hideOverlayTimeout);
-            hideOverlayTimeout = setTimeout(() => {
-                if (overlay) overlay.classList.add('hidden-overlay');
-            }, 3000);
+            hideOverlayTimeout = setTimeout(() => { if (overlay) overlay.classList.add('hidden-overlay'); }, 3000);
         };
-
         const showOverlay = () => {
             clearTimeout(hideOverlayTimeout);
             if (overlay) overlay.classList.remove('hidden-overlay');
@@ -213,14 +209,10 @@ export class ProfileController {
         startOverlayTimer();
 
         const ctx = canvas.getContext('2d');
-        // Увеличиваем разрешение канваса, так как он теперь на всю ширину
-        canvas.width = 600; 
-        canvas.height = 100;
+        canvas.width = 600; canvas.height = 100;
 
-        // Синхронизация UI профиля с Глобальным плеером
         const syncUI = () => {
-            if (window.cyclePlayer && !globalAudio.paused && 
-                window.cyclePlayer.playlist[window.cyclePlayer.currentIndex]?.id === trackId) {
+            if (window.cyclePlayer && !globalAudio.paused && window.cyclePlayer.playlist[window.cyclePlayer.currentIndex]?.id === trackId) {
                 wrapper.classList.add('playing');
             } else {
                 wrapper.classList.remove('playing');
@@ -231,16 +223,11 @@ export class ProfileController {
         this.handleProfileAudioPause = () => syncUI();
         globalAudio.addEventListener('play', this.handleProfileAudioPlay);
         globalAudio.addEventListener('pause', this.handleProfileAudioPause);
-        syncUI(); // Проверка при старте
+        syncUI();
 
-        // КЛИК ПО ПЛЕЕРУ В ПРОФИЛЕ
         clickArea.addEventListener('click', async () => {
-            showOverlay();
-            startOverlayTimer();
-
+            showOverlay(); startOverlayTimer();
             if (!window.cyclePlayer) return;
-
-            // Инициализация Глобального Анализатора (один раз на весь сайт)
             if (!window.globalAudioAnalyser && globalAudio.crossOrigin === 'anonymous') {
                 try {
                     const AudioContext = window.AudioContext || window.webkitAudioContext;
@@ -250,43 +237,25 @@ export class ProfileController {
                     const source = window.globalAudioCtx.createMediaElementSource(globalAudio);
                     source.connect(window.globalAudioAnalyser);
                     window.globalAudioAnalyser.connect(window.globalAudioCtx.destination);
-                } catch (e) {
-                    console.warn("Global visualizer init failed", e);
-                }
+                } catch (e) { console.warn("Global visualizer init failed", e); }
             }
-
-            if (window.globalAudioCtx && window.globalAudioCtx.state === 'suspended') {
-                await window.globalAudioCtx.resume();
-            }
+            if (window.globalAudioCtx && window.globalAudioCtx.state === 'suspended') await window.globalAudioCtx.resume();
 
             const currentGlobalTrack = window.cyclePlayer.playlist[window.cyclePlayer.currentIndex];
-
-            // Если кликнули на тот же трек - ставим на паузу, иначе - запускаем трек в глобальном плеере
-            if (currentGlobalTrack && currentGlobalTrack.id === trackId) {
-                window.cyclePlayer.togglePlay();
-            } else {
-                window.cyclePlayer.playTrack(trackId);
-            }
+            if (currentGlobalTrack && currentGlobalTrack.id === trackId) window.cyclePlayer.togglePlay();
+            else window.cyclePlayer.playTrack(trackId);
         });
 
-        // ОТРИСОВКА ВОЛНЫ
         const drawWaveform = () => {
             if (!document.getElementById('profileAudioCanvas')) return; 
             requestAnimationFrame(drawWaveform);
             ctx.clearRect(0, 0, canvas.width, canvas.height);
-            
-            // ДЕЛАЕМ ЛИНИЮ КРАСИВЕЕ ДЛЯ ФОНА
-            ctx.lineWidth = 3; 
-            ctx.strokeStyle = 'rgba(255, 255, 255, 0.25)'; // Полупрозрачная белая линия
-            
+            ctx.lineWidth = 3; ctx.strokeStyle = 'rgba(255, 255, 255, 0.25)'; 
             ctx.beginPath();
             
-            // Если пауза или играет ДРУГОЙ трек - рисуем прямую линию
             const currentGlobalTrack = window.cyclePlayer?.playlist[window.cyclePlayer.currentIndex];
             if (globalAudio.paused || !currentGlobalTrack || currentGlobalTrack.id !== trackId || !window.globalAudioAnalyser) {
-                ctx.moveTo(0, canvas.height / 2);
-                ctx.lineTo(canvas.width, canvas.height / 2);
-                ctx.stroke();
+                ctx.moveTo(0, canvas.height / 2); ctx.lineTo(canvas.width, canvas.height / 2); ctx.stroke();
                 return;
             }
             
@@ -314,16 +283,41 @@ export class ProfileController {
         if (m.socials) this.renderSocialsModule();
     }
 
+    // --- ВИТРИНА ИГР (С ГОРИЗОНТАЛЬНЫМ СКРОЛЛОМ) ---
     renderGamesModule() {
-        const favGames = (this.currentUser.favoriteGames || []).map(id => this.dataManager.getGameById(id)).filter(Boolean); 
+        // Используем showcaseGames для витрины
+        const showcaseGames = (this.currentUser.showcaseGames || []).map(id => this.dataManager.getGameById(id)).filter(Boolean); 
         let contentHTML = '';
-        if (favGames.length > 0) {
-            contentHTML = `<div class="showcase-grid">${favGames.map(g => `<div class="showcase-item" title="${escapeHTML(g.title)}"><img src="${g.icon}" onerror="this.src='https://dummyimage.com/100x100/333333/ffffff&text=Game'"></div>`).join('')}</div>`;
+        
+        if (showcaseGames.length > 0) {
+            contentHTML = `<div class="showcase-carousel" id="gamesCarousel">${showcaseGames.map(g => `
+                <div class="showcase-item" title="${escapeHTML(g.title)}" data-id="${g.id}">
+                    <img src="${g.icon}" onerror="this.src='https://placehold.co/600x900/333333/ffffff?text=Game'">
+                </div>`).join('')}</div>`;
         } else {
-            contentHTML = '<div style="color:var(--text-muted); font-size:14px; padding:10px;">Игры еще не выбраны</div>';
+            contentHTML = '<div style="color:var(--text-muted); font-size:14px; padding:10px;">Игры еще не выбраны (измените в Настройках)</div>';
         }
-        this.modulesContainer.insertAdjacentHTML('beforeend', `<div class="module-card"><div class="module-header"><i class="fa-solid fa-gamepad"></i> Любимые игры <button class="text-btn" id="addFavGameBtn" style="font-size:13px; margin-left:auto">+ Добавить</button></div>${contentHTML}</div>`);
-        document.getElementById('addFavGameBtn').addEventListener('click', () => this.openSelectionModal('game'));
+        
+        this.modulesContainer.insertAdjacentHTML('beforeend', `
+            <div class="module-card">
+                <div class="module-header">
+                    <i class="fa-solid fa-gamepad"></i> Витрина игр
+                </div>
+                ${contentHTML}
+            </div>
+        `);
+
+        // Логика скролла колесиком мыши
+        const carousel = document.getElementById('gamesCarousel');
+        if (carousel) {
+            carousel.addEventListener('wheel', (evt) => {
+                if (evt.deltaY !== 0) {
+                    evt.preventDefault();
+                    // Скроллим вбок вместо вниз
+                    carousel.scrollLeft += evt.deltaY;
+                }
+            }, { passive: false });
+        }
     }
 
     renderSocialsModule() {
@@ -333,7 +327,14 @@ export class ProfileController {
         if (s.telegram) linksHTML += `<a href="https://t.me/${s.telegram}" target="_blank" class="social-badge"><i class="fa-brands fa-telegram"></i> ${escapeHTML(s.telegram)}</a>`;
         if (s.github) linksHTML += `<a href="https://github.com/${s.github}" target="_blank" class="social-badge"><i class="fa-brands fa-github"></i> ${escapeHTML(s.github)}</a>`;
         linksHTML += '</div>';
-        this.modulesContainer.insertAdjacentHTML('beforeend', `<div class="module-card"><div class="module-header"><i class="fa-solid fa-link"></i> Контакты</div>${linksHTML}</div>`);
+        this.modulesContainer.insertAdjacentHTML('beforeend', `
+            <div class="module-card">
+                <div class="module-header">
+                    <i class="fa-solid fa-link"></i> Контакты
+                </div>
+                ${linksHTML}
+            </div>
+        `);
     }
 
     renderPosts() {
@@ -345,6 +346,7 @@ export class ProfileController {
         }
     }
 
+    // --- НАСТРОЙКИ ---
     initSettingsDropdowns() {
         const fillSelect = (id, items) => {
             const el = document.getElementById(id);
@@ -364,11 +366,95 @@ export class ProfileController {
         document.getElementById('editFrame').value = p.frameId;
         document.getElementById('editBackground').value = p.backgroundId;
         document.getElementById('editTitle').value = p.titleId;
-        
         document.getElementById('checkGamesModule').checked = p.modules.games;
         document.getElementById('checkSocialsModule').checked = p.modules.socials;
         
+        // Загружаем текущие данные во временные переменные
+        this.tempShowcaseGames = [...(p.showcaseGames || [])];
+        this.tempMusicId = p.musicId || null;
+        
+        this.renderSettingsGamesList();
+        this.renderSettingsMusicState();
+
         this.settingsModal.classList.add('active');
+    }
+
+    renderSettingsMusicState() {
+        const trackContainer = document.getElementById('settingsCurrentTrack');
+        if (this.tempMusicId) {
+            const track = this.dataManager.getTrackById(this.tempMusicId);
+            if (track) {
+                trackContainer.innerHTML = `
+                    <img src="${track.cover}" style="width:40px; height:40px; border-radius:6px; object-fit:cover;">
+                    <div style="flex:1; min-width:0;">
+                        <div style="font-size:14px; font-weight:bold; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${escapeHTML(track.title)}</div>
+                        <div style="font-size:12px; color:var(--text-muted);">${escapeHTML(track.artist)}</div>
+                    </div>
+                `;
+                trackContainer.style.display = 'flex';
+                return;
+            }
+        }
+        trackContainer.style.display = 'none';
+    }
+
+    renderSettingsGamesList() {
+        const listContainer = document.getElementById('settingsGamesList');
+        listContainer.innerHTML = '';
+
+        if (this.tempShowcaseGames.length === 0) {
+            listContainer.innerHTML = '<div style="color:var(--text-muted); font-size:13px; text-align:center; padding:10px;">Список пуст. Добавьте игры для витрины.</div>';
+            return;
+        }
+
+        this.tempShowcaseGames.forEach((gameId, index) => {
+            const game = this.dataManager.getGameById(gameId);
+            if(!game) return;
+            
+            const el = document.createElement('div');
+            el.className = 'settings-list-item';
+            el.draggable = true;
+            
+            el.innerHTML = `
+                <div class="drag-handle" title="Потяните для сортировки"><i class="fa-solid fa-grip-vertical"></i></div>
+                <img src="${game.icon}" class="settings-item-img" onerror="this.src='https://placehold.co/100x150/333333/ffffff?text=G'">
+                <span class="settings-item-title" title="${escapeHTML(game.title)}">${escapeHTML(game.title)}</span>
+                <button class="icon-btn-small remove-item-btn" title="Удалить из списка"><i class="fa-solid fa-xmark"></i></button>
+            `;
+            
+            // Drag & Drop
+            el.addEventListener('dragstart', (e) => {
+                e.dataTransfer.setData('text/plain', index);
+                e.dataTransfer.effectAllowed = 'move';
+                setTimeout(() => el.classList.add('dragging'), 0);
+            });
+            el.addEventListener('dragend', () => el.classList.remove('dragging'));
+            el.addEventListener('dragover', (e) => {
+                e.preventDefault();
+                e.dataTransfer.dropEffect = 'move';
+                el.classList.add('drag-over');
+            });
+            el.addEventListener('dragleave', () => el.classList.remove('drag-over'));
+            el.addEventListener('drop', (e) => {
+                e.preventDefault();
+                el.classList.remove('drag-over');
+                const fromIndex = parseInt(e.dataTransfer.getData('text/plain'));
+                const toIndex = index;
+                if (fromIndex !== toIndex && !isNaN(fromIndex)) {
+                    const movedItem = this.tempShowcaseGames.splice(fromIndex, 1)[0];
+                    this.tempShowcaseGames.splice(toIndex, 0, movedItem);
+                    this.renderSettingsGamesList(); 
+                }
+            });
+            
+            // Кнопка удаления
+            el.querySelector('.remove-item-btn').addEventListener('click', () => {
+                this.tempShowcaseGames.splice(index, 1);
+                this.renderSettingsGamesList();
+            });
+            
+            listContainer.appendChild(el);
+        });
     }
 
     saveSettings() {
@@ -384,6 +470,8 @@ export class ProfileController {
             frameId: document.getElementById('editFrame').value,
             backgroundId: document.getElementById('editBackground').value,
             titleId: document.getElementById('editTitle').value,
+            showcaseGames: this.tempShowcaseGames, // Сохраняем именно ВИТРИНУ
+            musicId: this.tempMusicId,
             modules: {
                 music: false, 
                 games: document.getElementById('checkGamesModule').checked,
@@ -399,15 +487,15 @@ export class ProfileController {
         this.settingsModal.classList.remove('active');
     }
 
-    openSelectionModal(type, target = 'showcase') {
+    openSelectionModal(type, target) {
         this.selectionModal.classList.add('active');
         this.selectionList.innerHTML = '';
-        this.selectionModalTitle.textContent = type === 'game' ? 'Добавить игру' : 'Добавить трек';
+        this.selectionModalTitle.textContent = type === 'game' ? 'Добавить игру' : 'Установить трек';
         
         const items = type === 'game' ? this.dataManager.getGamesCatalog() : this.dataManager.getMusicCatalog();
         
         if (items.length === 0) {
-            this.selectionList.innerHTML = '<div style="padding:20px; text-align:center; color: var(--text-muted);">Список пуст или не загружен</div>';
+            this.selectionList.innerHTML = '<div style="padding:20px; text-align:center; color: var(--text-muted);">Список пуст</div>';
             return;
         }
 
@@ -421,10 +509,14 @@ export class ProfileController {
             el.innerHTML = `<img src="${img}"><div class="select-info"><span class="select-title">${escapeHTML(title)}</span><span class="select-subtitle">${escapeHTML(sub)}</span></div>`;
             
             el.addEventListener('click', () => {
-                if (target === 'profileMusic') {
-                    this.setProfileMusic(item.id);
-                } else {
-                    this.addToShowcase(type, item.id);
+                if (target === 'settingsMusic') {
+                    this.tempMusicId = item.id;
+                    this.renderSettingsMusicState();
+                } else if (target === 'settingsGame') {
+                    if (!this.tempShowcaseGames.includes(item.id)) {
+                        this.tempShowcaseGames.push(item.id);
+                        this.renderSettingsGamesList();
+                    }
                 }
                 this.selectionModal.classList.remove('active');
             });
@@ -432,20 +524,12 @@ export class ProfileController {
         });
     }
 
-    addToShowcase(type, id) {
-        if (type === 'game') {
-            const list = this.currentUser.favoriteGames || [];
-            if (!list.includes(id)) list.push(id);
-            this.dataManager.saveProfileData({ favoriteGames: list });
-        }
-        this.currentUser = this.dataManager.getProfileData(); 
-        this.renderModules();
-    }
-
-    setProfileMusic(id) {
-        this.dataManager.saveProfileData({ musicId: id });
-        this.currentUser = this.dataManager.getProfileData();
-        this.renderProfileHeader();
+    closeGameModal() {
+        // Останавливаем видео
+        const trailerEl = document.getElementById('gdTrailer');
+        if (trailerEl) trailerEl.innerHTML = '';
+        
+        this.gameDetailsModal.classList.remove('active');
     }
 
     initEventListeners() {
@@ -464,24 +548,54 @@ export class ProfileController {
         });
 
         this.openSettingsBtn.addEventListener('click', () => this.openSettings());
-        this.closeSettingsBtn.addEventListener('click', () => {
-            if(this.settingsModal) this.settingsModal.classList.remove('active');
-        });
+        this.closeSettingsBtn.addEventListener('click', () => { if(this.settingsModal) this.settingsModal.classList.remove('active'); });
         this.saveSettingsBtn.addEventListener('click', () => this.saveSettings());
         
         document.getElementById('selectProfileTrackBtn').addEventListener('click', () => {
-            this.openSelectionModal('music', 'profileMusic');
+            this.openSelectionModal('music', 'settingsMusic');
         });
         document.getElementById('removeProfileTrackBtn').addEventListener('click', () => {
-            this.setProfileMusic(null);
+            this.tempMusicId = null;
+            this.renderSettingsMusicState();
+        });
+        document.getElementById('settingsAddGameBtn').addEventListener('click', () => {
+            this.openSelectionModal('game', 'settingsGame');
         });
 
-        this.closeSelectionBtn.addEventListener('click', () => {
-            if(this.selectionModal) this.selectionModal.classList.remove('active');
-        });
-        
+        this.closeSelectionBtn.addEventListener('click', () => { if(this.selectionModal) this.selectionModal.classList.remove('active'); });
         document.addEventListener('keydown', this.handleEsc);
         
+        // КЛИК ПО ИГРЕ В ВИТРИНЕ ПРОФИЛЯ
+        this.modulesContainer.addEventListener('click', (e) => {
+            const item = e.target.closest('.showcase-item');
+            if (item) {
+                const game = this.dataManager.getGameById(item.dataset.id);
+                if (game) {
+                    const trailerEl = document.getElementById('gdTrailer');
+                    if (game.trailer) {
+                        trailerEl.style.display = 'block';
+                        trailerEl.innerHTML = `<iframe src="${game.trailer}" allow="autoplay; encrypted-media" allowfullscreen></iframe>`;
+                    } else {
+                        trailerEl.style.display = 'none';
+                        trailerEl.innerHTML = '';
+                    }
+
+                    document.getElementById('gdCover').src = game.icon;
+                    document.getElementById('gdTitle').textContent = game.title;
+                    document.getElementById('gdGenre').textContent = game.genre;
+                    document.getElementById('gdDescription').textContent = game.description || 'Описание отсутствует.';
+                    
+                    this.gameDetailsModal = document.getElementById('gameDetailsModal');
+                    if (this.gameDetailsModal) this.gameDetailsModal.classList.add('active');
+                }
+            }
+        });
+
+        const closeGameBtn = document.getElementById('closeGameDetailsBtn');
+        if (closeGameBtn) {
+            closeGameBtn.addEventListener('click', () => this.closeGameModal());
+        }
+
         if (this.publishBtn) {
             this.publishBtn.addEventListener('click', () => {
                 const text = this.postInput.value.trim();
