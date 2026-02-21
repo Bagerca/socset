@@ -72,8 +72,10 @@
 @keyframes fadeInModal { from { opacity: 0; } to { opacity: 1; } }
 @keyframes slideUpModal { from { transform: translateY(20px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
 
-/* Стили для прикрепленного контента в посте */
+/* Стили для превью контента при создании поста */
 .attached-content-preview {
+    flex: 1;
+    min-width: 200px;
     margin-top: 10px;
     padding: 10px;
     background: rgba(255,255,255,0.05);
@@ -86,9 +88,10 @@
 .attached-content-preview .remove-btn {
     margin-left: auto; color: var(--text-muted); cursor: pointer;
 }
+.attached-content-preview .remove-btn:hover { color: var(--danger); }
 
-/* Карточки в посте */
-.post-music-card, .post-game-card {
+/* Карточка музыки внутри поста */
+.post-music-card {
     margin-top: 12px;
     background: #1a1a1c;
     border: 1px solid var(--border-color);
@@ -98,11 +101,50 @@
     align-items: center;
     gap: 16px;
 }
-.post-music-cover { width: 56px; height: 56px; border-radius: 6px; object-fit: cover; }
-.post-game-cover { width: 48px; height: 48px; border-radius: 8px; object-fit: cover; }
-.post-card-info { flex: 1; }
-.post-card-title { font-weight: 700; font-size: 15px; }
+.post-music-cover { 
+    width: 56px; 
+    height: 56px; 
+    border-radius: 6px; 
+    object-fit: cover; 
+}
+
+/* Карточка игры внутри поста (выделяется фоном и пропорциями) */
+.post-game-card {
+    margin-top: 12px;
+    background: linear-gradient(145deg, rgba(30, 30, 35, 0.4) 0%, rgba(20, 20, 24, 0.6) 100%);
+    border: 1px solid rgba(255, 255, 255, 0.05);
+    border-left: 3px solid #5dade2; /* Голубой акцент сбоку */
+    border-radius: 12px;
+    padding: 12px;
+    display: flex;
+    align-items: center;
+    gap: 16px;
+}
+.post-game-cover { 
+    width: 54px; 
+    height: 72px; /* Соотношение 3:4 (прямоугольная коробка) */
+    border-radius: 6px; 
+    object-fit: cover; 
+    box-shadow: 0 4px 10px rgba(0,0,0,0.3);
+}
+
+.post-card-info { flex: 1; min-width: 0; }
+.post-card-title { font-weight: 700; font-size: 15px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .post-card-subtitle { font-size: 13px; color: var(--text-muted); }
+
+/* Кнопка "Перейти" у карточки игры */
+.btn-game-link {
+    font-size: 13px;
+    font-weight: 600;
+    padding: 6px 14px;
+    background: rgba(255, 255, 255, 0.1);
+    color: var(--text-main);
+    border-radius: 8px;
+    border: none;
+    cursor: pointer;
+    transition: 0.2s;
+}
+.btn-game-link:hover { background: rgba(255, 255, 255, 0.2); }
 
 /* --- МОДАЛКА ОПИСАНИЯ ИГРЫ (ОБНОВЛЕННАЯ) --- */
 

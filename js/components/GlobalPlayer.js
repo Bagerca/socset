@@ -4,7 +4,6 @@ export class GlobalPlayer {
     constructor(dataManager) {
         this.dataManager = dataManager;
         
-        // Элементы UI (Глобального виджета)
         this.widget = document.getElementById('globalPlayerWidget');
         this.audio = document.getElementById('globalAudioPlayer');
         this.btnClose = document.getElementById('gpCloseBtn');
@@ -24,14 +23,12 @@ export class GlobalPlayer {
         this.volumeBar = document.getElementById('gpVolumeBar');
         this.volumeIcon = document.getElementById('gpVolumeIcon');
 
-        // Состояние
         this.playlist = [];
         this.currentIndex = -1;
         this.isDragging = false;
         
-        // НОВЫЕ РЕЖИМЫ
         this.isShuffle = false;
-        this.repeatMode = 0; // 0: Off, 1: All, 2: One
+        this.repeatMode = 0; 
 
         this.init();
     }
@@ -53,13 +50,12 @@ export class GlobalPlayer {
             this.updateSliderBg(this.progressBar);
         });
         
-        // Логика окончания трека (с учетом повтора)
         this.audio.addEventListener('ended', () => {
             if (this.repeatMode === 2) {
                 this.audio.currentTime = 0;
                 this.safePlay();
             } else {
-                this.next(true); // true = автопереключение
+                this.next(true); 
             }
         });
         
@@ -116,8 +112,10 @@ export class GlobalPlayer {
             this.elTitle.title = track.title;
             this.elArtist.textContent = track.artist;
             
-            // Отправляем событие, чтобы обновить UI в MusicController
             document.dispatchEvent(new CustomEvent('cycle:track-changed', { detail: track }));
+            
+            // Синхронизируем кнопки в постах при смене трека
+            this.syncPostPlayButtons();
         }
     }
 
@@ -135,24 +133,17 @@ export class GlobalPlayer {
         }
     }
 
-    // Логика переключения
     next(auto = false) {
         if (this.playlist.length === 0) return;
 
         if (this.isShuffle) {
-            // Случайный трек
             let newIndex = Math.floor(Math.random() * this.playlist.length);
-            // Пытаемся не повторять тот же трек, если плейлист > 1
             if (this.playlist.length > 1 && newIndex === this.currentIndex) {
                 newIndex = (newIndex + 1) % this.playlist.length;
             }
             this.currentIndex = newIndex;
         } else {
-            // Обычный порядок
-            if (auto && this.repeatMode === 0 && this.currentIndex === this.playlist.length - 1) {
-                // Конец плейлиста и повтор выключен -> стоп
-                return;
-            }
+            if (auto && this.repeatMode === 0 && this.currentIndex === this.playlist.length - 1) return;
             this.currentIndex = (this.currentIndex + 1) % this.playlist.length;
         }
 
@@ -165,7 +156,6 @@ export class GlobalPlayer {
         if (this.audio.currentTime > 3) { this.audio.currentTime = 0; return; }
         
         if (this.isShuffle) {
-            // В режиме шафла "назад" обычно тоже рандом или история, но для простоты сделаем рандом
             this.currentIndex = Math.floor(Math.random() * this.playlist.length);
         } else {
             this.currentIndex = (this.currentIndex - 1 + this.playlist.length) % this.playlist.length;
@@ -175,14 +165,12 @@ export class GlobalPlayer {
         this.safePlay();
     }
 
-    // Управление режимами
     toggleShuffle() {
         this.isShuffle = !this.isShuffle;
         return this.isShuffle;
     }
 
     toggleRepeat() {
-        // 0 -> 1 -> 2 -> 0
         this.repeatMode = (this.repeatMode + 1) % 3;
         return this.repeatMode;
     }
@@ -204,8 +192,22 @@ export class GlobalPlayer {
 
     updatePlayBtn(isPlaying) {
         this.btnPlay.innerHTML = isPlaying ? '<i class="fa-solid fa-pause"></i>' : '<i class="fa-solid fa-play"></i>';
-        // Также отправляем событие для обновления других UI
         document.dispatchEvent(new CustomEvent('cycle:play-state', { detail: isPlaying }));
+        
+        // Синхронизируем кнопки в постах при нажатии Play/Pause
+        this.syncPostPlayButtons();
+    }
+
+    // НОВЫЙ МЕТОД ДЛЯ СИНХРОНИЗАЦИИ ПОСТОВ НА ЛЕТУ
+    syncPostPlayButtons() {
+        const currentTrack = this.playlist[this.currentIndex];
+        document.querySelectorAll('.post-music-play-btn').forEach(btn => {
+            if (currentTrack && btn.dataset.id === currentTrack.id && !this.audio.paused) {
+                btn.innerHTML = '<i class="fa-solid fa-pause"></i>';
+            } else {
+                btn.innerHTML = '<i class="fa-solid fa-play"></i>';
+            }
+        });
     }
 
     updateVolumeIcon(val) {

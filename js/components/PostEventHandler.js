@@ -4,9 +4,7 @@ export class PostEventHandler {
     constructor(dataManager, postRenderer, refreshCallback) {
         this.dataManager = dataManager;
         this.postRenderer = postRenderer;
-        this.refreshCallback = refreshCallback; // Полная перерисовка (используется при удалении)
-        
-        // Используем переименованный сервис
+        this.refreshCallback = refreshCallback; 
         this.audioService = new AudioService();
         this.recordingBtn = null;
     }
@@ -15,7 +13,6 @@ export class PostEventHandler {
         const target = e.target;
         const postElement = target.closest('.post');
 
-        // Открытие меню опций
         const optionsBtn = target.closest('.post-options-btn');
         if (optionsBtn) {
             const menu = optionsBtn.nextElementSibling;
@@ -24,28 +21,21 @@ export class PostEventHandler {
             return;
         }
 
-        // --- 1. ЛАЙКИ (Точечное обновление без перерисовки поста!) ---
         const likeBtn = target.closest('.like-btn');
         if (likeBtn) {
             const postId = likeBtn.dataset.id;
             const updatedPost = this.dataManager.toggleLike(postId);
-            
             if (updatedPost) {
-                // Меняем только классы и текст счетчика, музыка не прервется!
                 likeBtn.classList.toggle('liked', updatedPost.isLiked);
-                const icon = likeBtn.querySelector('i');
-                const span = likeBtn.querySelector('span');
-                icon.className = `fa-${updatedPost.isLiked ? 'solid' : 'regular'} fa-heart`;
-                span.textContent = updatedPost.likes;
+                likeBtn.querySelector('i').className = `fa-${updatedPost.isLiked ? 'solid' : 'regular'} fa-heart`;
+                likeBtn.querySelector('span').textContent = updatedPost.likes;
             }
             return;
         }
 
-        // --- 2. УДАЛЕНИЕ ---
         const deleteBtn = target.closest('.delete-post-btn');
         if (deleteBtn && confirm('Удалить пост?')) {
             this.dataManager.deletePost(deleteBtn.dataset.id);
-            // Удаляем элемент из DOM с анимацией (без полной перерисовки ленты)
             if (postElement) {
                 postElement.style.opacity = '0';
                 setTimeout(() => postElement.remove(), 300);
@@ -53,16 +43,13 @@ export class PostEventHandler {
             return;
         }
 
-        // --- 3. ПРИВАТНОСТЬ ---
         const visibilityBtn = target.closest('.toggle-visibility-btn');
         if (visibilityBtn) {
-            const postId = visibilityBtn.dataset.id;
-            this.dataManager.togglePostVisibility(postId);
-            this._reRenderSinglePost(postId, postElement);
+            this.dataManager.togglePostVisibility(visibilityBtn.dataset.id);
+            this._reRenderSinglePost(visibilityBtn.dataset.id, postElement);
             return;
         }
 
-        // --- 4. ОПРОСЫ ---
         const voteBtn = target.closest('.poll-vote-btn');
         if (voteBtn) {
             const postId = voteBtn.dataset.postId;
@@ -71,7 +58,6 @@ export class PostEventHandler {
             return;
         }
 
-        // --- 5. КОММЕНТАРИИ ---
         const commentBtn = target.closest('.action-btn-comment');
         if (commentBtn) {
             document.getElementById(`comments-${commentBtn.dataset.id}`).classList.toggle('active');
@@ -97,21 +83,43 @@ export class PostEventHandler {
             return;
         }
 
-        // --- 6. ЗАПИСЬ АУДИО ---
         const recordBtn = target.closest('.record-btn');
         if (recordBtn) {
             this._handleAudioRecording(recordBtn);
             return;
         }
 
-        // --- 7. ВОСПРОИЗВЕДЕНИЕ АУДИО ---
+        // --- ВОСПРОИЗВЕДЕНИЕ МУЗЫКИ ИЗ ПОСТА (СИНХРОНИЗАЦИЯ С GLOBAL PLAYER) ---
+        const postMusicBtn = target.closest('.post-music-play-btn');
+        if (postMusicBtn) {
+            const trackId = postMusicBtn.dataset.id;
+            if (window.cyclePlayer) {
+                const currentTrack = window.cyclePlayer.playlist[window.cyclePlayer.currentIndex];
+                // Если кликнули на тот же трек, который играет - ставим на паузу
+                if (currentTrack && currentTrack.id === trackId) {
+                    window.cyclePlayer.togglePlay();
+                } else {
+                    // Загружаем общий каталог музыки и включаем нужный
+                    window.cyclePlayer.playlist = this.dataManager.getMusicCatalog();
+                    window.cyclePlayer.playTrack(trackId);
+                }
+            }
+            return;
+        }
+
+        // --- ВОСПРОИЗВЕДЕНИЕ ГОЛОСОВЫХ (ЛОКАЛЬНО) ---
         const playAudioBtn = target.closest('.audio-control-btn');
         if (playAudioBtn) {
             const audio = playAudioBtn.nextElementSibling;
             const progressBar = playAudioBtn.parentElement.querySelector('.wave-progress');
             if (audio.paused) {
-                // Ставим на паузу все остальные плееры
-                document.querySelectorAll('audio').forEach(a => { if(a !== audio){ a.pause(); a.currentTime = 0; } });
+                // Ставим на паузу Глобальную Музыку, чтобы послушать голос
+                if (window.cyclePlayer && !window.cyclePlayer.audio.paused) {
+                    window.cyclePlayer.audio.pause();
+                }
+                
+                // Ставим на паузу другие голосовые
+                document.querySelectorAll('audio').forEach(a => { if(a !== audio && a.id !== 'globalAudioPlayer'){ a.pause(); a.currentTime = 0; } });
                 
                 audio.play();
                 playAudioBtn.innerHTML = '<i class="fa-solid fa-pause"></i>';
@@ -125,19 +133,13 @@ export class PostEventHandler {
         }
     }
 
-    // Вспомогательный метод: перерисовывает ТОЛЬКО один пост (например, когда изменился опрос)
     _reRenderSinglePost(postId, oldElement) {
         if (!oldElement) return;
         const post = this.dataManager.getAllPosts().find(p => p.id === postId);
         if (post) {
-            // Генерируем новый HTML только для этого поста
-            const newHTML = this.postRenderer.createPostHTML(post);
-            // Создаем временный контейнер, чтобы извлечь из него готовый элемент
             const temp = document.createElement('div');
-            temp.innerHTML = newHTML;
-            const newElement = temp.firstElementChild;
-            // Заменяем старый пост на новый в DOM
-            oldElement.replaceWith(newElement);
+            temp.innerHTML = this.postRenderer.createPostHTML(post);
+            oldElement.replaceWith(temp.firstElementChild);
         }
     }
 
@@ -145,7 +147,6 @@ export class PostEventHandler {
         if (this.recordingBtn === btn) {
             btn.classList.remove('recording');
             this.recordingBtn = null;
-            // Используем метод stop() из сервиса
             const result = await this.audioService.stop();
             if (result) {
                 this.dataManager.addComment(btn.dataset.id, result.base64, 'audio', result.waveform);
@@ -153,7 +154,6 @@ export class PostEventHandler {
             }
         } else {
             if (this.recordingBtn) this.recordingBtn.classList.remove('recording');
-            // Используем метод start() из сервиса
             const success = await this.audioService.start();
             if (success) {
                 btn.classList.add('recording');
@@ -168,7 +168,6 @@ export class PostEventHandler {
         if (post && commentsList) {
             commentsList.innerHTML = post.comments.map(c => this.postRenderer.createCommentHTML(c, postId)).join('');
             commentsList.scrollTop = commentsList.scrollHeight;
-            
             const counter = document.querySelector(`.post[data-id="${postId}"] .action-btn-comment span`);
             if (counter) counter.textContent = post.comments.length;
         }

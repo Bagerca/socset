@@ -6,38 +6,33 @@ export class FeedController {
     constructor(dataManager) {
         this.dataManager = dataManager;
         
-        // Подключаем компоненты
         this.postRenderer = new PostRenderer(dataManager);
         this.postEvents = new PostEventHandler(dataManager, this.postRenderer, () => this.renderAll());
         
-        // --- Элементы UI ---
         this.container = document.getElementById('postsContainer');
         this.input = document.getElementById('postInput');
         this.publishBtn = document.getElementById('publishBtn');
         
-        // Опрос
         this.togglePollBtn = document.getElementById('togglePollBtn');
         this.pollCreator = document.getElementById('pollCreator');
         this.closePollBtn = document.getElementById('closePollBtn');
         this.pollInputsContainer = document.getElementById('pollInputs');
         this.addOptionBtn = document.getElementById('addOptionBtn');
         
-        // Прикрепление медиа
         this.attachMusicBtn = document.getElementById('attachMusicBtn');
         this.attachGameBtn = document.getElementById('attachGameBtn');
         this.attachmentPreview = document.getElementById('attachmentPreview');
         
-        // Модальное окно
         this.modal = document.getElementById('selectionModal');
         this.modalTitle = document.getElementById('modalTitle');
         this.modalList = document.getElementById('modalList');
         this.closeModalBtn = document.getElementById('closeModalBtn');
 
-        // Состояние
         this.isPollActive = false;
-        this.currentAttachment = null;
+        
+        // ТЕПЕРЬ СОХРАНЯЕМ И МУЗЫКУ И ИГРУ
+        this.currentAttachments = { music: null, game: null };
 
-        // Сохраняем ссылки для удаления в destroy()
         this.handleGlobalClick = () => { if(this.contextMenu) this.contextMenu.style.display = 'none'; };
         this.handleGlobalScroll = () => { if(this.contextMenu) this.contextMenu.style.display = 'none'; };
 
@@ -168,31 +163,57 @@ export class FeedController {
     }
 
     selectAttachment(type, id, itemData) {
-        this.currentAttachment = { type, id };
+        // Устанавливаем вложение независимо от другого
+        this.currentAttachments[type] = itemData;
         this.closeModal();
-        
-        this.attachmentPreview.style.display = 'block';
-        const img = type === 'music' ? itemData.cover : itemData.icon;
-        const sub = type === 'music' ? itemData.artist : itemData.genre;
-        
-        this.attachmentPreview.innerHTML = `
-            <div class="attached-content-preview">
-                <img src="${img}" style="width:32px; height:32px; border-radius:4px;">
-                <div style="font-size:14px;">
-                    <strong>${escapeHTML(itemData.title)}</strong> <span style="color:var(--text-muted)">${escapeHTML(sub)}</span>
-                </div>
-                <div class="remove-btn"><i class="fa-solid fa-xmark"></i></div>
-            </div>
-        `;
-        
-        this.attachmentPreview.querySelector('.remove-btn').addEventListener('click', () => {
-            this.currentAttachment = null;
+        this.updateAttachmentPreview();
+        this.checkPublishState();
+    }
+
+    updateAttachmentPreview() {
+        if (!this.currentAttachments.music && !this.currentAttachments.game) {
             this.attachmentPreview.style.display = 'none';
             this.attachmentPreview.innerHTML = '';
-            this.checkPublishState();
-        });
+            return;
+        }
 
-        this.checkPublishState();
+        this.attachmentPreview.style.display = 'flex';
+        this.attachmentPreview.style.gap = '10px';
+        this.attachmentPreview.style.flexWrap = 'wrap';
+        this.attachmentPreview.innerHTML = '';
+
+        const renderPreview = (type, data) => {
+            if (!data) return;
+            const img = type === 'music' ? data.cover : data.icon;
+            const sub = type === 'music' ? data.artist : data.genre;
+            
+            const el = document.createElement('div');
+            el.className = 'attached-content-preview';
+            
+            // Разные пропорции картинки для превью (Игра - книжная, Музыка - квадрат)
+            const imgStyle = type === 'game' 
+                ? 'width:32px; height:42px; border-radius:4px; object-fit:cover;' 
+                : 'width:32px; height:32px; border-radius:4px; object-fit:cover;';
+
+            el.innerHTML = `
+                <img src="${img}" style="${imgStyle}">
+                <div style="font-size:14px; flex:1; min-width:0;">
+                    <div style="white-space:nowrap; overflow:hidden; text-overflow:ellipsis;"><strong>${escapeHTML(data.title)}</strong></div>
+                    <div style="color:var(--text-muted); font-size:12px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${escapeHTML(sub)}</div>
+                </div>
+                <div class="remove-btn" data-type="${type}"><i class="fa-solid fa-xmark"></i></div>
+            `;
+            
+            el.querySelector('.remove-btn').addEventListener('click', () => {
+                this.currentAttachments[type] = null;
+                this.updateAttachmentPreview();
+                this.checkPublishState();
+            });
+            this.attachmentPreview.appendChild(el);
+        };
+
+        renderPreview('music', this.currentAttachments.music);
+        renderPreview('game', this.currentAttachments.game);
     }
 
     publishPost() {
@@ -206,12 +227,23 @@ export class FeedController {
             }
         }
 
-        if (text.length > 0 || pollData || this.currentAttachment) {
-            this.dataManager.addPost(text, pollData, this.currentAttachment);
+        // Собираем данные вложений
+        let attachData = null;
+        if (this.currentAttachments.music || this.currentAttachments.game) {
+            attachData = {
+                music: this.currentAttachments.music ? this.currentAttachments.music.id : null,
+                game: this.currentAttachments.game ? this.currentAttachments.game.id : null
+            };
+        }
+
+        if (text.length > 0 || pollData || attachData) {
+            this.dataManager.addPost(text, pollData, attachData);
             this.input.value = '';
-            this.currentAttachment = null;
-            this.attachmentPreview.style.display = 'none';
-            this.attachmentPreview.innerHTML = '';
+            
+            // Очищаем вложения после публикации
+            this.currentAttachments = { music: null, game: null };
+            this.updateAttachmentPreview();
+            
             this.closePoll();
             this.renderAll();
         }
@@ -224,7 +256,11 @@ export class FeedController {
                 .filter(input => input.value.trim().length > 0);
             if (validOptions.length >= 2) isPollValid = true;
         }
-        this.publishBtn.disabled = !(this.input.value.trim().length > 0 || this.currentAttachment || isPollValid);
+        
+        const hasText = this.input.value.trim().length > 0;
+        const hasAttachment = this.currentAttachments.music || this.currentAttachments.game;
+        
+        this.publishBtn.disabled = !(hasText || hasAttachment || isPollValid);
     }
 
     togglePoll() { 

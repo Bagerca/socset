@@ -28,13 +28,13 @@
 
 /* Настройки размера и тени картинки */
 .brand-logo {
-    width: 44px; /* УВЕЛИЧЕННЫЙ РАЗМЕР */
+    width: 44px;
     height: 44px;
     filter: drop-shadow(0 4px 12px rgba(0, 0, 0, 0.4));
     transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
-/* Легкое увеличение лого при наведении (орбиты крутятся сами) */
+/* Легкое увеличение лого при наведении */
 .logo-icon a:hover .brand-logo {
     transform: scale(1.1);
 }
@@ -59,6 +59,9 @@
     color: var(--text-muted); 
     cursor: pointer; 
     transition: 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    
+    /* УБИРАЕМ ПОДЧЕРКИВАНИЕ ДЛЯ ИКОНОК */
+    text-decoration: none; 
 }
 
 .nav-item:hover { 

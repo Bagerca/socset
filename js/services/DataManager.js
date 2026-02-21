@@ -29,8 +29,8 @@ export class DataManager {
             avatar: 'https://placehold.co/128x128/333333/ffffff?text=U', banner: 'https://placehold.co/800x250/111111/ffffff?text=Banner',
             frameId: 'frame_none', backgroundId: 'bg_default', titleId: 'title_newbie', musicId: null, 
             modules: { music: true, games: true, socials: true },
-            favoriteGames: [], // Только для вкладки "Избранное"
-            showcaseGames: [], // Только для Витрины профиля
+            favoriteGames: [], 
+            showcaseGames: [], 
             favoriteTracks: [],
             customAlbums: [],
             socials: { telegram: '', github: '' }
@@ -118,22 +118,98 @@ export class DataManager {
     
     getFavoriteGames() { return this.profile.favoriteGames || []; }
 
-    // ПОСТЫ И ПРОФИЛЬ
+    // --- ПОСТЫ И ВЗАИМОДЕЙСТВИЯ ---
     _savePosts() { localStorage.setItem('glassnet_posts', JSON.stringify(this.posts)); }
+    
     addPost(content, pollData = null, attachment = null) {
-        const newPost = { id: generateId(), author: { name: this.profile.name, username: this.profile.username, avatar: this.profile.avatar }, content, likes: 0, isLiked: false, timestamp: Date.now(), poll: null, visibility: 'public', comments: [], views: 0, attachment };
-        this.posts.unshift(newPost); this._savePosts(); return newPost;
+        // Форматируем опрос, если он был передан
+        let formattedPoll = null;
+        if (pollData && pollData.options && pollData.options.length >= 2) {
+            formattedPoll = {
+                options: pollData.options.map(opt => ({
+                    id: 'opt_' + generateId(),
+                    text: opt,
+                    votes: 0
+                })),
+                totalVotes: 0,
+                days: pollData.duration || 3,
+                votedOptionId: null
+            };
+        }
+
+        const newPost = { 
+            id: generateId(), 
+            author: { name: this.profile.name, username: this.profile.username, avatar: this.profile.avatar }, 
+            content, 
+            likes: 0, 
+            isLiked: false, 
+            timestamp: Date.now(), 
+            poll: formattedPoll, // Вставляем сформированный опрос
+            visibility: 'public', 
+            comments: [], 
+            views: 0, 
+            attachment 
+        };
+        this.posts.unshift(newPost); 
+        this._savePosts(); 
+        return newPost;
     }
+
     deletePost(postId) { this.posts = this.posts.filter(p => p.id !== postId); this._savePosts(); }
     togglePostVisibility(postId) { const post = this.posts.find(p => p.id === postId); if (post) { post.visibility = post.visibility === 'public' ? 'private' : 'public'; this._savePosts(); } return post; }
     toggleLike(postId) { const post = this.posts.find(p => p.id === postId); if (post) { post.isLiked = !post.isLiked; post.likes += post.isLiked ? 1 : -1; this._savePosts(); } return post; }
     getAllPosts() { return this.posts; }
     getUserPosts(username) { return this.posts.filter(post => post.author.username === username); }
+
+    // ГОЛОСОВАНИЕ В ОПРОСЕ
+    votePoll(postId, optionId) {
+        const post = this.posts.find(p => p.id === postId);
+        if (post && post.poll && !post.poll.votedOptionId) {
+            const option = post.poll.options.find(o => o.id === optionId);
+            if (option) {
+                option.votes += 1;
+                post.poll.totalVotes += 1;
+                post.poll.votedOptionId = optionId;
+                this._savePosts();
+                return true;
+            }
+        }
+        return false;
+    }
+
     addComment(postId, content, type = 'text', waveform = null) {
         const post = this.posts.find(p => p.id === postId);
-        if (post) { const newComment = { id: generateId(), author: { username: this.profile.username, name: this.profile.name, avatar: this.profile.avatar }, content, type, waveform, timestamp: Date.now(), likes: 0, dislikes: 0 }; post.comments.push(newComment); this._savePosts(); return newComment; }
+        if (post) { 
+            const newComment = { id: generateId(), author: { username: this.profile.username, name: this.profile.name, avatar: this.profile.avatar }, content, type, waveform, timestamp: Date.now(), likes: 0, dislikes: 0, userReaction: null }; 
+            post.comments.push(newComment); 
+            this._savePosts(); 
+            return newComment; 
+        }
     }
-    deleteComment(postId, commentId) { const post = this.posts.find(p => p.id === postId); if (post && post.comments) { post.comments = post.comments.filter(c => c.id !== commentId); this._savePosts(); } }
+    
+    deleteComment(postId, commentId) { 
+        const post = this.posts.find(p => p.id === postId); 
+        if (post && post.comments) { post.comments = post.comments.filter(c => c.id !== commentId); this._savePosts(); } 
+    }
+
+    // РЕАКЦИИ НА КОММЕНТАРИИ (Лайки / Дизлайки)
+    toggleCommentReaction(postId, commentId, type) {
+        const post = this.posts.find(p => p.id === postId);
+        if (!post) return;
+        const comment = post.comments.find(c => c.id === commentId);
+        if (!comment) return;
+
+        if (comment.userReaction === type) {
+            comment[type + 's']--;
+            comment.userReaction = null;
+        } else {
+            if (comment.userReaction) comment[comment.userReaction + 's']--;
+            comment.userReaction = type;
+            if (comment[type + 's'] === undefined) comment[type + 's'] = 0;
+            comment[type + 's']++;
+        }
+        this._savePosts();
+    }
     
     _saveProfile() { localStorage.setItem('glassnet_profile', JSON.stringify(this.profile)); }
     getProfileData() { return this.profile; }

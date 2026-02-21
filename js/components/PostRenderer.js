@@ -26,7 +26,6 @@ export class PostRenderer {
 
         const formattedTime = formatTime(post.timestamp);
 
-        // Используем заглушку (placeholder) на случай ошибки загрузки аватара
         return `
             <article class="post ${isPrivate ? 'private-post' : ''}" data-id="${post.id}">
                 ${optionsMenuHTML}
@@ -115,25 +114,63 @@ export class PostRenderer {
 
     _createAttachmentHTML(attachment) {
         if (!attachment) return '';
-        if (attachment.type === 'music') {
-            const track = this.dataManager.getTrackById(attachment.id);
-            if (!track) return '';
-            return `
-                <div class="post-music-card">
-                    <img src="${track.cover}" class="post-music-cover">
-                    <div class="post-card-info">
-                        <div class="post-card-title">${escapeHTML(track.title)}</div>
-                        <div class="post-card-subtitle">${escapeHTML(track.artist)}</div>
-                    </div>
-                    <button class="icon-btn audio-control-btn" style="background:var(--text-main); color:var(--bg-base); border-radius:50%;"><i class="fa-solid fa-play"></i></button>
-                    <audio src="${track.url}" style="display:none;"></audio>
-                </div>`;
-        } else if (attachment.type === 'game') {
-            const game = this.dataManager.getGameById(attachment.id);
-            if (!game) return '';
-            return `<div class="post-game-card"><img src="${game.icon}" class="post-game-cover"><div class="post-card-info"><div class="post-card-title">${escapeHTML(game.title)}</div><div class="post-card-subtitle">${escapeHTML(game.genre)}</div></div><button class="text-btn" style="font-size:12px;">Перейти</button></div>`;
+        
+        let musicId = null;
+        let gameId = null;
+
+        // Поддержка старого формата постов (где была только 1 переменная)
+        if (attachment.type) {
+            if (attachment.type === 'music') musicId = attachment.id;
+            if (attachment.type === 'game') gameId = attachment.id;
+        } else {
+            // Новый формат
+            musicId = attachment.music;
+            gameId = attachment.game;
         }
-        return '';
+
+        let html = '';
+
+        if (musicId) {
+            const track = this.dataManager.getTrackById(musicId);
+            if (track) {
+                let isPlaying = false;
+                if (window.cyclePlayer && !window.cyclePlayer.audio.paused) {
+                    const currentTrack = window.cyclePlayer.playlist[window.cyclePlayer.currentIndex];
+                    if (currentTrack && currentTrack.id === track.id) {
+                        isPlaying = true;
+                    }
+                }
+
+                html += `
+                    <div class="post-music-card">
+                        <img src="${track.cover}" class="post-music-cover">
+                        <div class="post-card-info">
+                            <div class="post-card-title">${escapeHTML(track.title)}</div>
+                            <div class="post-card-subtitle">${escapeHTML(track.artist)}</div>
+                        </div>
+                        <button class="icon-btn post-music-play-btn" data-id="${track.id}" style="background:var(--text-main); color:var(--bg-base); border-radius:50%;">
+                            <i class="fa-solid fa-${isPlaying ? 'pause' : 'play'}"></i>
+                        </button>
+                    </div>`;
+            }
+        }
+
+        if (gameId) {
+            const game = this.dataManager.getGameById(gameId);
+            if (game) {
+                html += `
+                    <div class="post-game-card">
+                        <img src="${game.icon}" class="post-game-cover">
+                        <div class="post-card-info">
+                            <div class="post-card-title">${escapeHTML(game.title)}</div>
+                            <div class="post-card-subtitle">${escapeHTML(game.genre)}</div>
+                        </div>
+                        <button class="btn-game-link">Перейти</button>
+                    </div>`;
+            }
+        }
+
+        return html;
     }
 
     _createPollHTML(post) {
