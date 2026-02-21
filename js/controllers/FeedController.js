@@ -29,14 +29,19 @@ export class FeedController {
         this.closeModalBtn = document.getElementById('closeModalBtn');
 
         this.isPollActive = false;
-        
-        // ТЕПЕРЬ СОХРАНЯЕМ И МУЗЫКУ И ИГРУ
         this.currentAttachments = { music: null, game: null };
 
-        this.handleGlobalClick = () => { if(this.contextMenu) this.contextMenu.style.display = 'none'; };
-        this.handleGlobalScroll = () => { if(this.contextMenu) this.contextMenu.style.display = 'none'; };
+        this.handleGlobalClick = () => { 
+            if(this.contextMenu) this.contextMenu.style.display = 'none'; 
+            if(this.formatMenu) this.formatMenu.style.display = 'none';
+        };
+        this.handleGlobalScroll = () => { 
+            if(this.contextMenu) this.contextMenu.style.display = 'none'; 
+            if(this.formatMenu) this.formatMenu.style.display = 'none';
+        };
 
-        this.createGlobalContextMenu();
+        this.createGlobalContextMenu(); 
+        this.createFormatContextMenu(); 
         this.init();
     }
 
@@ -46,9 +51,8 @@ export class FeedController {
     }
 
     destroy() {
-        if (this.contextMenu) {
-            this.contextMenu.remove();
-        }
+        if (this.contextMenu) this.contextMenu.remove();
+        if (this.formatMenu) this.formatMenu.remove();
         document.removeEventListener('click', this.handleGlobalClick);
         document.removeEventListener('scroll', this.handleGlobalScroll, true);
     }
@@ -60,6 +64,7 @@ export class FeedController {
 
         const menu = document.createElement('div');
         menu.id = 'customContextMenu';
+        menu.style.display = 'none';
         menu.innerHTML = `<div class="context-menu-item danger" id="ctxDeleteComment"><i class="fa-solid fa-trash"></i> Удалить комментарий</div>`;
         document.body.appendChild(menu);
         this.contextMenu = menu;
@@ -81,12 +86,71 @@ export class FeedController {
         }
     }
 
+    createFormatContextMenu() {
+        if (document.getElementById('formatContextMenu')) document.getElementById('formatContextMenu').remove();
+
+        const menu = document.createElement('div');
+        menu.id = 'formatContextMenu';
+        menu.style.position = 'absolute';
+        menu.style.display = 'none';
+        menu.style.zIndex = '999999';
+        menu.style.background = '#222224';
+        menu.style.border = '1px solid rgba(255,255,255,0.08)';
+        menu.style.borderRadius = '8px';
+        menu.style.padding = '6px 0';
+        menu.style.boxShadow = '0 10px 40px rgba(0,0,0,0.8)';
+
+        menu.innerHTML = `
+            <div class="context-menu-item" id="fmtBold"><i class="fa-solid fa-bold"></i> Жирный</div>
+            <div class="context-menu-item" id="fmtQuote"><i class="fa-solid fa-quote-right"></i> Цитата</div>
+            <div class="context-menu-item" id="fmtSpoiler"><i class="fa-solid fa-eye-slash"></i> Спойлер</div>
+        `;
+        document.body.appendChild(menu);
+        this.formatMenu = menu;
+
+        document.getElementById('fmtBold').addEventListener('click', () => this.applyFormat('**', '**'));
+        document.getElementById('fmtQuote').addEventListener('click', () => this.applyFormat('> ', ''));
+        document.getElementById('fmtSpoiler').addEventListener('click', () => this.applyFormat('||', '||'));
+    }
+
+    applyFormat(prefix, suffix) {
+        const start = this.input.selectionStart;
+        const end = this.input.selectionEnd;
+        if (start === end) return; 
+
+        const text = this.input.value;
+        const selected = text.substring(start, end);
+        
+        this.input.value = text.substring(0, start) + prefix + selected + suffix + text.substring(end);
+        
+        this.formatMenu.style.display = 'none';
+        this.input.focus();
+        this.input.setSelectionRange(start, start + prefix.length + selected.length + suffix.length);
+        
+        this.checkPublishState();
+    }
+
     initEventListeners() {
         this.togglePollBtn.addEventListener('click', () => this.togglePoll());
         this.closePollBtn.addEventListener('click', () => this.closePoll());
         this.addOptionBtn.addEventListener('click', () => this.addPollOption());
         
-        this.input.addEventListener('input', () => this.checkPublishState());
+        // --- АВТОМАТИЧЕСКОЕ РАСШИРЕНИЕ ПОЛЯ ВВОДА ---
+        this.input.addEventListener('input', () => {
+            this.input.style.height = 'auto'; // Сбрасываем высоту
+            this.input.style.height = (this.input.scrollHeight) + 'px'; // Ставим высоту контента
+            this.checkPublishState();
+        });
+        
+        this.input.addEventListener('contextmenu', (e) => {
+            if (this.input.selectionStart !== this.input.selectionEnd) {
+                e.preventDefault(); 
+                this.formatMenu.style.display = 'block';
+                this.formatMenu.style.top = `${e.pageY}px`;
+                this.formatMenu.style.left = `${e.pageX}px`;
+            }
+        });
+
         this.pollInputsContainer.addEventListener('input', () => this.checkPublishState());
         this.publishBtn.addEventListener('click', () => this.publishPost());
 
@@ -163,7 +227,6 @@ export class FeedController {
     }
 
     selectAttachment(type, id, itemData) {
-        // Устанавливаем вложение независимо от другого
         this.currentAttachments[type] = itemData;
         this.closeModal();
         this.updateAttachmentPreview();
@@ -190,7 +253,6 @@ export class FeedController {
             const el = document.createElement('div');
             el.className = 'attached-content-preview';
             
-            // Разные пропорции картинки для превью (Игра - книжная, Музыка - квадрат)
             const imgStyle = type === 'game' 
                 ? 'width:32px; height:42px; border-radius:4px; object-fit:cover;' 
                 : 'width:32px; height:32px; border-radius:4px; object-fit:cover;';
@@ -227,7 +289,6 @@ export class FeedController {
             }
         }
 
-        // Собираем данные вложений
         let attachData = null;
         if (this.currentAttachments.music || this.currentAttachments.game) {
             attachData = {
@@ -240,7 +301,9 @@ export class FeedController {
             this.dataManager.addPost(text, pollData, attachData);
             this.input.value = '';
             
-            // Очищаем вложения после публикации
+            // Сброс высоты поля после отправки
+            this.input.style.height = 'auto';
+
             this.currentAttachments = { music: null, game: null };
             this.updateAttachmentPreview();
             

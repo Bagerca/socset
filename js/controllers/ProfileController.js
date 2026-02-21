@@ -45,6 +45,7 @@ export class ProfileController {
         // Глобальные обработчики (сохраняем ссылки для удаления в destroy)
         this.handleGlobalClick = (e) => {
             if (this.contextMenu && this.contextMenu.style.display === 'block') this.contextMenu.style.display = 'none';
+            if (this.formatMenu) this.formatMenu.style.display = 'none';
             if (e.target === this.settingsModal) this.settingsModal.classList.remove('active');
             if (e.target === this.selectionModal) this.selectionModal.classList.remove('active');
             if (this.gameDetailsModal && e.target === this.gameDetailsModal) this.closeGameModal();
@@ -52,6 +53,7 @@ export class ProfileController {
 
         this.handleGlobalScroll = () => { 
             if (this.contextMenu) this.contextMenu.style.display = 'none'; 
+            if (this.formatMenu) this.formatMenu.style.display = 'none';
         };
 
         this.handleEsc = (e) => {
@@ -60,10 +62,12 @@ export class ProfileController {
                 if (this.selectionModal) this.selectionModal.classList.remove('active');
                 if (this.gameDetailsModal) this.closeGameModal();
                 if (this.contextMenu) this.contextMenu.style.display = 'none';
+                if (this.formatMenu) this.formatMenu.style.display = 'none';
             }
         };
 
         this.createGlobalContextMenu();
+        this.createFormatContextMenu(); // Инициализация меню форматирования
         this.init();
     }
 
@@ -86,6 +90,7 @@ export class ProfileController {
         }
         
         if (this.contextMenu) this.contextMenu.remove();
+        if (this.formatMenu) this.formatMenu.remove();
         
         // Удаляем глобальные слушатели
         document.removeEventListener('click', this.handleGlobalClick);
@@ -103,6 +108,7 @@ export class ProfileController {
         if (document.getElementById('customContextMenu')) document.getElementById('customContextMenu').remove();
         const menu = document.createElement('div');
         menu.id = 'customContextMenu';
+        menu.style.display = 'none';
         menu.innerHTML = `<div class="context-menu-item danger" id="ctxDeleteComment"><i class="fa-solid fa-trash"></i> Удалить комментарий</div>`;
         document.body.appendChild(menu);
         this.contextMenu = menu;
@@ -119,6 +125,51 @@ export class ProfileController {
                 }
             });
         }
+    }
+
+    // --- МЕНЮ ФОРМАТИРОВАНИЯ ТЕКСТА (Профиль) ---
+    createFormatContextMenu() {
+        if (document.getElementById('formatContextMenu')) document.getElementById('formatContextMenu').remove();
+        const menu = document.createElement('div');
+        menu.id = 'formatContextMenu';
+        menu.style.position = 'absolute';
+        menu.style.display = 'none';
+        menu.style.zIndex = '999999';
+        menu.style.background = '#222224';
+        menu.style.border = '1px solid rgba(255,255,255,0.08)';
+        menu.style.borderRadius = '8px';
+        menu.style.padding = '6px 0';
+        menu.style.boxShadow = '0 10px 40px rgba(0,0,0,0.8)';
+        
+        menu.innerHTML = `
+            <div class="context-menu-item" id="fmtBold"><i class="fa-solid fa-bold"></i> Жирный</div>
+            <div class="context-menu-item" id="fmtQuote"><i class="fa-solid fa-quote-right"></i> Цитата</div>
+            <div class="context-menu-item" id="fmtSpoiler"><i class="fa-solid fa-eye-slash"></i> Спойлер</div>
+        `;
+        document.body.appendChild(menu);
+        this.formatMenu = menu;
+
+        document.getElementById('fmtBold').addEventListener('click', () => this.applyFormat('**', '**'));
+        document.getElementById('fmtQuote').addEventListener('click', () => this.applyFormat('> ', ''));
+        document.getElementById('fmtSpoiler').addEventListener('click', () => this.applyFormat('||', '||'));
+    }
+
+    applyFormat(prefix, suffix) {
+        if (!this.postInput) return;
+        
+        const start = this.postInput.selectionStart;
+        const end = this.postInput.selectionEnd;
+        if (start === end) return;
+        
+        const text = this.postInput.value;
+        const selected = text.substring(start, end);
+        this.postInput.value = text.substring(0, start) + prefix + selected + suffix + text.substring(end);
+        
+        this.formatMenu.style.display = 'none';
+        this.postInput.focus();
+        this.postInput.setSelectionRange(start, start + prefix.length + selected.length + suffix.length);
+        
+        if (this.publishBtn) this.publishBtn.disabled = false;
     }
 
     // --- РЕНДЕР ШАПКИ И ПЛЕЕРА ---
@@ -602,12 +653,26 @@ export class ProfileController {
                 if (text) {
                     this.dataManager.addPost(text);
                     this.postInput.value = '';
+                    this.postInput.style.height = 'auto'; // Сброс высоты
                     this.publishBtn.disabled = true;
                     this.renderPosts(); 
                 }
             });
             this.postInput.addEventListener('input', () => {
                 this.publishBtn.disabled = this.postInput.value.trim().length === 0;
+                // Авто-ресайз
+                this.postInput.style.height = 'auto';
+                this.postInput.style.height = (this.postInput.scrollHeight) + 'px';
+            });
+            
+            // Контекстное меню форматирования в профиле
+            this.postInput.addEventListener('contextmenu', (e) => {
+                if (this.postInput.selectionStart !== this.postInput.selectionEnd) {
+                    e.preventDefault();
+                    this.formatMenu.style.display = 'block';
+                    this.formatMenu.style.top = `${e.pageY}px`;
+                    this.formatMenu.style.left = `${e.pageX}px`;
+                }
             });
         }
     }

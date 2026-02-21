@@ -1,4 +1,4 @@
-import { escapeHTML, formatTime } from '../utils/utils.js';
+import { escapeHTML, formatTime, parseFormatting } from '../utils/utils.js';
 
 export class PostRenderer {
     constructor(dataManager) {
@@ -26,6 +26,7 @@ export class PostRenderer {
 
         const formattedTime = formatTime(post.timestamp);
 
+        // Используем parseFormatting для текста поста
         return `
             <article class="post ${isPrivate ? 'private-post' : ''}" data-id="${post.id}">
                 ${optionsMenuHTML}
@@ -37,7 +38,7 @@ export class PostRenderer {
                             <span class="post-username">${escapeHTML(post.author.username)}</span>
                             <span class="post-time">· ${formattedTime}</span>
                         </div>
-                        <div class="post-text">${post.content ? escapeHTML(post.content) : ''}</div>
+                        <div class="post-text">${post.content ? parseFormatting(post.content) : ''}</div>
                         ${attachmentHTML}
                         ${pollHTML}
                     </div>
@@ -83,7 +84,8 @@ export class PostRenderer {
                     </div>
                 </div>`;
         } else {
-            contentHTML = `<div class="comment-text">${escapeHTML(comment.content)}</div>`;
+            // Используем parseFormatting для текста комментария
+            contentHTML = `<div class="comment-text">${parseFormatting(comment.content)}</div>`;
         }
 
         const likedClass = comment.userReaction === 'like' ? 'active-like' : '';
@@ -118,12 +120,10 @@ export class PostRenderer {
         let musicId = null;
         let gameId = null;
 
-        // Поддержка старого формата постов (где была только 1 переменная)
         if (attachment.type) {
             if (attachment.type === 'music') musicId = attachment.id;
             if (attachment.type === 'game') gameId = attachment.id;
         } else {
-            // Новый формат
             musicId = attachment.music;
             gameId = attachment.game;
         }

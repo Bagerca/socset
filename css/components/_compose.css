@@ -16,10 +16,13 @@ textarea {
     border: none; 
     color: var(--text-main); 
     font-size: 18px; 
-    resize: none; 
+    resize: none; /* Запрещаем ручное растягивание */
     outline: none; 
-    min-height: 60px; 
+    min-height: 60px; /* Стартовая высота */
+    max-height: 400px; /* Максимальная высота, дальше все-таки появится скролл */
     font-family: inherit;
+    overflow-y: hidden; /* Скрываем скроллбар, пока не упремся в max-height */
+    line-height: 1.5;
 }
 textarea::placeholder { color: var(--text-muted); }
 
@@ -28,10 +31,9 @@ textarea::placeholder { color: var(--text-muted); }
     display: flex;
     gap: 8px;
     overflow-x: auto;
-    padding-bottom: 8px; /* Небольшой отступ для скроллбара, если он появится */
+    padding-bottom: 8px; 
 }
 
-/* Скрываем контейнер, если он пустой */
 .media-preview-container:empty { 
     display: none; 
     padding: 0; 
@@ -39,7 +41,7 @@ textarea::placeholder { color: var(--text-muted); }
 
 .preview-item {
     position: relative;
-    width: 150px; /* Размер миниатюры */
+    width: 150px; 
     height: 100px;
     flex-shrink: 0;
     border-radius: 12px;
@@ -77,7 +79,7 @@ textarea::placeholder { color: var(--text-muted); }
     transform: scale(1.1);
 }
 
-/* --- ИНТЕРФЕЙС СОЗДАНИЯ ОПРОСА (старый код) --- */
+/* --- ИНТЕРФЕЙС СОЗДАНИЯ ОПРОСА --- */
 .poll-creator {
     display: flex; 
     flex-direction: column; 

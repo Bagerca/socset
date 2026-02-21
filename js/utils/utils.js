@@ -1,4 +1,4 @@
-// js/utils.js
+// js/utils/utils.js
 
 // Защита от XSS атак
 export function escapeHTML(str) {
@@ -8,6 +8,25 @@ export function escapeHTML(str) {
     return div.innerHTML;
 }
 
+// ПАРСЕР ФОРМАТИРОВАНИЯ (Исправленный)
+export function parseFormatting(str) {
+    if (!str) return '';
+    let html = escapeHTML(str);
+    
+    // 1. Цитата: "Съедаем" перенос строки перед символом >, чтобы убрать дыру сверху
+    // (?:^|\n) - ищет либо начало текста, либо перенос строки
+    // &gt; - это экранированный символ >
+    html = html.replace(/(?:^|\n)&gt; (.*)/g, '<div class="post-quote">$1</div>');
+    
+    // 2. Жирный текст: **текст**
+    html = html.replace(/\*\*(.*?)\*\*/g, '<b>$1</b>');
+    
+    // 3. Спойлер: ||текст||
+    html = html.replace(/\|\|(.*?)\|\|/g, '<span class="post-spoiler" onclick="this.classList.toggle(\'revealed\')">$1</span>');
+    
+    return html;
+}
+
 // Генератор случайных ID
 export function generateId() {
     return Math.random().toString(36).substr(2, 9);
@@ -15,7 +34,6 @@ export function generateId() {
 
 // Умное форматирование времени
 export function formatTime(timestamp) {
-    // Поддержка старых постов, где время сохранено строкой "Только что"
     if (typeof timestamp === 'string') return timestamp; 
     
     const diff = Date.now() - timestamp;
@@ -27,7 +45,6 @@ export function formatTime(timestamp) {
     if (minutes < 60) return `${minutes} мин. назад`;
     if (hours < 24) return `${hours} ч. назад`;
     
-    // Если больше дня, показываем дату
     const date = new Date(timestamp);
     const options = { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' };
     return date.toLocaleDateString('ru-RU', options);
