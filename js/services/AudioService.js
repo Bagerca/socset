@@ -1,5 +1,7 @@
-// js/AudioRecorder.js
-export class AudioRecorder {
+// js/services/AudioService.js
+
+// ВНИМАНИЕ: Мы переименовали класс с AudioRecorder на AudioService
+export class AudioService {
     constructor() {
         this.mediaRecorder = null;
         this.audioChunks = [];

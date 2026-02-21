@@ -1,3 +1,4 @@
+/* main.css */
 @import url('base/_variables.css');
 @import url('base/_base.css');
 @import url('components/_sidebar.css');
@@ -9,3 +10,5 @@
 @import url('components/_comments.css');
 @import url('components/_modals.css');
 @import url('components/_catalog.css');
+@import url('components/_player.css');
+@import url('components/_music.css');

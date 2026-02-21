@@ -1,4 +1,4 @@
-import { escapeHTML, formatTime } from './utils.js';
+import { escapeHTML, formatTime } from '../utils/utils.js';
 
 export class PostRenderer {
     constructor(dataManager) {
@@ -26,7 +26,7 @@ export class PostRenderer {
 
         const formattedTime = formatTime(post.timestamp);
 
-        // ЗАМЕНИЛИ onerror В АВАТАРЕ НИЖЕ:
+        // Используем заглушку (placeholder) на случай ошибки загрузки аватара
         return `
             <article class="post ${isPrivate ? 'private-post' : ''}" data-id="${post.id}">
                 ${optionsMenuHTML}
@@ -91,7 +91,6 @@ export class PostRenderer {
         const dislikedClass = comment.userReaction === 'dislike' ? 'active-dislike' : '';
         const formattedTime = formatTime(comment.timestamp);
 
-        // ЗАМЕНИЛИ onerror В АВАТАРЕ КОММЕНТАРИЯ НИЖЕ:
         return `
             <div class="comment-item" data-id="${comment.id}" data-post-id="${postId}" data-author="${comment.author.username}">
                 <img src="${comment.author.avatar}" class="comment-avatar" alt="Аватар" onerror="this.src='https://placehold.co/36x36/333333/ffffff?text=U'">

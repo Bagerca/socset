@@ -1,8 +1,8 @@
-import { escapeHTML } from './utils.js';
-import { PostRenderer } from './PostRenderer.js';
-import { PostEventHandler } from './PostEventHandler.js';
+import { escapeHTML } from '../utils/utils.js';
+import { PostRenderer } from '../components/PostRenderer.js';
+import { PostEventHandler } from '../components/PostEventHandler.js';
 
-export class ProfileUIManager {
+export class ProfileController {
     constructor(dataManager) {
         this.dataManager = dataManager;
         this.currentUser = null;
@@ -20,16 +20,40 @@ export class ProfileUIManager {
         this.playerContainer = document.getElementById('profileAudioPlayerContainer');
         this.modulesContainer = document.getElementById('profileModules');
         this.postsContainer = document.getElementById('profilePostsContainer');
+        
         this.openSettingsBtn = document.getElementById('openSettingsBtn');
         this.settingsModal = document.getElementById('settingsModal');
         this.closeSettingsBtn = document.getElementById('closeSettingsBtn');
         this.saveSettingsBtn = document.getElementById('saveSettingsBtn');
+        
         this.selectionModal = document.getElementById('selectionModal');
         this.selectionList = document.getElementById('modalList');
         this.closeSelectionBtn = document.getElementById('closeSelectionBtn');
         this.selectionModalTitle = document.getElementById('modalTitle');
+        
         this.publishBtn = document.getElementById('publishBtn');
         this.postInput = document.getElementById('postInput');
+
+        // Обработчики для удаления в destroy()
+        this.handleGlobalClick = (e) => {
+            if (this.contextMenu && this.contextMenu.style.display === 'block') {
+                this.contextMenu.style.display = 'none';
+            }
+            if (e.target === this.settingsModal) this.settingsModal.classList.remove('active');
+            if (e.target === this.selectionModal) this.selectionModal.classList.remove('active');
+        };
+
+        this.handleGlobalScroll = () => {
+            if (this.contextMenu) this.contextMenu.style.display = 'none';
+        };
+
+        this.handleEsc = (e) => {
+            if (e.key === 'Escape') {
+                if (this.settingsModal) this.settingsModal.classList.remove('active');
+                if (this.selectionModal) this.selectionModal.classList.remove('active');
+                if (this.contextMenu) this.contextMenu.style.display = 'none';
+            }
+        };
 
         this.createGlobalContextMenu();
         this.init();
@@ -45,8 +69,31 @@ export class ProfileUIManager {
         this.initEventListeners();
     }
 
+    destroy() {
+        // Очищаем слушатели глобального аудио при уходе со страницы профиля
+        const globalAudio = document.getElementById('globalAudioPlayer');
+        if (globalAudio) {
+            if (this.handleProfileAudioPlay) globalAudio.removeEventListener('play', this.handleProfileAudioPlay);
+            if (this.handleProfileAudioPause) globalAudio.removeEventListener('pause', this.handleProfileAudioPause);
+        }
+
+        if (this.contextMenu) this.contextMenu.remove();
+        
+        document.removeEventListener('click', this.handleGlobalClick);
+        document.removeEventListener('scroll', this.handleGlobalScroll, true);
+        document.removeEventListener('keydown', this.handleEsc);
+        
+        if (this.bgLayer) {
+            this.bgLayer.style.backgroundImage = 'none';
+            this.bgLayer.style.backgroundColor = 'transparent'; 
+        }
+    }
+
     createGlobalContextMenu() {
-        if (document.getElementById('customContextMenu')) return;
+        if (document.getElementById('customContextMenu')) {
+            document.getElementById('customContextMenu').remove();
+        }
+
         const menu = document.createElement('div');
         menu.id = 'customContextMenu';
         menu.innerHTML = `<div class="context-menu-item danger" id="ctxDeleteComment"><i class="fa-solid fa-trash"></i> Удалить комментарий</div>`;
@@ -55,8 +102,8 @@ export class ProfileUIManager {
         this.contextTargetCommentId = null;
         this.contextTargetPostId = null;
 
-        document.addEventListener('click', () => { this.contextMenu.style.display = 'none'; });
-        document.addEventListener('scroll', () => { this.contextMenu.style.display = 'none'; }, true);
+        document.addEventListener('click', this.handleGlobalClick);
+        document.addEventListener('scroll', this.handleGlobalScroll, true);
         
         const ctxDeleteBtn = document.getElementById('ctxDeleteComment');
         if (ctxDeleteBtn) {
@@ -113,7 +160,9 @@ export class ProfileUIManager {
             if (track) {
                 this.playerContainer.innerHTML = `
                     <div id="profilePlayerWrapper" class="profile-dynamic-player">
-                        <!-- ИНТЕРАКТИВНАЯ ОБЕРТКА С ИКОНКАМИ -->
+                        <!-- НОВЫЙ ФОНОВЫЙ КАНВАС -->
+                        <canvas id="profileAudioCanvas" class="profile-bg-canvas"></canvas>
+                        
                         <div id="profilePlayerClickArea" class="profile-cover-wrapper" title="Play / Pause">
                             <img src="${track.cover}" class="profile-player-cover">
                             <div class="profile-player-overlay">
@@ -121,31 +170,27 @@ export class ProfileUIManager {
                                 <i class="fa-solid fa-pause pause-icon"></i>
                             </div>
                         </div>
-
                         <div class="profile-player-info">
                             <span class="profile-player-title">${escapeHTML(track.title)}</span>
                             <span class="profile-player-artist">${escapeHTML(track.artist)}</span>
                         </div>
-                        <div class="profile-player-visualizer">
-                            <canvas id="profileAudioCanvas"></canvas>
-                        </div>
-                        <audio id="profileAudioTag" src="${track.url}" crossorigin="anonymous"></audio>
                     </div>
                 `;
-                setTimeout(() => this.initAudioVisualizer(), 50);
+                // Передаем track.id в функцию визуализатора
+                setTimeout(() => this.initAudioVisualizer(track.id), 50);
             }
         } else {
             this.playerContainer.innerHTML = '';
         }
     }
 
-    initAudioVisualizer() {
-        const audio = document.getElementById('profileAudioTag');
+    initAudioVisualizer(trackId) {
+        const globalAudio = document.getElementById('globalAudioPlayer');
         const clickArea = document.getElementById('profilePlayerClickArea'); 
         const canvas = document.getElementById('profileAudioCanvas');
         const wrapper = document.getElementById('profilePlayerWrapper');
         
-        if (!audio || !clickArea || !canvas) return;
+        if (!globalAudio || !clickArea || !canvas) return;
 
         // --- ЛОГИКА ИСЧЕЗНОВЕНИЯ ОВЕРЛЕЯ ---
         const overlay = clickArea.querySelector('.profile-player-overlay');
@@ -153,7 +198,6 @@ export class ProfileUIManager {
 
         const startOverlayTimer = () => {
             clearTimeout(hideOverlayTimeout);
-            // Прячем через 3 секунды
             hideOverlayTimeout = setTimeout(() => {
                 if (overlay) overlay.classList.add('hidden-overlay');
             }, 3000);
@@ -164,113 +208,103 @@ export class ProfileUIManager {
             if (overlay) overlay.classList.remove('hidden-overlay');
         };
 
-        // Слушатели мыши для управления видимостью оверлея
         clickArea.addEventListener('mouseenter', showOverlay);
         clickArea.addEventListener('mouseleave', startOverlayTimer);
-        
-        // Запускаем таймер сразу при рендере плеера
         startOverlayTimer();
-        // ------------------------------------
 
         const ctx = canvas.getContext('2d');
-        canvas.width = 200; 
-        canvas.height = 60;
+        // Увеличиваем разрешение канваса, так как он теперь на всю ширину
+        canvas.width = 600; 
+        canvas.height = 100;
 
-        let audioCtx, analyser, source;
-        let isInitialized = false;
-
-        audio.onerror = () => {
-            if (audio.crossOrigin === 'anonymous') {
-                console.warn("CORS issue. Retrying without CORS.");
-                audio.removeAttribute('crossorigin'); 
-                audio.src = audio.src; 
-                if(canvas) canvas.style.opacity = '0.3';
+        // Синхронизация UI профиля с Глобальным плеером
+        const syncUI = () => {
+            if (window.cyclePlayer && !globalAudio.paused && 
+                window.cyclePlayer.playlist[window.cyclePlayer.currentIndex]?.id === trackId) {
+                wrapper.classList.add('playing');
+            } else {
+                wrapper.classList.remove('playing');
             }
         };
 
+        this.handleProfileAudioPlay = () => syncUI();
+        this.handleProfileAudioPause = () => syncUI();
+        globalAudio.addEventListener('play', this.handleProfileAudioPlay);
+        globalAudio.addEventListener('pause', this.handleProfileAudioPause);
+        syncUI(); // Проверка при старте
+
+        // КЛИК ПО ПЛЕЕРУ В ПРОФИЛЕ
         clickArea.addEventListener('click', async () => {
-            // При клике сбрасываем таймер
             showOverlay();
             startOverlayTimer();
 
-            // Инициализация при первом клике
-            if (!isInitialized && audio.crossOrigin === 'anonymous') {
+            if (!window.cyclePlayer) return;
+
+            // Инициализация Глобального Анализатора (один раз на весь сайт)
+            if (!window.globalAudioAnalyser && globalAudio.crossOrigin === 'anonymous') {
                 try {
                     const AudioContext = window.AudioContext || window.webkitAudioContext;
-                    audioCtx = new AudioContext();
-                    analyser = audioCtx.createAnalyser();
-                    analyser.fftSize = 2048; // Для плавной волны
-                    source = audioCtx.createMediaElementSource(audio);
-                    source.connect(analyser);
-                    analyser.connect(audioCtx.destination);
-                    isInitialized = true;
-                    drawWaveform();
+                    window.globalAudioCtx = new AudioContext();
+                    window.globalAudioAnalyser = window.globalAudioCtx.createAnalyser();
+                    window.globalAudioAnalyser.fftSize = 2048; 
+                    const source = window.globalAudioCtx.createMediaElementSource(globalAudio);
+                    source.connect(window.globalAudioAnalyser);
+                    window.globalAudioAnalyser.connect(window.globalAudioCtx.destination);
                 } catch (e) {
-                    console.log("Visualizer init failed.");
+                    console.warn("Global visualizer init failed", e);
                 }
             }
 
-            if (audio.paused) {
-                document.querySelectorAll('audio').forEach(a => { if (a !== audio) a.pause(); });
-                if (audioCtx && audioCtx.state === 'suspended') await audioCtx.resume();
-                try {
-                    await audio.play();
-                    wrapper.classList.add('playing');
-                } catch (err) { console.error(err); }
+            if (window.globalAudioCtx && window.globalAudioCtx.state === 'suspended') {
+                await window.globalAudioCtx.resume();
+            }
+
+            const currentGlobalTrack = window.cyclePlayer.playlist[window.cyclePlayer.currentIndex];
+
+            // Если кликнули на тот же трек - ставим на паузу, иначе - запускаем трек в глобальном плеере
+            if (currentGlobalTrack && currentGlobalTrack.id === trackId) {
+                window.cyclePlayer.togglePlay();
             } else {
-                audio.pause();
-                wrapper.classList.remove('playing');
+                window.cyclePlayer.playTrack(trackId);
             }
         });
 
-        audio.addEventListener('ended', () => {
-            wrapper.classList.remove('playing');
-        });
-
+        // ОТРИСОВКА ВОЛНЫ
         const drawWaveform = () => {
             if (!document.getElementById('profileAudioCanvas')) return; 
             requestAnimationFrame(drawWaveform);
-
             ctx.clearRect(0, 0, canvas.width, canvas.height);
-            ctx.lineWidth = 2;
-            ctx.strokeStyle = 'rgba(255, 255, 255, 0.8)';
+            
+            // ДЕЛАЕМ ЛИНИЮ КРАСИВЕЕ ДЛЯ ФОНА
+            ctx.lineWidth = 3; 
+            ctx.strokeStyle = 'rgba(255, 255, 255, 0.25)'; // Полупрозрачная белая линия
+            
             ctx.beginPath();
-
-            // Если пауза — рисуем прямую линию
-            if (audio.paused) {
+            
+            // Если пауза или играет ДРУГОЙ трек - рисуем прямую линию
+            const currentGlobalTrack = window.cyclePlayer?.playlist[window.cyclePlayer.currentIndex];
+            if (globalAudio.paused || !currentGlobalTrack || currentGlobalTrack.id !== trackId || !window.globalAudioAnalyser) {
                 ctx.moveTo(0, canvas.height / 2);
                 ctx.lineTo(canvas.width, canvas.height / 2);
                 ctx.stroke();
                 return;
             }
-
-            if (!analyser) return;
-
-            const bufferLength = analyser.frequencyBinCount;
-            const dataArray = new Uint8Array(bufferLength);
             
-            // Используем TimeDomainData для отрисовки волны (осциллограммы)
-            analyser.getByteTimeDomainData(dataArray);
-
+            const bufferLength = window.globalAudioAnalyser.frequencyBinCount;
+            const dataArray = new Uint8Array(bufferLength);
+            window.globalAudioAnalyser.getByteTimeDomainData(dataArray);
             const sliceWidth = canvas.width * 1.0 / bufferLength;
             let x = 0;
-
             for(let i = 0; i < bufferLength; i++) {
                 const v = dataArray[i] / 128.0; 
                 const y = v * canvas.height / 2;
-
-                if(i === 0) {
-                    ctx.moveTo(x, y);
-                } else {
-                    ctx.lineTo(x, y);
-                }
-
+                if(i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
                 x += sliceWidth;
             }
-
             ctx.lineTo(canvas.width, canvas.height / 2);
             ctx.stroke();
         };
+        drawWaveform();
     }
 
     renderModules() {
@@ -416,6 +450,7 @@ export class ProfileUIManager {
 
     initEventListeners() {
         this.postsContainer.addEventListener('click', (e) => this.postEvents.handleEvent(e));
+        
         this.postsContainer.addEventListener('contextmenu', (e) => {
             const commentItem = e.target.closest('.comment-item');
             if (commentItem && commentItem.dataset.author === this.currentUser.username) {
@@ -429,7 +464,9 @@ export class ProfileUIManager {
         });
 
         this.openSettingsBtn.addEventListener('click', () => this.openSettings());
-        this.closeSettingsBtn.addEventListener('click', () => this.settingsModal.classList.remove('active'));
+        this.closeSettingsBtn.addEventListener('click', () => {
+            if(this.settingsModal) this.settingsModal.classList.remove('active');
+        });
         this.saveSettingsBtn.addEventListener('click', () => this.saveSettings());
         
         document.getElementById('selectProfileTrackBtn').addEventListener('click', () => {
@@ -439,20 +476,11 @@ export class ProfileUIManager {
             this.setProfileMusic(null);
         });
 
-        this.closeSelectionBtn.addEventListener('click', () => this.selectionModal.classList.remove('active'));
+        this.closeSelectionBtn.addEventListener('click', () => {
+            if(this.selectionModal) this.selectionModal.classList.remove('active');
+        });
         
-        window.addEventListener('click', (e) => {
-            if (e.target === this.settingsModal) this.settingsModal.classList.remove('active');
-            if (e.target === this.selectionModal) this.selectionModal.classList.remove('active');
-        });
-
-        document.addEventListener('keydown', (e) => {
-            if (e.key === 'Escape') {
-                this.settingsModal.classList.remove('active');
-                this.selectionModal.classList.remove('active');
-                if (this.contextMenu) this.contextMenu.style.display = 'none';
-            }
-        });
+        document.addEventListener('keydown', this.handleEsc);
         
         if (this.publishBtn) {
             this.publishBtn.addEventListener('click', () => {

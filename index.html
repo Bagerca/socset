@@ -3,86 +3,73 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Cycle - Лента</title>
+    <title>Cycle</title>
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.1.1/css/all.min.css" rel="stylesheet">
     <link rel="stylesheet" href="css/main.css">
     <link rel="icon" href="data:,">
 </head>
 <body>
+    <div id="profileBackgroundLayer" class="profile-background-layer"></div>
+
     <div class="app-container">
-        <!-- Сайдбар -->
+        <!-- САЙДБАР (Ссылки обязательно через #) -->
         <nav class="sidebar glass-pill">
             <div class="logo-icon">
-                <a href="index.html" title="На главную">
+                <a href="#/" title="На главную">
                     <img src="img/logo.svg" alt="Cycle Logo" class="brand-logo">
                 </a>
             </div>
             <div class="nav-links">
-                <a href="index.html" class="nav-item active" title="Лента"><i class="fa-solid fa-house"></i></a>
-                <!-- Новые разделы: Музыка и Игры -->
-                <a href="music.html" class="nav-item" title="Музыка"><i class="fa-solid fa-music"></i></a>
-                <a href="games.html" class="nav-item" title="Игры"><i class="fa-solid fa-gamepad"></i></a>
-                
+                <a href="#/" class="nav-item nav-link" data-route="/"><i class="fa-solid fa-house"></i></a>
+                <a href="#/music" class="nav-item nav-link" data-route="/music"><i class="fa-solid fa-music"></i></a>
+                <a href="#/games" class="nav-item nav-link" data-route="/games"><i class="fa-solid fa-gamepad"></i></a>
                 <div class="nav-item" title="Поиск"><i class="fa-solid fa-magnifying-glass"></i></div>
                 <div class="nav-item" title="Уведомления"><i class="fa-solid fa-bell"></i></div>
-                <a href="profile.html" class="nav-item" title="Профиль"><i class="fa-solid fa-user"></i></a>
+                <a href="#/profile" class="nav-item nav-link" data-route="/profile"><i class="fa-solid fa-user"></i></a>
             </div>
         </nav>
 
-        <!-- Главный контент -->
-        <main class="feed">
-            <div class="compose-box">
-                <textarea id="postInput" placeholder="Что происходит?"></textarea>
-
-                <!-- Контейнер для превью выбранного ID-контента -->
-                <div id="attachmentPreview" style="display: none;"></div>
-
-                <!-- Скрытый блок опроса -->
-                <div id="pollCreator" class="poll-creator" style="display: none;">
-                    <div class="poll-header">
-                        <span class="poll-title">Создание опроса</span>
-                        <button id="closePollBtn" class="icon-btn-small"><i class="fa-solid fa-xmark"></i></button>
-                    </div>
-                    <div id="pollInputs" class="poll-inputs">
-                        <input type="text" class="poll-input" placeholder="Вариант 1">
-                        <input type="text" class="poll-input" placeholder="Вариант 2">
-                    </div>
-                    <div class="poll-footer-controls">
-                        <button id="addOptionBtn" class="text-btn">+ Добавить вариант</button>
-                        <select id="pollDuration" class="poll-select">
-                            <option value="1">1 день</option>
-                            <option value="3" selected>3 дня</option>
-                        </select>
-                    </div>
-                </div>
-
-                <div class="compose-actions">
-                    <div class="action-icons">
-                        <button id="togglePollBtn" class="icon-btn" title="Опрос"><i class="fa-solid fa-list-ul"></i></button>
-                        <!-- Новые кнопки выбора -->
-                        <button id="attachMusicBtn" class="icon-btn" title="Прикрепить музыку"><i class="fa-solid fa-music"></i></button>
-                        <button id="attachGameBtn" class="icon-btn" title="Прикрепить игру"><i class="fa-solid fa-gamepad"></i></button>
-                    </div>
-                    <button id="publishBtn" class="btn-post" disabled>Опубликовать</button>
-                </div>
-            </div>
-            <div id="postsContainer"></div>
-        </main>
+        <!-- КОНТЕЙНЕР ДЛЯ СТРАНИЦ -->
+        <main id="app-content" class="feed"></main>
     </div>
 
-    <!-- МОДАЛЬНОЕ ОКНО ВЫБОРА (ОБЩЕЕ) -->
-    <div id="selectionModal" class="modal-overlay">
-        <div class="modal-content">
-            <div class="modal-header">
-                <span id="modalTitle" class="modal-title">Выбрать...</span>
-                <button id="closeModalBtn" class="icon-btn-small"><i class="fa-solid fa-xmark"></i></button>
+    <!-- ГЛОБАЛЬНЫЙ ВИДЖЕТ ПЛЕЕРА -->
+    <div id="globalPlayerWidget" class="global-player-widget hidden">
+        <!-- КНОПКА ЗАКРЫТИЯ -->
+        <button id="gpCloseBtn" class="icon-btn-small" style="position: absolute; top: 12px; right: 12px; z-index: 10;">
+            <i class="fa-solid fa-xmark"></i>
+        </button>
+
+        <div class="gp-info">
+            <img id="gpCover" src="" alt="Cover" class="gp-cover">
+            <div class="gp-text">
+                <div id="gpTitle" class="gp-title">Select track</div>
+                <div id="gpArtist" class="gp-artist">...</div>
             </div>
-            <div id="modalList" class="modal-body">
-                <!-- Сюда JS будет рендерить список -->
+        </div>
+        
+        <div class="gp-controls">
+            <div class="gp-buttons">
+                <button id="gpPrevBtn" class="gp-btn small"><i class="fa-solid fa-backward-step"></i></button>
+                <button id="gpPlayBtn" class="gp-btn main"><i class="fa-solid fa-play"></i></button>
+                <button id="gpNextBtn" class="gp-btn small"><i class="fa-solid fa-forward-step"></i></button>
             </div>
+            <div class="gp-progress-container">
+                <span id="gpCurrentTime" class="gp-time">0:00</span>
+                <input type="range" id="gpProgressBar" class="gp-slider" value="0" min="0" max="100">
+                <span id="gpDuration" class="gp-time">0:00</span>
+            </div>
+        </div>
+
+        <div class="gp-volume">
+            <i class="fa-solid fa-volume-high" id="gpVolumeIcon"></i>
+            <input type="range" id="gpVolumeBar" class="gp-slider volume-slider" value="100" min="0" max="100">
         </div>
     </div>
 
-    <script type="module" src="js/feed.js"></script>
+    <!-- Скрытый аудио тег -->
+    <audio id="globalAudioPlayer" crossorigin="anonymous"></audio>
+
+    <script type="module" src="js/app.js"></script>
 </body>
 </html>

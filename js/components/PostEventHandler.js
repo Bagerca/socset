@@ -1,11 +1,13 @@
-import { AudioRecorder } from './AudioRecorder.js';
+import { AudioService } from '../services/AudioService.js';
 
 export class PostEventHandler {
     constructor(dataManager, postRenderer, refreshCallback) {
         this.dataManager = dataManager;
         this.postRenderer = postRenderer;
         this.refreshCallback = refreshCallback; // Полная перерисовка (используется при удалении)
-        this.audioRecorder = new AudioRecorder();
+        
+        // Используем переименованный сервис
+        this.audioService = new AudioService();
         this.recordingBtn = null;
     }
 
@@ -143,14 +145,16 @@ export class PostEventHandler {
         if (this.recordingBtn === btn) {
             btn.classList.remove('recording');
             this.recordingBtn = null;
-            const result = await this.audioRecorder.stop();
+            // Используем метод stop() из сервиса
+            const result = await this.audioService.stop();
             if (result) {
                 this.dataManager.addComment(btn.dataset.id, result.base64, 'audio', result.waveform);
                 this._rerenderComments(btn.dataset.id);
             }
         } else {
             if (this.recordingBtn) this.recordingBtn.classList.remove('recording');
-            const success = await this.audioRecorder.start();
+            // Используем метод start() из сервиса
+            const success = await this.audioService.start();
             if (success) {
                 btn.classList.add('recording');
                 this.recordingBtn = btn;

@@ -1,0 +1,257 @@
+/* css/components/_music.css */
+
+.music-layout {
+    display: flex;
+    gap: 30px;
+    height: calc(100vh - 120px);
+    overflow: hidden;
+}
+
+/* --- ЛЕВАЯ КОЛОНКА --- */
+.music-sidebar {
+    width: 340px;
+    flex-shrink: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+    padding-bottom: 20px;
+    overflow-y: auto;
+}
+.music-sidebar::-webkit-scrollbar { display: none; }
+
+/* --- КАРТОЧКА ПЛЕЕРА --- */
+.large-player-card {
+    position: relative;
+    border-radius: 24px;
+    overflow: hidden;
+    background: #111;
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    box-shadow: 0 20px 50px rgba(0,0,0,0.5);
+    height: auto; 
+    display: flex;
+    flex-direction: column;
+}
+
+.lp-blur-bg {
+    position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+    background-size: cover; background-position: center;
+    filter: blur(40px) brightness(0.4);
+    z-index: 0; transition: background-image 0.5s ease;
+}
+
+.lp-content-wrapper {
+    position: relative; z-index: 1;
+    display: flex; flex-direction: column;
+    height: 100%; padding: 24px;
+    background: linear-gradient(to bottom, rgba(0,0,0,0) 0%, rgba(0,0,0,0.6) 100%);
+}
+
+.lp-cover-box {
+    width: 100%; 
+    aspect-ratio: 1 / 1; 
+    border-radius: 16px; 
+    overflow: hidden;
+    box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+    margin-bottom: 24px;
+    flex-shrink: 0;
+}
+.lp-cover-img { width: 100%; height: 100%; object-fit: cover; }
+
+.lp-track-details { text-align: center; margin-bottom: 20px; }
+.lp-main-title { font-size: 20px; font-weight: 800; color: #fff; margin-bottom: 6px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.lp-main-artist { font-size: 14px; color: rgba(255,255,255,0.7); }
+
+.lp-progress-block { margin-bottom: 20px; }
+.thin-slider { height: 4px; border-radius: 2px; }
+.lp-timers { display: flex; justify-content: space-between; font-size: 11px; color: rgba(255,255,255,0.5); margin-top: 8px; font-weight: 500; }
+
+.lp-controls-row {
+    display: flex; align-items: center; justify-content: space-between;
+    margin-bottom: 20px;
+}
+
+.lp-ctrl-btn {
+    background: transparent; border: none; color: #fff; font-size: 20px;
+    cursor: pointer; transition: 0.2s; width: 40px; height: 40px;
+    display: flex; align-items: center; justify-content: center; border-radius: 50%;
+}
+.lp-ctrl-btn:hover { background: rgba(255,255,255,0.1); }
+
+.lp-ctrl-btn.small { font-size: 16px; color: rgba(255,255,255,0.5); }
+.lp-ctrl-btn.small.active { color: var(--text-main); text-shadow: 0 0 10px rgba(255,255,255,0.5); position: relative; }
+.lp-ctrl-btn.small.active::after {
+    content: ''; position: absolute; bottom: 5px; width: 4px; height: 4px; 
+    background: #fff; border-radius: 50%;
+}
+
+.lp-ctrl-btn.play-circle {
+    width: 64px; height: 64px; font-size: 24px;
+    background: #fff; color: #000;
+    box-shadow: 0 5px 15px rgba(255,255,255,0.3);
+}
+.lp-ctrl-btn.play-circle:hover { transform: scale(1.05); background: #f0f0f0; }
+
+.lp-volume-row { display: flex; align-items: center; gap: 10px; }
+#lpVolumeIcon { font-size: 14px; color: rgba(255,255,255,0.6); width: 20px; text-align: center; }
+
+/* --- НАВИГАЦИЯ --- */
+.music-nav { display: flex; flex-direction: column; gap: 6px; }
+.music-nav-item {
+    padding: 14px 20px; border-radius: 12px;
+    color: var(--text-muted); font-weight: 600; font-size: 15px;
+    cursor: pointer; transition: 0.2s; display: flex; align-items: center; gap: 14px;
+}
+.music-nav-item:hover { background: rgba(255,255,255,0.05); color: #fff; }
+.music-nav-item.active { background: #1f1f22; color: #fff; border-left: 3px solid #fff; }
+
+/* --- ПРАВАЯ ЧАСТЬ --- */
+.music-main {
+    flex: 1; background: #111;
+    border-radius: 24px; border: 1px solid rgba(255,255,255,0.08);
+    display: flex; flex-direction: column; overflow: hidden;
+    min-width: 0; /* Важно для сжатия flex элементов */
+}
+
+.music-header {
+    padding: 20px 30px; border-bottom: 1px solid rgba(255,255,255,0.05);
+    display: flex; align-items: center; gap: 20px; height: 80px;
+    flex-shrink: 0;
+}
+
+.music-search-modern {
+    flex: 1; display: flex; align-items: center; gap: 12px;
+    background: #1f1f22; padding: 12px 20px; border-radius: 100px;
+    border: 1px solid transparent; transition: 0.2s;
+}
+.music-search-modern:focus-within { border-color: rgba(255,255,255,0.2); background: #2a2a2e; }
+.music-search-modern input { flex: 1; background: transparent; border: none; outline: none; color: #fff; font-size: 15px; }
+
+.btn-create-alb { padding: 8px 20px; font-size: 14px; }
+
+/* --- СПИСОК ТРЕКОВ (ИСПРАВЛЕННАЯ ВЕРСИЯ) --- */
+.music-content-modern {
+    flex: 1; 
+    overflow-y: auto; 
+    padding: 12px; /* Уменьшил паддинг контейнера */
+    display: flex; 
+    flex-direction: column; 
+    gap: 2px; /* Минимальный разрыв между треками */
+}
+.music-content-modern::-webkit-scrollbar { width: 6px; }
+.music-content-modern::-webkit-scrollbar-thumb { background: #333; border-radius: 3px; }
+
+/* Строка трека */
+.track-row {
+    display: grid;
+    /* 
+       ЖЕСТКАЯ СЕТКА: 
+       30px (индекс) | 48px (картинка) | 1fr (текст на всю ширину) | auto (кнопки) 
+    */
+    grid-template-columns: 30px 48px 1fr auto; 
+    align-items: center; 
+    gap: 12px; /* Компактный отступ между колонками */
+    
+    padding: 8px 12px; /* Компактные отступы внутри строки */
+    border-radius: 8px;
+    transition: all 0.2s ease;
+    cursor: default;
+    border: 1px solid transparent;
+    background: transparent;
+}
+
+.track-row:hover { background: rgba(255, 255, 255, 0.04); }
+
+.track-row.active { 
+    background: rgba(255, 255, 255, 0.1); 
+    border-color: rgba(255, 255, 255, 0.1);
+    backdrop-filter: blur(10px);
+}
+
+/* 1. Индекс */
+.t-index {
+    color: var(--text-muted); 
+    font-size: 13px; font-weight: 500;
+    text-align: center; 
+    /* Фиксируем ширину, чтобы не ехало */
+    width: 100%; 
+    display: flex; justify-content: center; align-items: center;
+}
+
+.t-play-icon { display: none; font-size: 10px; color: #fff; }
+.track-row:hover .t-index span { display: none; }
+.track-row:hover .t-index .t-play-icon { display: block; }
+.track-row.active .t-index span { display: none; }
+.track-row.active .t-index .t-play-icon { display: block; color: var(--text-main); }
+
+/* 2. Обложка */
+.t-cover { 
+    width: 48px; height: 48px; /* Чуть меньше для компактности */
+    border-radius: 6px; object-fit: cover; 
+    box-shadow: 0 2px 5px rgba(0,0,0,0.3);
+}
+
+/* 3. Инфо (Текст) */
+.t-info { 
+    display: flex; flex-direction: column; justify-content: center; 
+    min-width: 0; /* КРИТИЧЕСКИ ВАЖНО для обрезки текста */
+}
+.t-title { 
+    font-weight: 600; font-size: 15px; color: #fff; margin-bottom: 2px; 
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.track-row.active .t-title { color: #fff; }
+
+.t-artist { 
+    font-size: 13px; color: var(--text-muted);
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.track-row.active .t-artist { color: rgba(255, 255, 255, 0.7); }
+
+/* 4. Действия */
+.t-actions { 
+    display: flex; align-items: center; gap: 8px; 
+    opacity: 0; 
+    transition: all 0.2s ease;
+}
+.track-row:hover .t-actions, .track-row.active .t-actions { opacity: 1; }
+
+.t-btn { 
+    background: transparent; border: none; 
+    color: var(--text-muted); font-size: 14px; 
+    cursor: pointer; transition: 0.2s; 
+    width: 28px; height: 28px;
+    border-radius: 50%; display: flex; align-items: center; justify-content: center;
+}
+.t-btn:hover { background: rgba(255,255,255,0.1); color: #fff; }
+.t-btn.fav.active { color: var(--danger); }
+
+/* --- СЕТКА АЛЬБОМОВ --- */
+.albums-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+    gap: 20px;
+    padding: 20px;
+}
+.album-card {
+    background: #1a1a1c; border: 1px solid var(--border-color);
+    border-radius: 16px; padding: 16px; cursor: pointer; transition: 0.2s;
+    text-align: center; position: relative;
+}
+.album-card:hover { transform: translateY(-5px); border-color: rgba(255,255,255,0.3); }
+.album-cover { width: 100%; aspect-ratio: 1; border-radius: 12px; object-fit: cover; margin-bottom: 12px; }
+.album-title { font-weight: 700; font-size: 15px; margin-bottom: 4px; }
+.album-count { font-size: 13px; color: var(--text-muted); }
+
+.delete-album-btn { position: absolute; top: 8px; right: 8px; background: rgba(0,0,0,0.6); color: var(--danger); width: 28px; height: 28px; border-radius: 50%; border: none; display: none; cursor: pointer; }
+.album-card:hover .delete-album-btn { display: flex; align-items: center; justify-content: center; }
+
+/* Адаптив */
+@media (max-width: 900px) {
+    .music-layout { flex-direction: column; height: auto; overflow: visible; }
+    .music-sidebar { width: 100%; }
+    .large-player-card { height: auto; flex-direction: row; align-items: center; }
+    .lp-cover-box { width: 80px; margin-bottom: 0; margin-right: 16px; } /* Уменьшили обложку в мобилке */
+    .lp-content-wrapper { flex-direction: row; flex-wrap: wrap; padding: 16px; align-items: center; }
+    .lp-track-details { text-align: left; margin: 0 10px 0 0; flex: 1; min-width: 0; }
+    .lp-controls-row { margin: 0; gap: 12px; }
+}

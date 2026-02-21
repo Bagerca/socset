@@ -1,12 +1,12 @@
-import { escapeHTML } from './utils.js';
-import { PostRenderer } from './PostRenderer.js';
-import { PostEventHandler } from './PostEventHandler.js';
+import { escapeHTML } from '../utils/utils.js';
+import { PostRenderer } from '../components/PostRenderer.js';
+import { PostEventHandler } from '../components/PostEventHandler.js';
 
-export class FeedUIManager {
+export class FeedController {
     constructor(dataManager) {
         this.dataManager = dataManager;
         
-        // Подключаем универсальные модули для постов
+        // Подключаем компоненты
         this.postRenderer = new PostRenderer(dataManager);
         this.postEvents = new PostEventHandler(dataManager, this.postRenderer, () => this.renderAll());
         
@@ -22,12 +22,12 @@ export class FeedUIManager {
         this.pollInputsContainer = document.getElementById('pollInputs');
         this.addOptionBtn = document.getElementById('addOptionBtn');
         
-        // Прикрепление медиа (Музыка/Игры)
+        // Прикрепление медиа
         this.attachMusicBtn = document.getElementById('attachMusicBtn');
         this.attachGameBtn = document.getElementById('attachGameBtn');
         this.attachmentPreview = document.getElementById('attachmentPreview');
         
-        // Модальное окно выбора
+        // Модальное окно
         this.modal = document.getElementById('selectionModal');
         this.modalTitle = document.getElementById('modalTitle');
         this.modalList = document.getElementById('modalList');
@@ -35,25 +35,34 @@ export class FeedUIManager {
 
         // Состояние
         this.isPollActive = false;
-        this.currentAttachment = null; // { type: 'music'|'game', id: '...' }
+        this.currentAttachment = null;
 
-        // Контекстное меню для удаления комментариев
+        // Сохраняем ссылки для удаления в destroy()
+        this.handleGlobalClick = () => { if(this.contextMenu) this.contextMenu.style.display = 'none'; };
+        this.handleGlobalScroll = () => { if(this.contextMenu) this.contextMenu.style.display = 'none'; };
+
         this.createGlobalContextMenu();
-
-        // ЗАПУСК
         this.init();
     }
 
-    async init() {
-        // Ждем загрузки каталогов перед рендером
-        await this.dataManager.loadCatalogs();
-        
+    init() {
         this.initEventListeners();
         this.renderAll();
     }
 
+    destroy() {
+        if (this.contextMenu) {
+            this.contextMenu.remove();
+        }
+        document.removeEventListener('click', this.handleGlobalClick);
+        document.removeEventListener('scroll', this.handleGlobalScroll, true);
+    }
+
     createGlobalContextMenu() {
-        if (document.getElementById('customContextMenu')) return;
+        if (document.getElementById('customContextMenu')) {
+            document.getElementById('customContextMenu').remove();
+        }
+
         const menu = document.createElement('div');
         menu.id = 'customContextMenu';
         menu.innerHTML = `<div class="context-menu-item danger" id="ctxDeleteComment"><i class="fa-solid fa-trash"></i> Удалить комментарий</div>`;
@@ -62,15 +71,14 @@ export class FeedUIManager {
         this.contextTargetCommentId = null;
         this.contextTargetPostId = null;
 
-        document.addEventListener('click', () => { this.contextMenu.style.display = 'none'; });
-        document.addEventListener('scroll', () => { this.contextMenu.style.display = 'none'; }, true);
+        document.addEventListener('click', this.handleGlobalClick);
+        document.addEventListener('scroll', this.handleGlobalScroll, true);
         
         const ctxDeleteBtn = document.getElementById('ctxDeleteComment');
         if (ctxDeleteBtn) {
             ctxDeleteBtn.addEventListener('click', () => {
                 if (this.contextTargetPostId && this.contextTargetCommentId) {
                     this.dataManager.deleteComment(this.contextTargetPostId, this.contextTargetCommentId);
-                    // Вызываем обновление комментариев через PostEventHandler
                     this.postEvents._rerenderComments(this.contextTargetPostId);
                     this.contextMenu.style.display = 'none';
                 }
@@ -79,28 +87,26 @@ export class FeedUIManager {
     }
 
     initEventListeners() {
-        // --- Опросы ---
         this.togglePollBtn.addEventListener('click', () => this.togglePoll());
         this.closePollBtn.addEventListener('click', () => this.closePoll());
         this.addOptionBtn.addEventListener('click', () => this.addPollOption());
         
-        // --- Ввод и Публикация ---
         this.input.addEventListener('input', () => this.checkPublishState());
         this.pollInputsContainer.addEventListener('input', () => this.checkPublishState());
         this.publishBtn.addEventListener('click', () => this.publishPost());
 
-        // --- Модальное окно (Выбор контента) ---
         this.attachMusicBtn.addEventListener('click', () => this.openModal('music'));
         this.attachGameBtn.addEventListener('click', () => this.openModal('game'));
         this.closeModalBtn.addEventListener('click', () => this.closeModal());
-        this.modal.addEventListener('click', (e) => {
-            if (e.target === this.modal) this.closeModal();
-        });
+        
+        if (this.modal) {
+            this.modal.addEventListener('click', (e) => {
+                if (e.target === this.modal) this.closeModal();
+            });
+        }
 
-        // --- ДЕЛЕГИРОВАНИЕ: Все клики внутри ленты обрабатывает PostEventHandler ---
         this.container.addEventListener('click', (e) => this.postEvents.handleEvent(e));
         
-        // --- Контекстное меню ---
         this.container.addEventListener('contextmenu', (e) => {
             const commentItem = e.target.closest('.comment-item');
             if (commentItem) {
@@ -118,7 +124,6 @@ export class FeedUIManager {
         });
     }
 
-    // === ЛОГИКА МОДАЛЬНОГО ОКНА ===
     openModal(type) {
         this.modal.classList.add('active');
         this.modalList.innerHTML = ''; 
@@ -190,7 +195,6 @@ export class FeedUIManager {
         this.checkPublishState();
     }
 
-    // === ПУБЛИКАЦИЯ ===
     publishPost() {
         const text = this.input.value.trim();
         let pollData = null;
@@ -204,8 +208,6 @@ export class FeedUIManager {
 
         if (text.length > 0 || pollData || this.currentAttachment) {
             this.dataManager.addPost(text, pollData, this.currentAttachment);
-            
-            // Сброс UI
             this.input.value = '';
             this.currentAttachment = null;
             this.attachmentPreview.style.display = 'none';
@@ -225,7 +227,6 @@ export class FeedUIManager {
         this.publishBtn.disabled = !(this.input.value.trim().length > 0 || this.currentAttachment || isPollValid);
     }
 
-    // === Вспомогательные методы (Опрос) ===
     togglePoll() { 
         this.isPollActive = !this.isPollActive; 
         this.pollCreator.style.display = this.isPollActive ? "flex" : "none"; 
@@ -257,13 +258,9 @@ export class FeedUIManager {
         this.checkPublishState(); 
     }
 
-    // === РЕНДЕРИНГ ЛЕНТЫ ===
     renderAll() {
         const posts = this.dataManager.getAllPosts();
-        
-        // Используем универсальный PostRenderer для генерации HTML постов
         this.container.innerHTML = posts.map(post => this.postRenderer.createPostHTML(post)).join('');
-        
         this.checkPublishState();
     }
 }

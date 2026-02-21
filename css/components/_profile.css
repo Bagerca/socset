@@ -90,13 +90,15 @@
     justify-content: flex-start;
     padding-left: 20px;
     padding-right: 20px;
-    margin-bottom: 40px; 
+    margin-bottom: 37.5px; 
     min-width: 0;
     position: relative; 
     z-index: 5;
 }
 
 .profile-dynamic-player {
+    position: relative; /* ВАЖНО ДЛЯ КАНВАСА */
+    overflow: hidden; /* обрезает волну, чтобы она не вылезала за скругленные углы */
     display: flex;
     align-items: center;
     gap: 16px;
@@ -116,9 +118,22 @@
     border-color: rgba(255, 255, 255, 0.3);
 }
 
+/* НОВЫЙ КЛАСС: Канвас на весь фон плеера */
+.profile-bg-canvas {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    z-index: 0; /* Кладем на самый низ */
+    pointer-events: none; /* Пропускает клики сквозь себя */
+    opacity: 0.6; /* Делаем волну мягче */
+}
+
 /* ОБЕРТКА ОБЛОЖКИ */
 .profile-cover-wrapper {
     position: relative;
+    z-index: 1; /* Поднимаем над волной */
     width: 50px; 
     height: 50px;
     flex-shrink: 0;
@@ -132,63 +147,37 @@
     transform: scale(1.08);
     box-shadow: 0 0 0 2px rgba(255,255,255,0.4);
 }
+.profile-cover-wrapper:active { transform: scale(0.95); }
 
-.profile-cover-wrapper:active {
-    transform: scale(0.95);
-}
-
-/* САМА ОБЛОЖКА */
 .profile-player-cover {
     width: 100%; height: 100%;
-    border-radius: 50%; 
-    object-fit: cover;
+    border-radius: 50%; object-fit: cover;
     display: block;
     animation: spinRecord 4s linear infinite;
     animation-play-state: paused;
 }
 
-.profile-dynamic-player.playing .profile-player-cover {
-    animation-play-state: running;
-}
+.profile-dynamic-player.playing .profile-player-cover { animation-play-state: running; }
 
 @keyframes spinRecord { 100% { transform: rotate(360deg); } }
 
-/* ИКОНКИ PLAY/PAUSE И ЗАТЕМНЕНИЕ */
 .profile-player-overlay {
     position: absolute;
     top: 0; left: 0; width: 100%; height: 100%;
     border-radius: 50%;
     background: rgba(0, 0, 0, 0.4);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    color: #fff;
-    font-size: 18px;
+    display: flex; align-items: center; justify-content: center;
+    color: #fff; font-size: 18px;
     backdrop-filter: blur(0px); 
-    
-    /* ДОБАВЛЕНО: Плавный переход для прозрачности */
-    opacity: 1;
-    transition: background 0.2s, opacity 0.4s ease;
+    opacity: 1; transition: background 0.2s, opacity 0.4s ease;
 }
 
-/* ДОБАВЛЕНО: Класс для скрытия оверлея */
-.profile-player-overlay.hidden-overlay {
-    opacity: 0;
-}
+.profile-player-overlay.hidden-overlay { opacity: 0; }
+.profile-cover-wrapper:hover .profile-player-overlay { background: rgba(0, 0, 0, 0.5); opacity: 1 !important; }
 
-/* ПРИ НАВЕДЕНИИ: Возвращаем видимость и делаем чуть темнее */
-.profile-cover-wrapper:hover .profile-player-overlay {
-    background: rgba(0, 0, 0, 0.5);
-    opacity: 1 !important; /* Форсируем показ при наведении */
-}
-
-.play-icon, .pause-icon {
-    filter: drop-shadow(0 2px 4px rgba(0,0,0,0.5));
-}
-
+.play-icon, .pause-icon { filter: drop-shadow(0 2px 4px rgba(0,0,0,0.5)); }
 .play-icon { display: block; margin-left: 3px; }
 .pause-icon { display: none; }
-
 .profile-dynamic-player.playing .play-icon { display: none; }
 .profile-dynamic-player.playing .pause-icon { display: block; }
 
@@ -199,31 +188,25 @@
     min-width: 0; 
     margin-right: auto;
     justify-content: center;
+    position: relative; 
+    z-index: 1; /* Поднимаем над волной */
+    text-shadow: 0 2px 4px rgba(0,0,0,0.8); /* Защита текста на фоне волны */
 }
+
 .profile-player-title { 
     font-size: 15px; font-weight: 700; 
     white-space: nowrap; overflow: hidden; text-overflow: ellipsis; 
-    color: #fff;
-    margin-bottom: 2px;
+    color: #fff; margin-bottom: 2px;
 }
+
 .profile-player-artist { 
-    font-size: 12px; color: var(--text-muted); 
+    font-size: 12px; color: #d1d1d1; 
     white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
 }
 
-/* КАНВАС ВИЗУАЛИЗАТОРА */
-.profile-player-visualizer { 
-    height: 36px; 
-    width: 120px;
-    display: flex; 
-    align-items: center; 
-    justify-content: flex-end; 
-    flex-shrink: 0;
-}
-.profile-player-visualizer canvas { 
-    width: 100%; 
-    height: 100%; 
-}
+/* Убираем старый класс визуализатора */
+.profile-player-visualizer { display: none; }
+
 
 /* ИНФОБЛОК */
 .profile-info { padding: 16px 24px; display: flex; flex-direction: column; gap: 8px; }
