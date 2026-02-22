@@ -1,10 +1,10 @@
 /* css/components/_music.css */
 
 .music-page-container {
-    width: 100%;
     display: flex;
     flex-direction: column;
     gap: 24px;
+    width: 100%;
     animation: fadeIn 0.4s ease;
 }
 
@@ -19,6 +19,7 @@
     box-shadow: 0 5px 20px rgba(0,0,0,0.2);
     overflow-x: auto;
     scrollbar-width: none;
+    width: 100%;
 }
 .music-top-nav::-webkit-scrollbar { display: none; }
 
@@ -33,20 +34,22 @@
 .m-tab-btn.active { background: #fff; color: #000; }
 
 /* --- САБ-ХЕДЕР (ПОИСК, ЧИПСЫ) --- */
-.music-sub-header { width: 100%; }
+.music-sub-header { 
+    width: 100%; 
+}
 
-/* ИСПРАВЛЕНО: Убрано ограничение ширины, теперь на всю ширину как баннер */
 .m-search-wrapper {
     position: relative; overflow: visible; 
     display: flex; align-items: center; gap: 12px; background: #1a1a1c;
     padding: 16px 24px; border-radius: 16px; border: 1px solid var(--border-color);
-    transition: 0.2s; width: 100%; /* На всю ширину */
+    transition: 0.2s; 
+    width: 100%; 
 }
 .m-search-wrapper:focus-within { border-color: rgba(255,255,255,0.4); box-shadow: 0 0 15px rgba(255,255,255,0.05); background: #222; }
 .m-search-wrapper i { color: var(--text-muted); font-size: 18px; }
 .m-search-wrapper input { flex: 1; background: transparent; border: none; outline: none; color: #fff; font-size: 16px; }
 
-.m-chips-row { display: flex; gap: 10px; overflow-x: auto; scrollbar-width: none; padding-bottom: 4px; }
+.m-chips-row { display: flex; gap: 10px; overflow-x: auto; scrollbar-width: none; padding-bottom: 4px; width: 100%; }
 .m-chips-row::-webkit-scrollbar { display: none; }
 .m-chip {
     padding: 10px 20px; border-radius: 100px; background: rgba(255,255,255,0.05);
@@ -59,8 +62,31 @@
 
 /* --- ОСНОВНОЙ КОНТЕНТ --- */
 .music-main-content {
-    display: flex; flex-direction: column; gap: 40px;
+    display: flex;
+    flex-direction: column;
+    gap: 32px; 
+    width: 100%;
     padding-bottom: 120px; 
+}
+
+/* --- МАГИЧЕСКАЯ ПАНЕЛЬ (Идентичная верхней навигации) --- */
+.music-content-panel {
+    background: var(--surface);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-large);
+    padding: 24px;
+    box-shadow: 0 5px 20px rgba(0,0,0,0.2);
+    display: flex;
+    flex-direction: column;
+    width: 100%;
+}
+
+
+/* Общий враппер секций (внутри и снаружи панелей) */
+.m-section {
+    width: 100%;
+    display: flex;
+    flex-direction: column;
 }
 
 /* ГЛАВНАЯ (HOME) */
@@ -72,14 +98,14 @@
     position: absolute; top: 0; left: 0; width: 100%; height: 100%; z-index: 0;
     background: linear-gradient(135deg, #1e3264 0%, #0a0a0c 100%);
 }
-.m-hero-content { position: relative; z-index: 1; }
+.m-hero-content { position: relative; z-index: 1; width: 100%; }
 .m-hero-title { font-size: 40px; font-weight: 900; color: #fff; line-height: 1; margin-bottom: 8px; letter-spacing: -1px; }
 .m-hero-subtitle { color: rgba(255,255,255,0.7); font-size: 16px; }
 
 .m-section-title { font-size: 24px; font-weight: 800; color: #fff; margin-bottom: 20px; }
 
 /* БЫСТРЫЙ ДОСТУП */
-.m-quick-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 16px; }
+.m-quick-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 16px; width: 100%; }
 .m-quick-card {
     display: flex; align-items: center; gap: 16px; background: rgba(255,255,255,0.05);
     border-radius: 8px; overflow: hidden; cursor: pointer; transition: 0.2s; position: relative; height: 64px;
@@ -98,7 +124,7 @@
 .m-quick-card:hover .m-qc-play { opacity: 1; transform: translateY(-50%) scale(1.05); }
 
 /* ЖАНРЫ */
-.m-genres-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 20px; }
+.m-genres-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 20px; width: 100%; }
 .m-genre-card {
     position: relative; height: 110px; border-radius: 12px; overflow: hidden; padding: 16px;
     cursor: pointer; transition: transform 0.2s ease; box-shadow: 0 4px 15px rgba(0,0,0,0.2);
@@ -108,11 +134,21 @@
 .m-genre-card::after { content: ''; position: absolute; bottom: -10px; right: -10px; width: 70px; height: 70px; background: rgba(0,0,0,0.2); border-radius: 8px; transform: rotate(25deg); }
 
 
+/* --- КОНТЕЙНЕР ТРЕКОВ --- */
+.m-tracks-container {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    width: 100%;
+}
+
 /* --- ТАБЛИЦА ТРЕКОВ --- */
 .m-track-header {
     display: grid; grid-template-columns: 40px minmax(200px, 1fr) 120px 80px 100px; gap: 16px; align-items: center;
-    padding: 0 16px 8px 16px; border-bottom: 1px solid rgba(255,255,255,0.1); margin-bottom: 12px;
+    padding: 0 8px 12px 8px; /* Отступы скомпенсированы панелью */
+    border-bottom: 1px solid rgba(255,255,255,0.08); margin-bottom: 8px;
     font-size: 13px; text-transform: uppercase; color: var(--text-muted); font-weight: 600; letter-spacing: 1px;
+    width: 100%;
 }
 
 .m-th-sortable { cursor: pointer; transition: color 0.2s; display: flex; align-items: center; gap: 6px; }
@@ -122,7 +158,9 @@
 
 .m-track-row {
     display: grid; grid-template-columns: 40px minmax(200px, 1fr) 120px 80px 100px; gap: 16px; align-items: center;
-    padding: 10px 16px; border-radius: 8px; transition: background 0.2s; border: 1px solid transparent; cursor: default;
+    padding: 10px 8px; 
+    border-radius: 8px; transition: background 0.2s; border: 1px solid transparent; cursor: default;
+    width: 100%;
 }
 .m-track-row:hover { background: rgba(255,255,255,0.05); }
 .m-track-row.active { background: rgba(255,255,255,0.1); border-color: rgba(255,255,255,0.05); }
@@ -155,6 +193,7 @@
     display: grid;
     grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
     gap: 32px; 
+    width: 100%;
 }
 
 .m-playlist-card {
@@ -240,15 +279,13 @@
 .create-pl-card:hover .create-icon { color: #fff; transform: scale(1.1); }
 
 
-/* --- ИСПРАВЛЕНО: СТРАНИЦА ПЛЕЙЛИСТА (HERO) ТЕПЕРЬ КАК HOME --- */
+/* СТРАНИЦА ПЛЕЙЛИСТА (HERO) */
 .m-playlist-hero { 
     position: relative; width: 100%; height: 220px; border-radius: 24px; overflow: hidden;
     display: flex; align-items: flex-end; padding: 32px; border: 1px solid rgba(255,255,255,0.05);
-    margin-bottom: 30px;
     background: #111;
 }
 .m-ph-cover { 
-    /* Обложка внутри баннера */
     width: 160px; height: 160px; border-radius: 12px; 
     box-shadow: 0 10px 40px rgba(0,0,0,0.5); object-fit: cover; 
     z-index: 2; margin-right: 24px;
@@ -266,13 +303,16 @@
 .m-ph-playbtn:hover { background: #4cd137; transform: scale(1.05); }
 
 /* ПУСТЫЕ СОСТОЯНИЯ */
-.m-empty-state { display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 80px 20px; color: var(--text-muted); text-align: center; gap: 20px; }
+.m-empty-state { display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 40px 20px; color: var(--text-muted); text-align: center; gap: 20px; width: 100%; }
 .m-empty-state i { font-size: 64px; opacity: 0.3; }
 .m-empty-state p { font-size: 18px; font-weight: 600; }
 
 /* АДАПТИВ */
 @media (max-width: 768px) {
     .music-top-nav { padding: 12px 16px; border-radius: 12px; }
+    
+    .music-content-panel { padding: 16px; border-radius: 16px; }
+    
     .m-hero-banner { height: 160px; padding: 20px; }
     .m-hero-title { font-size: 32px; }
     .m-quick-grid { grid-template-columns: repeat(2, 1fr); gap: 10px; }
@@ -280,7 +320,7 @@
     .m-qc-title { font-size: 13px; } .m-qc-artist { display: none; } .m-qc-play { display: none; }
     
     .m-track-header { display: none; }
-    .m-track-row { grid-template-columns: 30px minmax(150px, 1fr) auto; padding: 10px; gap: 12px; }
+    .m-track-row { grid-template-columns: 30px minmax(150px, 1fr) auto; padding: 10px 8px; gap: 12px; }
     .m-tr-genre, .m-tr-time { display: none; }
     
     .m-playlist-hero { flex-direction: column; align-items: center; text-align: center; height: auto; padding: 32px; }

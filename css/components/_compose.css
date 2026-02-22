@@ -25,11 +25,10 @@
     overflow-y: auto;
     font-family: inherit;
     line-height: 1.5;
-    white-space: pre-wrap; /* Сохраняет пробелы и переносы */
+    white-space: pre-wrap; 
     word-break: break-word;
 }
 
-/* Имитация placeholder */
 .compose-input:empty::before {
     content: attr(placeholder);
     color: var(--text-muted);
@@ -37,14 +36,12 @@
     display: block;
 }
 
-/* Стилизация цитаты внутри редактора */
 .compose-input .post-quote {
     position: relative; 
     margin: 8px 0; 
     padding: 8px 12px 8px 18px; 
     background: rgba(255, 255, 255, 0.03); 
     border-radius: 6px; 
-    /* ИЗМЕНЕНО: Цвет линии цитирования на нейтральный стеклянный */
     border-left: 3px solid rgba(255, 255, 255, 0.3); 
     color: #c0c0c0; 
     font-size: 14px; 
@@ -65,13 +62,8 @@
     pointer-events: none;
 }
 
-/* Жирный текст внутри редактора */
-.compose-input b, .compose-input strong {
-    font-weight: 800;
-    color: var(--text-main);
-}
+.compose-input b, .compose-input strong { font-weight: 800; color: var(--text-main); }
 
-/* Спойлер внутри редактора */
 .compose-input .editor-spoiler {
     background: rgba(255, 255, 255, 0.1); 
     color: var(--text-muted);
@@ -81,123 +73,138 @@
 }
 
 /* --- Превью медиа --- */
-.media-preview-container {
-    display: flex;
-    gap: 8px;
-    overflow-x: auto;
-    padding-bottom: 8px; 
-}
-
-.media-preview-container:empty { 
-    display: none; 
-    padding: 0; 
-}
+.media-preview-container { display: flex; gap: 8px; overflow-x: auto; padding-bottom: 8px; }
+.media-preview-container:empty { display: none; padding: 0; }
 
 .preview-item {
-    position: relative;
-    width: 150px; 
-    height: 100px;
-    flex-shrink: 0;
-    border-radius: 12px;
-    overflow: hidden;
-    background: #000;
+    position: relative; width: 150px; height: 100px; flex-shrink: 0;
+    border-radius: 12px; overflow: hidden; background: #000;
 }
-
-.preview-item img, 
-.preview-item video {
-    width: 100%;
-    height: 100%;
-    object-fit: cover;
-}
+.preview-item img, .preview-item video { width: 100%; height: 100%; object-fit: cover; }
 
 .remove-media-btn {
-    position: absolute;
-    top: 6px;
-    right: 6px;
-    background: rgba(0, 0, 0, 0.6);
-    color: white;
-    border: none;
-    border-radius: 50%;
-    width: 24px;
-    height: 24px;
-    cursor: pointer;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-size: 12px;
-    transition: 0.2s;
-    line-height: 0;
+    position: absolute; top: 6px; right: 6px; background: rgba(0, 0, 0, 0.6);
+    color: white; border: none; border-radius: 50%; width: 24px; height: 24px;
+    cursor: pointer; display: flex; align-items: center; justify-content: center;
+    font-size: 12px; transition: 0.2s; line-height: 0;
 }
-.remove-media-btn:hover { 
-    background: rgba(0,0,0,0.8); 
-    transform: scale(1.1);
-}
+.remove-media-btn:hover { background: rgba(0,0,0,0.8); transform: scale(1.1); }
 
 /* --- Опросы --- */
 .poll-creator {
-    display: flex; 
-    flex-direction: column; 
-    gap: 16px; 
-    border: 1px solid var(--border-color);
-    border-radius: var(--radius-medium); 
-    padding: 16px; 
-    background: rgba(255, 255, 255, 0.02);
-    animation: slideDown 0.3s ease;
+    display: flex; flex-direction: column; gap: 16px; 
+    border: 1px solid var(--border-color); border-radius: var(--radius-medium); 
+    padding: 16px; background: rgba(255, 255, 255, 0.02); animation: slideDown 0.3s ease;
 }
-
 @keyframes slideDown { 
     from { opacity: 0; transform: translateY(-10px); } 
     to { opacity: 1; transform: translateY(0); } 
 }
 
 .poll-header { 
-    display: flex; 
-    justify-content: space-between; 
-    align-items: center; 
-    color: var(--text-muted); 
-    font-size: 14px; 
-    font-weight: 600; 
-    text-transform: uppercase; 
-    letter-spacing: 0.5px;
+    display: flex; justify-content: space-between; align-items: center; 
+    color: var(--text-muted); font-size: 14px; font-weight: 600; 
+    text-transform: uppercase; letter-spacing: 0.5px;
 }
-.poll-inputs { 
-    display: flex; 
-    flex-direction: column; 
-    gap: 10px; 
-}
+.poll-inputs { display: flex; flex-direction: column; gap: 10px; }
 .poll-input {
-    background: #1a1a1c; 
-    border: 1px solid var(--border-color); 
-    color: var(--text-main);
-    padding: 12px 16px; 
-    border-radius: 8px; 
-    outline: none; 
-    font-size: 15px; 
-    transition: 0.2s;
+    background: #1a1a1c; border: 1px solid var(--border-color); color: var(--text-main);
+    padding: 12px 16px; border-radius: 8px; outline: none; font-size: 15px; transition: 0.2s;
 }
 .poll-input:focus { border-color: rgba(255,255,255,0.3); }
-.poll-footer-controls { 
-    display: flex; 
-    justify-content: space-between; 
-    align-items: center; 
-    margin-top: 4px; 
+.poll-footer-controls { display: flex; justify-content: space-between; align-items: center; margin-top: 4px; }
+
+
+/* =========================================
+   КАСТОМНЫЙ СЕЛЕКТ (Вместо системного)
+========================================= */
+.custom-select {
+    position: relative;
+    width: 120px;
+    user-select: none;
 }
-.poll-select { 
-    background: #1a1a1c; 
-    color: var(--text-main); 
-    border: 1px solid var(--border-color); 
-    padding: 6px 12px; 
-    border-radius: 6px; 
-    outline: none; 
+
+.select-trigger {
+    background-color: #1a1a1c;
+    color: var(--text-main);
+    border: 1px solid var(--border-color);
+    padding: 8px 12px;
+    border-radius: 8px;
     cursor: pointer;
+    font-size: 14px;
+    font-weight: 500;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    transition: 0.2s;
+}
+
+.select-trigger:hover {
+    background-color: rgba(255,255,255,0.05);
+    border-color: rgba(255,255,255,0.2);
+}
+
+.select-trigger i {
+    font-size: 12px;
+    color: var(--text-muted);
+    transition: transform 0.3s;
+}
+
+.custom-select.active .select-trigger {
+    border-color: rgba(255,255,255,0.4);
+}
+
+.custom-select.active .select-trigger i {
+    transform: rotate(180deg);
+}
+
+/* Выпадающий список */
+.select-dropdown {
+    position: absolute;
+    top: calc(100% + 6px);
+    right: 0; /* Выравнивание по правому краю */
+    background: #222224;
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    width: 100%;
+    min-width: 120px;
+    box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+    z-index: 100;
+    overflow: hidden;
+    opacity: 0;
+    visibility: hidden;
+    transform: translateY(-10px);
+    transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.custom-select.active .select-dropdown {
+    opacity: 1;
+    visibility: visible;
+    transform: translateY(0);
+}
+
+.select-option {
+    padding: 10px 12px;
+    font-size: 14px;
+    color: var(--text-muted);
+    cursor: pointer;
+    transition: background 0.2s, color 0.2s;
+}
+
+.select-option:hover {
+    background: rgba(255,255,255,0.05);
+    color: #fff;
+}
+
+.select-option.selected {
+    background: rgba(255,255,255,0.1);
+    color: #fff;
+    font-weight: 600;
 }
 
 /* --- Футер создания поста --- */
 .compose-actions { 
-    display: flex; 
-    justify-content: space-between; 
-    align-items: center; 
-    padding-top: 16px; 
-    border-top: 1px solid var(--border-color); 
+    display: flex; justify-content: space-between; align-items: center; 
+    padding-top: 16px; border-top: 1px solid var(--border-color); 
 }
 .action-icons { display: flex; gap: 8px; }

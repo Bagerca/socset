@@ -26,15 +26,21 @@
     cursor: pointer; transition: 0.2s; display: flex; align-items: center; gap: 8px;
 }
 .shop-tab-btn:hover { color: var(--text-main); background: rgba(255,255,255,0.05); }
-.shop-tab-btn.active { background: var(--text-main); color: var(--bg-base); }
+
+/* Активный таб - Золотой, но с темным текстом для читаемости */
+.shop-tab-btn.active { 
+    background: var(--accent-shop); 
+    color: #000; 
+    box-shadow: 0 0 15px rgba(255, 215, 0, 0.3);
+}
 
 /* Баланс */
 .shop-balance {
     display: flex; align-items: center; gap: 8px;
-    background: rgba(255, 215, 0, 0.1); border: 1px solid rgba(255, 215, 0, 0.3);
+    background: rgba(255, 215, 0, 0.1); border: 1px solid var(--accent-shop);
     padding: 8px 16px; border-radius: 100px;
-    font-weight: 700; color: #ffd700; font-size: 15px;
-    flex-shrink: 0;
+    font-weight: 700; color: var(--accent-shop); font-size: 15px;
+    flex-shrink: 0; box-shadow: 0 0 10px rgba(255, 215, 0, 0.1);
 }
 
 /* --- ПОИСК В МАГАЗИНЕ --- */
@@ -55,8 +61,8 @@
     transition: 0.2s;
 }
 .shop-search-input:focus {
-    border-color: rgba(255,255,255,0.4);
-    box-shadow: 0 0 15px rgba(255,255,255,0.05);
+    border-color: var(--accent-shop); /* Золотая обводка */
+    box-shadow: 0 0 15px rgba(255, 215, 0, 0.1);
 }
 .shop-search-icon {
     position: absolute;
@@ -110,13 +116,12 @@
 }
 .shop-card:hover { transform: translateY(-5px); box-shadow: 0 15px 30px rgba(0,0,0,0.4); border-color: rgba(255,255,255,0.2); }
 
-/* Активная рамка в инвентаре */
+/* Активная рамка в инвентаре (Синяя, чтобы отличаться от золота магазина) */
 .shop-card.is-active {
     border-color: #5dade2;
     box-shadow: 0 0 20px rgba(93, 173, 226, 0.15);
 }
 
-/* Превью рамки в карточке */
 .shop-preview-box {
     position: relative; width: 80px; height: 80px; margin-bottom: 10px;
 }
@@ -136,10 +141,10 @@
 .shop-buy-btn {
     width: 100%; padding: 10px; border-radius: 8px; border: none; font-weight: 700;
     cursor: pointer; transition: 0.2s; display: flex; align-items: center; justify-content: center; gap: 8px;
-    background: #ffd700; color: #000; margin-top: 8px;
+    background: var(--accent-shop); color: #000; margin-top: 8px; /* Золотая кнопка */
 }
-.shop-buy-btn:hover { background: #ffea00; transform: scale(1.05); }
-.shop-buy-btn.bought { background: rgba(255,255,255,0.1); color: var(--text-muted); cursor: not-allowed; transform: none; }
+.shop-buy-btn:hover { background: #ffea00; transform: scale(1.05); box-shadow: 0 0 15px rgba(255, 215, 0, 0.4); }
+.shop-buy-btn.bought { background: rgba(255,255,255,0.1); color: var(--text-muted); cursor: not-allowed; transform: none; box-shadow: none; }
 
 .shop-equip-btn {
     width: 100%; padding: 10px; border-radius: 8px; border: none; font-weight: 700;

@@ -50,7 +50,6 @@ export class MusicController {
         document.removeEventListener('cycle:fav-changed', this.boundFavChanged);
     }
 
-    // НОВОЕ: Автоматическое определение длительности
     loadDurationsForTracks(tracks) {
         tracks.forEach(track => {
             if (this.dataManager.getCachedDuration(track.id)) return;
@@ -111,17 +110,13 @@ export class MusicController {
             tab.addEventListener('click', () => { this.switchTab(tab.dataset.tab); }, { signal });
         });
 
-        // ДЕЛЕГИРОВАНИЕ СОБЫТИЙ
         this.mainContent.addEventListener('click', (e) => {
-            
-            // НОВОЕ: Обработка клика по карточке создания плейлиста
             if (e.target.closest('.create-pl-card')) {
                 this.createModal.classList.add('active');
                 document.getElementById('newAlbumName').value = '';
                 return;
             }
 
-            // Обработка клика по заголовкам таблицы (СОРТИРОВКА)
             const sortHeader = e.target.closest('.m-th-sortable');
             if (sortHeader) {
                 const key = sortHeader.dataset.sort;
@@ -314,8 +309,6 @@ export class MusicController {
         this.syncListIcons();
     }
 
-    // --- РЕНДЕРЫ РАЗДЕЛОВ ---
-
     renderHome() {
         const catalog = this.dataManager.getMusicCatalog();
         const quickPicks = [...catalog].sort(() => 0.5 - Math.random()).slice(0, 6);
@@ -324,13 +317,13 @@ export class MusicController {
         const allGenres = this.dataManager.getAllMusicGenres();
         const genresList = Array.from(genresSet).map(id => allGenres[id]).filter(Boolean).slice(0, 8);
         
+        // На главной странице панели не нужны, здесь большие баннеры
         this.mainContent.innerHTML = MusicRenderer.renderHomeHero() + MusicRenderer.renderQuickPicks(quickPicks) + MusicRenderer.renderGenresGrid(genresList);
     }
 
     renderSearch() {
         if (!this.searchQuery) { 
-            const genres = Object.values(this.dataManager.getAllMusicGenres());
-            this.mainContent.innerHTML = MusicRenderer.renderGenresGrid(genres);
+            this.mainContent.innerHTML = `<div class="music-content-panel">` + MusicRenderer.renderGenresGrid(Object.values(this.dataManager.getAllMusicGenres())) + `</div>`;
             return; 
         }
 
@@ -339,21 +332,23 @@ export class MusicController {
         const results = this.searchEngine.search(itemsWithGenres, this.searchQuery, [{ field: 'title', weight: 4 }, { field: 'artist', weight: 2 }, { field: 'genreLabel', weight: 1 }]);
         
         if (results.length === 0) { 
-            this.mainContent.innerHTML = MusicRenderer.renderEmptyState('fa-regular fa-face-frown', 'По вашему запросу ничего не найдено'); 
+            this.mainContent.innerHTML = `<div class="music-content-panel">` + MusicRenderer.renderEmptyState('fa-regular fa-face-frown', 'По вашему запросу ничего не найдено') + `</div>`; 
             return; 
         }
 
         const sortedResults = this.getSortedTracks(results);
         const favs = this.dataManager.getFavoriteTracks();
         
-        let html = `<h2 class="m-section-title" style="margin-top: 10px;">Результаты поиска</h2>`;
+        // ОБОРАЧИВАЕМ В ПАНЕЛЬ!
+        let html = `<div class="music-content-panel">`;
+        html += `<h2 class="m-section-title" style="margin-bottom: 20px;">Результаты поиска</h2>`;
         html += MusicRenderer.renderTrackListHeader(this.sortState);
         html += `<div class="m-tracks-container">`;
         html += sortedResults.map((t, i) => {
             const cachedDur = this.dataManager.getCachedDuration(t.id);
             return MusicRenderer.renderTrackRow(t, i, favs.includes(t.id), this.dataManager.getMusicGenreById(t.genre), cachedDur);
         }).join('');
-        html += `</div>`;
+        html += `</div></div>`; 
         this.mainContent.innerHTML = html;
 
         this.loadDurationsForTracks(sortedResults);
@@ -364,20 +359,24 @@ export class MusicController {
         if (this.currentGenreId !== 'all') tracks = tracks.filter(t => t.genre === this.currentGenreId);
         
         if (tracks.length === 0) {
-            this.mainContent.innerHTML = MusicRenderer.renderEmptyState('fa-solid fa-music', 'В этом жанре пока нет треков');
+            this.mainContent.innerHTML = `<div class="music-content-panel">` + MusicRenderer.renderEmptyState('fa-solid fa-music', 'В этом жанре пока нет треков') + `</div>`;
             return;
         }
 
         const sortedTracks = this.getSortedTracks(tracks);
         const favs = this.dataManager.getFavoriteTracks();
+        const title = this.currentGenreId === 'all' ? 'Все треки' : this.dataManager.getMusicGenreById(this.currentGenreId).label;
         
-        let html = MusicRenderer.renderTrackListHeader(this.sortState);
+        // ОБОРАЧИВАЕМ В ПАНЕЛЬ!
+        let html = `<div class="music-content-panel">`; 
+        html += `<h2 class="m-section-title" style="margin-bottom: 20px;">${escapeHTML(title)}</h2>`;
+        html += MusicRenderer.renderTrackListHeader(this.sortState);
         html += `<div class="m-tracks-container">`;
         html += sortedTracks.map((t, i) => {
             const cachedDur = this.dataManager.getCachedDuration(t.id);
             return MusicRenderer.renderTrackRow(t, i, favs.includes(t.id), this.dataManager.getMusicGenreById(t.genre), cachedDur);
         }).join('');
-        html += `</div>`;
+        html += `</div></div>`; 
         this.mainContent.innerHTML = html;
 
         this.loadDurationsForTracks(sortedTracks);
@@ -388,20 +387,22 @@ export class MusicController {
         let tracks = this.dataManager.getMusicCatalog().filter(t => favIds.includes(t.id));
         
         if (tracks.length === 0) {
-            this.mainContent.innerHTML = MusicRenderer.renderEmptyState('fa-regular fa-heart', 'У вас пока нет любимых треков');
+            this.mainContent.innerHTML = `<div class="music-content-panel">` + MusicRenderer.renderEmptyState('fa-regular fa-heart', 'У вас пока нет любимых треков') + `</div>`;
             return;
         }
 
         const sortedTracks = this.getSortedTracks(tracks);
 
-        let html = `<h2 class="m-section-title">Любимые треки</h2>`;
+        // ОБОРАЧИВАЕМ В ПАНЕЛЬ!
+        let html = `<div class="music-content-panel">`;
+        html += `<h2 class="m-section-title" style="margin-bottom: 20px;">Любимые треки</h2>`;
         html += MusicRenderer.renderTrackListHeader(this.sortState);
         html += `<div class="m-tracks-container">`;
         html += sortedTracks.map((t, i) => {
             const cachedDur = this.dataManager.getCachedDuration(t.id);
             return MusicRenderer.renderTrackRow(t, i, true, this.dataManager.getMusicGenreById(t.genre), cachedDur);
         }).join('');
-        html += `</div>`;
+        html += `</div></div>`; 
         this.mainContent.innerHTML = html;
 
         this.loadDurationsForTracks(sortedTracks);
@@ -409,7 +410,13 @@ export class MusicController {
 
     renderPlaylists() {
         const albums = this.dataManager.getCustomAlbums();
-        this.mainContent.innerHTML = MusicRenderer.renderPlaylistsGrid(albums);
+        
+        // ОБОРАЧИВАЕМ В ПАНЕЛЬ!
+        let html = `<div class="music-content-panel">`;
+        html += `<h2 class="m-section-title" style="margin-bottom: 20px;">Ваши плейлисты</h2>`;
+        html += MusicRenderer.renderPlaylistsGrid(albums);
+        html += `</div>`;
+        this.mainContent.innerHTML = html;
     }
 
     renderAlbumView() {
@@ -421,6 +428,9 @@ export class MusicController {
         const favs = this.dataManager.getFavoriteTracks();
         
         let html = MusicRenderer.renderPlaylistView(album, tracks.length);
+        
+        // ОБОРАЧИВАЕМ В ПАНЕЛЬ!
+        html += `<div class="music-content-panel" style="margin-top: 24px;">`;
         if (tracks.length === 0) {
             html += MusicRenderer.renderEmptyState('fa-solid fa-headphones', 'Добавьте треки в этот плейлист');
         } else {
@@ -431,9 +441,10 @@ export class MusicController {
                 const cachedDur = this.dataManager.getCachedDuration(t.id);
                 return MusicRenderer.renderTrackRow(t, i, favs.includes(t.id), this.dataManager.getMusicGenreById(t.genre), cachedDur);
             }).join('');
-            html += `</div>`;
+            html += `</div>`; 
             this.loadDurationsForTracks(sortedTracks);
         }
+        html += `</div>`;
         this.mainContent.innerHTML = html;
     }
 

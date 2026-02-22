@@ -28,8 +28,10 @@
     position: relative; z-index: 2; padding: 30px; width: 100%; display: flex; flex-direction: column; gap: 10px;
 }
 .hero-badge {
-    background: #ffd700; color: #000; font-weight: 800; font-size: 11px;
+    background: var(--accent-games); /* Фиолетовый акцент */
+    color: #fff; font-weight: 800; font-size: 11px;
     padding: 4px 10px; border-radius: 4px; text-transform: uppercase; width: fit-content;
+    box-shadow: 0 0 15px rgba(155, 89, 182, 0.4);
 }
 .hero-title {
     font-size: 36px; font-weight: 900; line-height: 1; color: #fff; text-shadow: 0 4px 10px rgba(0,0,0,0.5);
@@ -39,7 +41,7 @@
     background: #fff; color: #000; border: none; padding: 10px 24px; border-radius: 8px;
     font-weight: 700; cursor: pointer; transition: 0.2s; width: fit-content;
 }
-.hero-btn:hover { background: #e0e0e0; }
+.hero-btn:hover { background: var(--accent-games); color: #fff; box-shadow: 0 0 20px rgba(155, 89, 182, 0.4); }
 
 /* --- CONTROL BAR --- */
 .games-controls { display: flex; flex-direction: column; gap: 16px; }
@@ -49,7 +51,7 @@
     flex: 1; position: relative; background: #1a1a1c; border: 1px solid var(--border-color);
     border-radius: 12px; display: flex; align-items: center; padding: 0 16px; height: 48px; transition: 0.2s;
 }
-.games-search-box:focus-within { border-color: rgba(255,255,255,0.3); background: #222; }
+.games-search-box:focus-within { border-color: var(--accent-games); background: #222; box-shadow: 0 0 10px rgba(155, 89, 182, 0.1); }
 .games-search-box i { color: var(--text-muted); margin-right: 12px; }
 .games-search-box input { background: transparent; border: none; outline: none; color: #fff; font-size: 15px; width: 100%; }
 
@@ -59,7 +61,7 @@
     display: flex; align-items: center; gap: 8px; transition: 0.2s;
 }
 .filter-toggle-btn:hover { background: rgba(255,255,255,0.1); }
-.filter-toggle-btn.active { background: #fff; color: #000; }
+.filter-toggle-btn.active { background: var(--accent-games); color: #fff; border-color: var(--accent-games); }
 
 .quick-chips-row { display: flex; gap: 8px; overflow-x: auto; padding-bottom: 4px; scrollbar-width: none; }
 .filter-chip {
@@ -68,26 +70,28 @@
     cursor: pointer; white-space: nowrap; transition: 0.2s;
 }
 .filter-chip:hover { background: rgba(255,255,255,0.1); color: #fff; }
-.filter-chip.active { background: #fff; color: #000; }
+.filter-chip.active { background: var(--accent-games); color: #fff; box-shadow: 0 4px 10px rgba(155, 89, 182, 0.3); }
 
 /* --- HORIZONTAL ROWS (ЛЕНТА) --- */
 .games-row-section {
     display: flex; flex-direction: column; gap: 16px;
     animation: fadeIn 0.5s ease;
 }
-.games-row-header { font-size: 20px; font-weight: 700; color: #fff; padding-left: 4px; }
+.games-row-header { 
+    font-size: 20px; font-weight: 700; color: #fff; padding-left: 4px; 
+    border-left: 4px solid var(--accent-games); padding-left: 12px; /* Фиолетовая полоска слева */
+}
 
 .games-horizontal-scroll {
     display: flex; gap: 20px; overflow-x: auto;
-    padding: 4px 4px 20px 4px; /* Паддинг снизу для тени при ховере */
+    padding: 4px 4px 20px 4px; 
     scroll-snap-type: x mandatory;
-    scrollbar-width: none; /* Скрываем скроллбар */
+    scrollbar-width: none; 
 }
 .games-horizontal-scroll::-webkit-scrollbar { display: none; }
 
-/* Карточка в скролле (фиксированная ширина) */
 .games-horizontal-scroll .game-card {
-    flex: 0 0 220px; /* Жесткая ширина карточки в ряду */
+    flex: 0 0 220px; 
     scroll-snap-align: start;
 }
 
@@ -153,11 +157,10 @@
 }
 .filter-drawer-overlay.active { opacity: 1; pointer-events: auto; }
 
-/* Сама панель теперь стеклянная */
 .filter-drawer {
     position: fixed; top: 0; right: -340px; width: 340px; height: 100%;
-    background: rgba(20, 20, 22, 0.85); /* Полупрозрачный фон */
-    backdrop-filter: blur(24px); /* Эффект матового стекла */
+    background: rgba(20, 20, 22, 0.85); 
+    backdrop-filter: blur(24px); 
     border-left: 1px solid rgba(255, 255, 255, 0.08);
     padding: 32px 24px;
     z-index: 1000; transition: right 0.4s cubic-bezier(0.16, 1, 0.3, 1);
@@ -173,17 +176,15 @@
 .drawer-title { 
     font-size: 22px; font-weight: 800; display: flex; align-items: center; gap: 10px; color: #fff;
 }
-.drawer-title i { color: var(--text-muted); font-size: 18px; }
+.drawer-title i { color: var(--accent-games); font-size: 18px; } /* Фиолетовая иконка */
 
 .drawer-content { 
     flex: 1; overflow-y: auto; display: flex; flex-direction: column; 
     gap: 32px; padding-right: 8px; 
 }
-/* Красивый скроллбар для панели */
 .drawer-content::-webkit-scrollbar { width: 4px; }
 .drawer-content::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.2); border-radius: 4px; }
 
-/* Заголовки категорий с линией-разделителем */
 .filter-group-title {
     display: flex; align-items: center; gap: 12px;
     font-size: 12px; text-transform: uppercase; color: var(--text-muted);
@@ -195,10 +196,7 @@
 
 .filter-checkbox-grid { display: grid; grid-template-columns: 1fr; gap: 4px; }
 
-/* =========================================
-   CUSTOM CHECKBOXES (Элитные чекбоксы)
-========================================= */
-
+/* CUSTOM CHECKBOXES */
 .custom-filter-checkbox {
     display: flex; align-items: center; gap: 14px; cursor: pointer;
     padding: 10px 14px; border-radius: 12px;
@@ -206,17 +204,14 @@
     background: transparent; border: 1px solid transparent;
 }
 
-/* При наведении пункт подсвечивается и слегка сдвигается вправо */
 .custom-filter-checkbox:hover {
     background: rgba(255, 255, 255, 0.03);
     transform: translateX(6px);
     border-color: rgba(255, 255, 255, 0.05);
 }
 
-/* Скрываем стандартный браузерный чекбокс */
 .hidden-checkbox { display: none; }
 
-/* Рисуем свой красивый квадратик */
 .checkbox-box {
     width: 22px; height: 22px; border-radius: 6px;
     border: 2px solid rgba(255, 255, 255, 0.2);
@@ -226,46 +221,44 @@
     flex-shrink: 0;
 }
 
-/* Галочка внутри (изначально скрыта и уменьшена) */
 .checkbox-box i {
-    font-size: 12px; color: #000;
+    font-size: 12px; color: #fff;
     opacity: 0; transform: scale(0.2) translateY(5px); 
     transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
-/* СОСТОЯНИЕ: ВЫБРАНО */
+/* СОСТОЯНИЕ: ВЫБРАНО (Фиолетовый) */
 .hidden-checkbox:checked + .checkbox-box {
-    background: #fff; 
-    border-color: #fff; 
-    box-shadow: 0 0 15px rgba(255,255,255,0.3); /* Легкое свечение */
+    background: var(--accent-games); 
+    border-color: var(--accent-games); 
+    box-shadow: 0 0 10px rgba(155, 89, 182, 0.4);
 }
 
-/* Появление галочки с эффектом пружины */
 .hidden-checkbox:checked + .checkbox-box i {
     opacity: 1; transform: scale(1) translateY(0);
 }
 
-/* Текст рядом с чекбоксом */
 .checkbox-label { 
     font-size: 15px; color: #a0a0a0; 
     transition: color 0.2s; font-weight: 500; 
     user-select: none;
 }
-/* Если выбрано — текст становится ярче и жирнее */
 .hidden-checkbox:checked ~ .checkbox-label { 
     color: #fff; font-weight: 700; 
 }
 
-/* Подвал панели (кнопки сброса/применения) */
 .drawer-footer { 
     padding-top: 20px; border-top: 1px solid rgba(255,255,255,0.05); 
     display: flex; gap: 12px; 
 }
 .drawer-footer .btn-post { 
     flex: 1; padding: 14px; font-size: 15px; border-radius: 12px; 
+    background: var(--accent-games); color: #fff; /* Кнопка применить - фиолетовая */
+}
+.drawer-footer .btn-post:first-child {
+    background: rgba(255,255,255,0.1); color: #fff; /* Сбросить - серая */
 }
 
-/* Адаптив */
 @media (max-width: 600px) {
     .hero-section { height: 240px; }
     .games-top-row { flex-wrap: wrap; }

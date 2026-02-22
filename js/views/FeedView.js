@@ -5,10 +5,8 @@ import { FeedController } from '../controllers/FeedController.js';
 export const FeedView = {
     html: `
         <div class="compose-box">
-            <!-- ИЗМЕНЕНО: contenteditable div вместо textarea -->
             <div id="postInput" class="compose-input" contenteditable="true" placeholder="Что происходит?"></div>
             
-            <!-- Контейнер для превью вложений -->
             <div id="attachmentPreview" style="display: none;"></div>
 
             <!-- Скрытый блок опроса -->
@@ -23,10 +21,18 @@ export const FeedView = {
                 </div>
                 <div class="poll-footer-controls">
                     <button id="addOptionBtn" class="text-btn">+ Добавить вариант</button>
-                    <select id="pollDuration" class="poll-select">
-                        <option value="1">1 день</option>
-                        <option value="3" selected>3 дня</option>
-                    </select>
+                    
+                    <!-- КАСТОМНЫЙ СЕЛЕКТ ВМЕСТО ОБЫЧНОГО -->
+                    <div class="custom-select" id="pollDurationWrapper">
+                        <div class="select-trigger">3 дня <i class="fa-solid fa-chevron-down"></i></div>
+                        <div class="select-dropdown">
+                            <div class="select-option" data-value="1">1 день</div>
+                            <div class="select-option selected" data-value="3">3 дня</div>
+                            <div class="select-option" data-value="7">7 дней</div>
+                        </div>
+                        <input type="hidden" id="pollDuration" value="3">
+                    </div>
+
                 </div>
             </div>
 

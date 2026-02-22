@@ -33,7 +33,6 @@ export class FeedController {
         this.isPollActive = false;
         this.currentAttachments = { music: null, game: null };
         
-        // Переменная для хранения выделения
         this.savedRange = null;
 
         this.createGlobalContextMenu(); 
@@ -50,35 +49,22 @@ export class FeedController {
         this.abortController.abort();
         if (this.contextMenu) this.contextMenu.remove();
         if (this.formatMenu) this.formatMenu.remove();
+        // Удаляем глобальный клик для закрытия селекта, чтобы не висел в памяти
+        document.removeEventListener('click', this.closeSelectHandler);
     }
 
-    // --- ПАРСЕР ДЛЯ ОТПРАВКИ ---
     getFormattedContent() {
         const clone = this.input.cloneNode(true);
-        
-        // 1. Цитаты
-        clone.querySelectorAll('.post-quote').forEach(q => {
-            q.replaceWith(`\n> ${q.innerText.trim()}\n`);
-        });
+        clone.querySelectorAll('.post-quote').forEach(q => { q.replaceWith(`\n> ${q.innerText.trim()}\n`); });
+        clone.querySelectorAll('b, strong, span[style*="font-weight: bold"]').forEach(b => { b.replaceWith(`**${b.innerText}**`); });
+        clone.querySelectorAll('.editor-spoiler').forEach(s => { s.replaceWith(`||${s.innerText}||`); });
 
-        // 2. Жирный (b, strong и span с style font-weight)
-        clone.querySelectorAll('b, strong, span[style*="font-weight: bold"]').forEach(b => {
-            b.replaceWith(`**${b.innerText}**`);
-        });
-
-        // 3. Спойлеры
-        clone.querySelectorAll('.editor-spoiler').forEach(s => {
-            s.replaceWith(`||${s.innerText}||`);
-        });
-
-        // 4. Очистка div-ов (превращаем их в переносы строк)
         let html = clone.innerHTML;
-        html = html.replace(/<div><br><\/div>/g, '\n'); // Пустые строки
-        html = html.replace(/<div>/g, '\n'); // Начало блока
-        html = html.replace(/<\/div>/g, ''); // Конец блока
-        html = html.replace(/<br>/g, '\n'); // Переносы
+        html = html.replace(/<div><br><\/div>/g, '\n'); 
+        html = html.replace(/<div>/g, '\n'); 
+        html = html.replace(/<\/div>/g, ''); 
+        html = html.replace(/<br>/g, '\n'); 
 
-        // Создаем временный элемент чтобы получить чистый текст без тегов
         const temp = document.createElement('div');
         temp.innerHTML = html;
         return temp.innerText.trim();
@@ -144,19 +130,15 @@ export class FeedController {
         this.formatMenu = menu;
 
         const signal = this.abortController.signal;
-
-        // ВАЖНО: mousedown вместо click, чтобы не терять фокус раньше времени
         document.getElementById('fmtBold').addEventListener('mousedown', (e) => { e.preventDefault(); this.applyFormat('bold'); }, { signal });
         document.getElementById('fmtQuote').addEventListener('mousedown', (e) => { e.preventDefault(); this.applyFormat('quote'); }, { signal });
         document.getElementById('fmtSpoiler').addEventListener('mousedown', (e) => { e.preventDefault(); this.applyFormat('spoiler'); }, { signal });
     }
 
-    // --- ИСПРАВЛЕННАЯ ЛОГИКА ФОРМАТИРОВАНИЯ ---
     applyFormat(type) {
         this.formatMenu.style.display = 'none';
         this.input.focus();
 
-        // 1. Восстанавливаем выделение
         if (this.savedRange) {
             const selection = window.getSelection();
             selection.removeAllRanges();
@@ -167,62 +149,68 @@ export class FeedController {
         if (!selection.rangeCount) return;
         const range = selection.getRangeAt(0);
 
-        // 2. Логика применения стилей
         if (type === 'bold') {
-            // Стандартная команда работает лучше всего для жирного, если выделение восстановлено
             document.execCommand('bold', false, null);
-        } 
-        else if (type === 'quote') {
-            // Извлекаем то, что выделили (вместе с html внутри, если был)
+        } else if (type === 'quote') {
             const extracted = range.extractContents();
-            
             const div = document.createElement('div');
             div.className = 'post-quote';
-            
-            // Если выделили пустоту, пишем "Цитата", иначе вставляем фрагмент
-            if (extracted.textContent.trim() === '') {
-                div.textContent = 'Цитата';
-            } else {
-                div.appendChild(extracted);
-            }
-            
+            if (extracted.textContent.trim() === '') div.textContent = 'Цитата'; else div.appendChild(extracted);
             range.insertNode(div);
-            
-            // Ставим курсор ПОСЛЕ цитаты, чтобы можно было писать дальше
-            const space = document.createTextNode('\u200B'); // Нулевой пробел
-            div.after(space);
-            
-            // Перемещаем каретку
-            range.setStartAfter(space);
-            range.collapse(true);
-            selection.removeAllRanges();
-            selection.addRange(range);
-        } 
-        else if (type === 'spoiler') {
+            const space = document.createTextNode('\u200B'); div.after(space);
+            range.setStartAfter(space); range.collapse(true);
+            selection.removeAllRanges(); selection.addRange(range);
+        } else if (type === 'spoiler') {
             const extracted = range.extractContents();
-            
             const span = document.createElement('span');
             span.className = 'editor-spoiler';
-            
-            if (extracted.textContent.trim() === '') {
-                span.textContent = 'Спойлер';
-            } else {
-                span.appendChild(extracted);
-            }
-            
+            if (extracted.textContent.trim() === '') span.textContent = 'Спойлер'; else span.appendChild(extracted);
             range.insertNode(span);
-            
-            // Выходим из спойлера
-            const space = document.createTextNode('\u00A0');
-            span.after(space);
-            
-            range.setStartAfter(space);
-            range.collapse(true);
-            selection.removeAllRanges();
-            selection.addRange(range);
+            const space = document.createTextNode('\u00A0'); span.after(space);
+            range.setStartAfter(space); range.collapse(true);
+            selection.removeAllRanges(); selection.addRange(range);
         }
-
         this.checkPublishState();
+    }
+
+    // --- ЛОГИКА КАСТОМНОГО СЕЛЕКТА ---
+    initCustomSelect() {
+        const wrapper = document.getElementById('pollDurationWrapper');
+        if (!wrapper) return;
+        
+        const trigger = wrapper.querySelector('.select-trigger');
+        const hiddenInput = document.getElementById('pollDuration');
+        const options = wrapper.querySelectorAll('.select-option');
+
+        // Открытие/закрытие
+        trigger.addEventListener('click', (e) => {
+            e.stopPropagation();
+            wrapper.classList.toggle('active');
+        });
+
+        // Выбор опции
+        options.forEach(opt => {
+            opt.addEventListener('click', (e) => {
+                e.stopPropagation();
+                // Обновляем текст
+                trigger.innerHTML = `${opt.textContent} <i class="fa-solid fa-chevron-down"></i>`;
+                // Обновляем скрытый инпут
+                hiddenInput.value = opt.dataset.value;
+                // Обновляем класс selected
+                options.forEach(o => o.classList.remove('selected'));
+                opt.classList.add('selected');
+                // Закрываем
+                wrapper.classList.remove('active');
+            });
+        });
+
+        // Закрытие при клике вне
+        this.closeSelectHandler = (e) => {
+            if (!wrapper.contains(e.target)) {
+                wrapper.classList.remove('active');
+            }
+        };
+        document.addEventListener('click', this.closeSelectHandler);
     }
 
     initEventListeners() {
@@ -230,20 +218,12 @@ export class FeedController {
         this.closePollBtn.addEventListener('click', () => this.closePoll());
         this.addOptionBtn.addEventListener('click', () => this.addPollOption());
         
-        this.input.addEventListener('input', () => {
-            this.checkPublishState();
-        });
+        this.input.addEventListener('input', () => { this.checkPublishState(); });
         
-        // --- ЗАПОМИНАЕМ ВЫДЕЛЕНИЕ ПРИ ОТКРЫТИИ МЕНЮ ---
         this.input.addEventListener('contextmenu', (e) => {
             e.preventDefault();
-            
             const selection = window.getSelection();
-            if(selection.rangeCount > 0) {
-                // Сохраняем текущее выделение перед тем, как клик по меню его собьет
-                this.savedRange = selection.getRangeAt(0).cloneRange();
-            }
-            
+            if(selection.rangeCount > 0) this.savedRange = selection.getRangeAt(0).cloneRange();
             this.formatMenu.style.display = 'block';
             this.formatMenu.style.top = `${e.pageY}px`;
             this.formatMenu.style.left = `${e.pageX}px`;
@@ -257,9 +237,7 @@ export class FeedController {
         this.closeModalBtn.addEventListener('click', () => this.closeModal());
         
         if (this.modal) {
-            this.modal.addEventListener('click', (e) => {
-                if (e.target === this.modal) this.closeModal();
-            });
+            this.modal.addEventListener('click', (e) => { if (e.target === this.modal) this.closeModal(); });
         }
 
         this.container.addEventListener('click', (e) => this.postEvents.handleEvent(e));
@@ -279,6 +257,9 @@ export class FeedController {
                 }
             }
         });
+
+        // Запуск логики селекта
+        this.initCustomSelect();
     }
 
     openModal(type) {
@@ -384,6 +365,7 @@ export class FeedController {
             const options = Array.from(this.pollInputsContainer.querySelectorAll('.poll-input'))
                 .map(i => i.value.trim()).filter(v => v !== '');
             if (options.length >= 2) { 
+                // ТЕПЕРЬ БЕРЕМ ЗНАЧЕНИЕ ИЗ СКРЫТОГО ИНПУТА
                 pollData = { options, duration: parseInt(document.getElementById('pollDuration').value) }; 
             }
         }
