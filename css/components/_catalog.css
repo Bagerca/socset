@@ -141,32 +141,133 @@
 .games-empty-state { grid-column: 1 / -1; padding: 60px; text-align: center; color: var(--text-muted); }
 .games-empty-state i { font-size: 48px; opacity: 0.2; }
 
-/* DRAWER */
+
+/* =========================================
+   DRAWER (БОКОВАЯ ПАНЕЛЬ ФИЛЬТРОВ)
+========================================= */
+
 .filter-drawer-overlay {
     position: fixed; top: 0; left: 0; width: 100%; height: 100%;
     background: rgba(0,0,0,0.6); backdrop-filter: blur(4px); z-index: 999;
     opacity: 0; pointer-events: none; transition: 0.3s;
 }
 .filter-drawer-overlay.active { opacity: 1; pointer-events: auto; }
+
+/* Сама панель теперь стеклянная */
 .filter-drawer {
-    position: fixed; top: 0; right: -320px; width: 320px; height: 100%;
-    background: #141416; border-left: 1px solid var(--border-color); padding: 24px;
-    z-index: 1000; transition: right 0.3s cubic-bezier(0.16, 1, 0.3, 1);
-    display: flex; flex-direction: column; gap: 24px; box-shadow: -10px 0 40px rgba(0,0,0,0.5);
+    position: fixed; top: 0; right: -340px; width: 340px; height: 100%;
+    background: rgba(20, 20, 22, 0.85); /* Полупрозрачный фон */
+    backdrop-filter: blur(24px); /* Эффект матового стекла */
+    border-left: 1px solid rgba(255, 255, 255, 0.08);
+    padding: 32px 24px;
+    z-index: 1000; transition: right 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+    display: flex; flex-direction: column; gap: 24px;
+    box-shadow: -10px 0 50px rgba(0,0,0,0.6);
 }
 .filter-drawer.active { right: 0; }
-.drawer-header { display: flex; justify-content: space-between; align-items: center; }
-.drawer-title { font-size: 20px; font-weight: 700; }
-.drawer-content { flex: 1; overflow-y: auto; display: flex; flex-direction: column; gap: 24px; }
-.filter-group-title { font-size: 12px; text-transform: uppercase; color: var(--text-muted); font-weight: 700; margin-bottom: 10px; }
-.filter-checkbox-grid { display: grid; grid-template-columns: 1fr; gap: 8px; }
-.filter-checkbox { display: flex; align-items: center; gap: 10px; cursor: pointer; font-size: 14px; color: #ccc; }
-.filter-checkbox input { accent-color: #fff; width: 16px; height: 16px; }
-.drawer-footer { padding-top: 16px; border-top: 1px solid var(--border-color); display: flex; gap: 10px; }
+
+.drawer-header { 
+    display: flex; justify-content: space-between; align-items: center; 
+    padding-bottom: 16px; border-bottom: 1px solid rgba(255,255,255,0.05); 
+}
+.drawer-title { 
+    font-size: 22px; font-weight: 800; display: flex; align-items: center; gap: 10px; color: #fff;
+}
+.drawer-title i { color: var(--text-muted); font-size: 18px; }
+
+.drawer-content { 
+    flex: 1; overflow-y: auto; display: flex; flex-direction: column; 
+    gap: 32px; padding-right: 8px; 
+}
+/* Красивый скроллбар для панели */
+.drawer-content::-webkit-scrollbar { width: 4px; }
+.drawer-content::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.2); border-radius: 4px; }
+
+/* Заголовки категорий с линией-разделителем */
+.filter-group-title {
+    display: flex; align-items: center; gap: 12px;
+    font-size: 12px; text-transform: uppercase; color: var(--text-muted);
+    font-weight: 800; letter-spacing: 1px; margin-bottom: 16px;
+}
+.filter-group-title::after {
+    content: ''; flex: 1; height: 1px; background: rgba(255, 255, 255, 0.05);
+}
+
+.filter-checkbox-grid { display: grid; grid-template-columns: 1fr; gap: 4px; }
+
+/* =========================================
+   CUSTOM CHECKBOXES (Элитные чекбоксы)
+========================================= */
+
+.custom-filter-checkbox {
+    display: flex; align-items: center; gap: 14px; cursor: pointer;
+    padding: 10px 14px; border-radius: 12px;
+    transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+    background: transparent; border: 1px solid transparent;
+}
+
+/* При наведении пункт подсвечивается и слегка сдвигается вправо */
+.custom-filter-checkbox:hover {
+    background: rgba(255, 255, 255, 0.03);
+    transform: translateX(6px);
+    border-color: rgba(255, 255, 255, 0.05);
+}
+
+/* Скрываем стандартный браузерный чекбокс */
+.hidden-checkbox { display: none; }
+
+/* Рисуем свой красивый квадратик */
+.checkbox-box {
+    width: 22px; height: 22px; border-radius: 6px;
+    border: 2px solid rgba(255, 255, 255, 0.2);
+    display: flex; align-items: center; justify-content: center;
+    transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+    background: rgba(0,0,0,0.2);
+    flex-shrink: 0;
+}
+
+/* Галочка внутри (изначально скрыта и уменьшена) */
+.checkbox-box i {
+    font-size: 12px; color: #000;
+    opacity: 0; transform: scale(0.2) translateY(5px); 
+    transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* СОСТОЯНИЕ: ВЫБРАНО */
+.hidden-checkbox:checked + .checkbox-box {
+    background: #fff; 
+    border-color: #fff; 
+    box-shadow: 0 0 15px rgba(255,255,255,0.3); /* Легкое свечение */
+}
+
+/* Появление галочки с эффектом пружины */
+.hidden-checkbox:checked + .checkbox-box i {
+    opacity: 1; transform: scale(1) translateY(0);
+}
+
+/* Текст рядом с чекбоксом */
+.checkbox-label { 
+    font-size: 15px; color: #a0a0a0; 
+    transition: color 0.2s; font-weight: 500; 
+    user-select: none;
+}
+/* Если выбрано — текст становится ярче и жирнее */
+.hidden-checkbox:checked ~ .checkbox-label { 
+    color: #fff; font-weight: 700; 
+}
+
+/* Подвал панели (кнопки сброса/применения) */
+.drawer-footer { 
+    padding-top: 20px; border-top: 1px solid rgba(255,255,255,0.05); 
+    display: flex; gap: 12px; 
+}
+.drawer-footer .btn-post { 
+    flex: 1; padding: 14px; font-size: 15px; border-radius: 12px; 
+}
 
 /* Адаптив */
 @media (max-width: 600px) {
     .hero-section { height: 240px; }
     .games-top-row { flex-wrap: wrap; }
-    .filter-drawer { width: 100%; right: -100%; }
+    .filter-drawer { width: 100%; right: -100%; padding: 24px 16px; border-left: none; }
 }

@@ -16,6 +16,9 @@ export function parseFormatting(str) {
     // 1. Цитата
     html = html.replace(/(?:^|\n)&gt; (.*)/g, '<div class="post-quote">$1</div>');
     
+    // ФИКС "ПРОПАСТИ": Удаляем один невидимый перенос строки сразу после блока цитаты.
+    html = html.replace(/<\/div>\n/g, '</div>');
+    
     // 2. Жирный текст
     html = html.replace(/\*\*(.*?)\*\*/g, '<b>$1</b>');
     

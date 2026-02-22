@@ -1,9 +1,12 @@
+// js/views/FeedView.js
+
 import { FeedController } from '../controllers/FeedController.js';
 
 export const FeedView = {
     html: `
         <div class="compose-box">
-            <textarea id="postInput" placeholder="Что происходит?"></textarea>
+            <!-- ИЗМЕНЕНО: contenteditable div вместо textarea -->
+            <div id="postInput" class="compose-input" contenteditable="true" placeholder="Что происходит?"></div>
             
             <!-- Контейнер для превью вложений -->
             <div id="attachmentPreview" style="display: none;"></div>

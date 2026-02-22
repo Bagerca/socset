@@ -1,3 +1,5 @@
+// js/controllers/ProfileController.js
+
 import { escapeHTML } from '../utils/utils.js';
 import { PostRenderer } from '../components/PostRenderer.js';
 import { PostEventHandler } from '../components/PostEventHandler.js';
@@ -5,6 +7,7 @@ import { PostEventHandler } from '../components/PostEventHandler.js';
 export class ProfileController {
     constructor(dataManager) {
         this.dataManager = dataManager;
+        this.abortController = new AbortController(); // МЕНЕДЖМЕНТ ПАМЯТИ
         this.currentUser = null;
         this.postRenderer = new PostRenderer(dataManager);
         this.postEvents = new PostEventHandler(dataManager, this.postRenderer, () => this.renderPosts());
@@ -42,29 +45,6 @@ export class ProfileController {
         
         this.gameDetailsModal = document.getElementById('gameDetailsModal');
 
-        this.handleGlobalClick = (e) => {
-            if (this.contextMenu && this.contextMenu.style.display === 'block') this.contextMenu.style.display = 'none';
-            if (this.formatMenu) this.formatMenu.style.display = 'none';
-            if (e.target === this.settingsModal) this.settingsModal.classList.remove('active');
-            if (e.target === this.selectionModal) this.selectionModal.classList.remove('active');
-            if (this.gameDetailsModal && e.target === this.gameDetailsModal) this.closeGameModal();
-        };
-
-        this.handleGlobalScroll = () => { 
-            if (this.contextMenu) this.contextMenu.style.display = 'none'; 
-            if (this.formatMenu) this.formatMenu.style.display = 'none';
-        };
-
-        this.handleEsc = (e) => {
-            if (e.key === 'Escape') {
-                if (this.settingsModal) this.settingsModal.classList.remove('active');
-                if (this.selectionModal) this.selectionModal.classList.remove('active');
-                if (this.gameDetailsModal) this.closeGameModal();
-                if (this.contextMenu) this.contextMenu.style.display = 'none';
-                if (this.formatMenu) this.formatMenu.style.display = 'none';
-            }
-        };
-
         this.createGlobalContextMenu();
         this.createFormatContextMenu();
         this.init();
@@ -81,18 +61,11 @@ export class ProfileController {
     }
 
     destroy() {
-        const globalAudio = document.getElementById('globalAudioPlayer');
-        if (globalAudio) {
-            if (this.handleProfileAudioPlay) globalAudio.removeEventListener('play', this.handleProfileAudioPlay);
-            if (this.handleProfileAudioPause) globalAudio.removeEventListener('pause', this.handleProfileAudioPause);
-        }
+        // ОДНА СТРОКА УБИВАЕТ ВСЕ ГЛОБАЛЬНЫЕ СЛУШАТЕЛИ (Плеер, Клик, Скролл, Esc)
+        this.abortController.abort();
         
         if (this.contextMenu) this.contextMenu.remove();
         if (this.formatMenu) this.formatMenu.remove();
-        
-        document.removeEventListener('click', this.handleGlobalClick);
-        document.removeEventListener('scroll', this.handleGlobalScroll, true);
-        document.removeEventListener('keydown', this.handleEsc);
         
         if (this.bgLayer) {
             this.bgLayer.style.backgroundImage = 'none';
@@ -138,8 +111,31 @@ export class ProfileController {
         menu.innerHTML = `<div class="context-menu-item danger" id="ctxDeleteComment"><i class="fa-solid fa-trash"></i> Удалить комментарий</div>`;
         document.body.appendChild(menu);
         this.contextMenu = menu;
-        document.addEventListener('click', this.handleGlobalClick);
-        document.addEventListener('scroll', this.handleGlobalScroll, true);
+        
+        const signal = this.abortController.signal;
+
+        document.addEventListener('click', (e) => {
+            if (this.contextMenu && this.contextMenu.style.display === 'block') this.contextMenu.style.display = 'none';
+            if (this.formatMenu) this.formatMenu.style.display = 'none';
+            if (e.target === this.settingsModal) this.settingsModal.classList.remove('active');
+            if (e.target === this.selectionModal) this.selectionModal.classList.remove('active');
+            if (this.gameDetailsModal && e.target === this.gameDetailsModal) this.closeGameModal();
+        }, { signal });
+
+        document.addEventListener('scroll', () => { 
+            if (this.contextMenu) this.contextMenu.style.display = 'none'; 
+            if (this.formatMenu) this.formatMenu.style.display = 'none';
+        }, { signal, capture: true });
+
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape') {
+                if (this.settingsModal) this.settingsModal.classList.remove('active');
+                if (this.selectionModal) this.selectionModal.classList.remove('active');
+                if (this.gameDetailsModal) this.closeGameModal();
+                if (this.contextMenu) this.contextMenu.style.display = 'none';
+                if (this.formatMenu) this.formatMenu.style.display = 'none';
+            }
+        }, { signal });
         
         const ctxDeleteBtn = document.getElementById('ctxDeleteComment');
         if (ctxDeleteBtn) {
@@ -149,7 +145,7 @@ export class ProfileController {
                     this.postEvents._rerenderComments(this.contextTargetPostId);
                     this.contextMenu.style.display = 'none';
                 }
-            });
+            }, { signal });
         }
     }
 
@@ -174,9 +170,11 @@ export class ProfileController {
         document.body.appendChild(menu);
         this.formatMenu = menu;
 
-        document.getElementById('fmtBold').addEventListener('click', () => this.applyFormat('**', '**'));
-        document.getElementById('fmtQuote').addEventListener('click', () => this.applyFormat('> ', ''));
-        document.getElementById('fmtSpoiler').addEventListener('click', () => this.applyFormat('||', '||'));
+        const signal = this.abortController.signal;
+
+        document.getElementById('fmtBold').addEventListener('click', () => this.applyFormat('**', '**'), { signal });
+        document.getElementById('fmtQuote').addEventListener('click', () => this.applyFormat('> ', ''), { signal });
+        document.getElementById('fmtSpoiler').addEventListener('click', () => this.applyFormat('||', '||'), { signal });
     }
 
     applyFormat(prefix, suffix) {
@@ -243,17 +241,14 @@ export class ProfileController {
             this.bgLayer.style.backgroundColor = bg ? bg.color : '#0a0a0c';
         }
 
-        // --- ЛОГИКА РАМОК (Картинки и CSS из магазина) ---
         const frame = this.dataManager.getFrames().find(f => f.id === p.frameId);
-        this.avatarFrame.style.cssText = ''; // Сбрасываем старые стили
+        this.avatarFrame.style.cssText = ''; 
         
         if (frame) {
             this.avatarFrame.style.display = 'block';
             if (frame.url) {
-                // Если это обычная картинка
                 this.avatarFrame.style.backgroundImage = `url('${frame.url}')`;
             } else if (frame.css) {
-                // Если это купленная CSS рамка из магазина
                 this.avatarFrame.style.backgroundImage = 'none';
                 this.avatarFrame.style.cssText = frame.css;
             }
@@ -331,10 +326,11 @@ export class ProfileController {
             }
         };
 
-        this.handleProfileAudioPlay = () => syncUI();
-        this.handleProfileAudioPause = () => syncUI();
-        globalAudio.addEventListener('play', this.handleProfileAudioPlay);
-        globalAudio.addEventListener('pause', this.handleProfileAudioPause);
+        const signal = this.abortController.signal;
+        
+        // НОВОЕ: Автоматическое удаление слушателей аудио
+        globalAudio.addEventListener('play', syncUI, { signal });
+        globalAudio.addEventListener('pause', syncUI, { signal });
         syncUI();
 
         clickArea.addEventListener('click', async () => {
@@ -459,16 +455,13 @@ export class ProfileController {
             const el = document.getElementById(id);
             if(el) el.innerHTML = items.map(i => `<option value="${i.id}">${i.name || i.text}</option>`).join('');
         };
-        // Теперь в getFrames() подтянутся и купленные CSS рамки!
         fillSelect('editFrame', this.dataManager.getFrames());
         fillSelect('editBackground', this.dataManager.getBackgrounds());
         fillSelect('editTitle', this.dataManager.getTitles());
     }
 
     openSettings() {
-        // Переинициализируем дропдауны, чтобы новые купленные рамки появились в списке
         this.initSettingsDropdowns();
-        
         const p = this.currentUser;
         
         this.tempAvatar = p.avatar;
@@ -726,7 +719,6 @@ export class ProfileController {
         });
 
         this.closeSelectionBtn.addEventListener('click', () => { if(this.selectionModal) this.selectionModal.classList.remove('active'); });
-        document.addEventListener('keydown', this.handleEsc);
         
         this.modulesContainer.addEventListener('click', (e) => {
             const item = e.target.closest('.showcase-item');

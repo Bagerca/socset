@@ -26,7 +26,7 @@
                 <div class="nav-links">
                     <a href="#/" class="nav-item nav-link" data-route="/"><i class="fa-solid fa-house"></i></a>
                     
-                    <!-- НОВАЯ КНОПКА: БУРГЕР -->
+                    <!-- КНОПКА: БУРГЕР -->
                     <div class="nav-item" id="burgerMenuBtn" title="Сервисы"><i class="fa-solid fa-bars"></i></div>
                     
                     <div class="nav-item" title="Поиск"><i class="fa-solid fa-magnifying-glass"></i></div>
@@ -41,7 +41,7 @@
                     <a href="#/music" class="nav-item nav-link" data-route="/music" title="Музыка"><i class="fa-solid fa-music"></i></a>
                     <a href="#/games" class="nav-item nav-link" data-route="/games" title="Игры"><i class="fa-solid fa-gamepad"></i></a>
                     
-                    <!-- НОВАЯ КНОПКА: МАГАЗИН -->
+                    <!-- КНОПКА: МАГАЗИН -->
                     <a href="#/shop" class="nav-item nav-link" data-route="/shop" title="Магазин"><i class="fa-solid fa-store"></i></a>
                 </div>
             </nav>
@@ -88,6 +88,10 @@
     <!-- Скрытый аудио тег -->
     <audio id="globalAudioPlayer" crossorigin="anonymous"></audio>
 
+    <!-- ПОДКЛЮЧЕНИЕ БАЗЫ ДАННЫХ (localForage -> IndexedDB) -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/localforage/1.10.0/localforage.min.js"></script>
+    
+    <!-- ОСНОВНОЙ СКРИПТ -->
     <script type="module" src="js/app.js"></script>
 </body>
 </html>

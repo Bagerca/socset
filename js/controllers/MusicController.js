@@ -1,14 +1,15 @@
 // js/controllers/MusicController.js
 
-import { escapeHTML, debounce } from '../utils/utils.js';
+import { debounce } from '../utils/utils.js';
 import { SearchEngine } from '../utils/SearchEngine.js';
+import { MusicRenderer } from '../components/MusicRenderer.js';
 
 export class MusicController {
     constructor(dataManager) {
         this.dataManager = dataManager;
         this.player = window.cyclePlayer; 
-        
         this.searchEngine = new SearchEngine();
+        this.abortController = new AbortController(); // МЕНЕДЖМЕНТ ПАМЯТИ
 
         // Состояние
         this.currentTab = 'all'; 
@@ -36,7 +37,7 @@ export class MusicController {
         this.lpVolumeBar = document.getElementById('lpVolumeBar');
         this.lpVolumeIcon = document.getElementById('lpVolumeIcon');
 
-        // UI Элементы Раздела
+        // UI Раздела
         this.searchWrapper = document.getElementById('musicSearchWrapper');
         this.searchInput = document.getElementById('musicSearchInput');
         this.musicSearchDropdown = document.getElementById('musicSearchDropdown');
@@ -58,9 +59,7 @@ export class MusicController {
     }
 
     init() {
-        if (this.player && this.player.widget) {
-            this.player.widget.style.display = 'none';
-        }
+        if (this.player && this.player.widget) this.player.widget.style.display = 'none';
 
         if (this.player && this.player.audio) {
             const vol = this.player.audio.muted ? 0 : this.player.audio.volume * 100;
@@ -75,9 +74,9 @@ export class MusicController {
     }
 
     destroy() {
-        if (this.player && this.player.widget) {
-            this.player.widget.style.display = '';
-        }
+        this.abortController.abort(); // Убиваем все локальные слушатели
+        
+        if (this.player && this.player.widget) this.player.widget.style.display = '';
         if (this.player) {
             this.player.audio.removeEventListener('timeupdate', this.handleTimeUpdate);
             this.player.audio.removeEventListener('loadedmetadata', this.handleLoadedMeta);
@@ -85,14 +84,10 @@ export class MusicController {
         }
         document.removeEventListener('cycle:track-changed', this.boundTrackChanged);
         document.removeEventListener('cycle:play-state', this.boundPlayState);
-        
-        if (this.handleGlobalClick) document.removeEventListener('click', this.handleGlobalClick);
     }
 
     updateSliderBg(slider) {
-        const min = slider.min || 0;
-        const max = slider.max || 100;
-        const val = slider.value;
+        const min = slider.min || 0; const max = slider.max || 100; const val = slider.value;
         const percentage = max == 0 ? 0 : ((val - min) / (max - min)) * 100;
         slider.style.background = `linear-gradient(to right, #ffffff ${percentage}%, rgba(255,255,255,0.1) ${percentage}%)`;
     }
@@ -104,29 +99,22 @@ export class MusicController {
     }
 
     bindEvents() {
-        // --- ПЕРЕКЛЮЧЕНИЕ ТАБОВ ---
+        const signal = this.abortController.signal;
+
         this.navItems.forEach(item => {
             item.addEventListener('click', () => {
                 this.navItems.forEach(n => n.classList.remove('active'));
                 item.classList.add('active');
-                
                 this.currentTab = item.dataset.tab;
                 this.currentAlbumId = null;
-                
-                // Сброс поиска
-                this.searchInput.value = '';
-                this.searchQuery = '';
+                this.searchInput.value = ''; this.searchQuery = '';
                 this.musicSearchDropdown.style.display = 'none';
-                
                 this.renderContent();
-            });
+            }, { signal });
         });
 
-        // --- ЛОГИКА УМНОГО ПОИСКА С DEBOUNCE (ДРОПДАУН) ---
         const handleSearch = debounce((query) => {
             let items = this.dataManager.getMusicCatalog();
-            
-            // Фильтруем пул треков в зависимости от выбранного таба
             if (this.currentTab === 'favorites') {
                 const favIds = this.dataManager.getFavoriteTracks();
                 items = items.filter(t => favIds.includes(t.id));
@@ -135,112 +123,77 @@ export class MusicController {
                 if (album) items = album.tracks.map(id => this.dataManager.getTrackById(id)).filter(Boolean);
             }
 
-            if (!query) { 
-                this.musicSearchDropdown.style.display = 'none'; 
-                return; 
-            }
+            if (!query) { this.musicSearchDropdown.style.display = 'none'; return; }
 
-            // Ранжированный поиск: Название трека важнее имени автора (3 к 2)
-            const results = this.searchEngine.search(items, query, [
-                { field: 'title', weight: 3 }, 
-                { field: 'artist', weight: 2 }
-            ]);
+            const results = this.searchEngine.search(items, query, [{ field: 'title', weight: 3 }, { field: 'artist', weight: 2 }]);
 
-            // Заполняем дропдаун (максимум 6 элементов)
             if (results.length > 0) {
-                this.musicSearchDropdown.innerHTML = results.slice(0, 6).map(item => `
-                    <div class="search-dropdown-item" data-id="${item.id}">
-                        <img src="${item.cover}" style="width:32px;height:32px;border-radius:4px;object-fit:cover;">
-                        <div style="flex:1; min-width:0; text-align:left;">
-                            <div style="font-size:14px; font-weight:700; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; color:#fff;">${escapeHTML(item.title)}</div>
-                            <div style="font-size:12px; color:var(--text-muted); white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${escapeHTML(item.artist)}</div>
-                        </div>
-                    </div>
-                `).join('');
+                this.musicSearchDropdown.innerHTML = results.slice(0, 6).map(item => MusicRenderer.renderDropdownItem(item)).join('');
                 this.musicSearchDropdown.style.display = 'block';
             } else {
-                this.musicSearchDropdown.innerHTML = '<div style="padding: 12px; color: var(--text-muted); font-size: 13px; text-align: center;">Ничего не найдено</div>';
+                this.musicSearchDropdown.innerHTML = MusicRenderer.renderEmptyState('Ничего не найдено');
                 this.musicSearchDropdown.style.display = 'block';
             }
         }, 200);
 
-        this.searchInput.addEventListener('input', (e) => {
-            handleSearch(e.target.value.trim());
-        });
+        this.searchInput.addEventListener('input', (e) => handleSearch(e.target.value.trim()), { signal });
 
-        // --- ПОЛНОЕ ОБНОВЛЕНИЕ СПИСКА ПО ENTER ---
         this.searchInput.addEventListener('keydown', (e) => {
             if (e.key === 'Enter') {
                 this.musicSearchDropdown.style.display = 'none';
                 this.searchQuery = this.searchInput.value.trim();
-                this.renderContent(); // Обновляет основную область
+                this.renderContent(); 
             }
-        });
+        }, { signal });
 
-        // --- ГЛОБАЛЬНЫЙ КЛИК (Закрытие меню или выбор трека) ---
-        this.handleGlobalClick = (e) => {
+        // Глобальный клик привязан к AbortController
+        document.addEventListener('click', (e) => {
             const dropItem = e.target.closest('.search-dropdown-item');
-            
             if (dropItem && dropItem.closest('#musicSearchDropdown')) {
                 const track = this.dataManager.getTrackById(dropItem.dataset.id);
                 if (track) {
-                    this.searchInput.value = track.title;
-                    this.searchQuery = track.title;
+                    this.searchInput.value = track.title; this.searchQuery = track.title;
                     this.musicSearchDropdown.style.display = 'none';
                     this.renderContent();
                 }
             } else if (!e.target.closest('#musicSearchWrapper')) {
                 if (this.musicSearchDropdown) this.musicSearchDropdown.style.display = 'none';
             }
-        };
-        document.addEventListener('click', this.handleGlobalClick);
+        }, { signal });
 
-        // --- КНОПКИ НАВИГАЦИИ ---
-        this.backToAlbumsBtn.addEventListener('click', () => {
-            this.currentAlbumId = null;
-            this.renderContent();
-        });
+        this.backToAlbumsBtn.addEventListener('click', () => { this.currentAlbumId = null; this.renderContent(); }, { signal });
 
-        // --- ЛОГИКА ПЛЕЕРА ---
-        this.lpPlayBtn.addEventListener('click', () => this.player.togglePlay());
-        this.lpNextBtn.addEventListener('click', () => this.player.next());
-        this.lpPrevBtn.addEventListener('click', () => this.player.prev());
+        // Логика плеера
+        this.lpPlayBtn.addEventListener('click', () => this.player.togglePlay(), { signal });
+        this.lpNextBtn.addEventListener('click', () => this.player.next(), { signal });
+        this.lpPrevBtn.addEventListener('click', () => this.player.prev(), { signal });
 
         this.lpShuffleBtn.addEventListener('click', () => {
             const state = this.player.toggleShuffle();
             this.lpShuffleBtn.classList.toggle('active', state);
-        });
+        }, { signal });
 
         this.lpRepeatBtn.addEventListener('click', () => {
             const mode = this.player.toggleRepeat();
             this.lpRepeatBtn.classList.toggle('active', mode !== 0);
-            if (mode === 2) {
-                this.lpRepeatBtn.innerHTML = '<i class="fa-solid fa-repeat"></i><span style="font-size:10px; position:absolute; right:8px; bottom:8px;">1</span>';
-            } else {
-                this.lpRepeatBtn.innerHTML = '<i class="fa-solid fa-repeat"></i>';
-            }
-        });
+            this.lpRepeatBtn.innerHTML = mode === 2 ? '<i class="fa-solid fa-repeat"></i><span style="font-size:10px; position:absolute; right:8px; bottom:8px;">1</span>' : '<i class="fa-solid fa-repeat"></i>';
+        }, { signal });
 
         this.lpProgressBar.addEventListener('input', () => {
             this.isDraggingProgress = true;
             this.lpCurrentTime.textContent = this.player.formatTime(this.lpProgressBar.value);
             this.updateSliderBg(this.lpProgressBar);
-        });
+        }, { signal });
         
         this.lpProgressBar.addEventListener('change', () => {
             this.isDraggingProgress = false;
             if(this.player.audio) this.player.audio.currentTime = this.lpProgressBar.value;
-        });
+        }, { signal });
 
-        this.lpVolumeBar.addEventListener('input', (e) => {
-            if(this.player.audio) this.player.audio.volume = e.target.value / 100;
-        });
-        
-        this.lpVolumeIcon.addEventListener('click', () => {
-            if(this.player.audio) this.player.audio.muted = !this.player.audio.muted;
-        });
+        this.lpVolumeBar.addEventListener('input', (e) => { if(this.player.audio) this.player.audio.volume = e.target.value / 100; }, { signal });
+        this.lpVolumeIcon.addEventListener('click', () => { if(this.player.audio) this.player.audio.muted = !this.player.audio.muted; }, { signal });
 
-        // Синхронизация прогресса с аудио-тегом
+        // Аудио события
         this.handleTimeUpdate = () => {
             if (this.isDraggingProgress || !this.player.audio) return;
             this.lpProgressBar.value = this.player.audio.currentTime;
@@ -265,17 +218,11 @@ export class MusicController {
             this.player.audio.addEventListener('volumechange', this.handleVolumeChange);
         }
 
-        // --- ДЕЛЕГИРОВАНИЕ КЛИКОВ ПО КОНТЕНТНОЙ ОБЛАСТИ ---
+        // Делегирование кликов по контенту
         this.contentArea.addEventListener('click', (e) => {
             const row = e.target.closest('.track-row');
-            if (e.target.closest('.t-btn')) {
-                this.handleTrackActions(e);
-                return;
-            }
-            if (row) {
-                this.playTrackFromList(row.dataset.id);
-                return;
-            }
+            if (e.target.closest('.t-btn')) { this.handleTrackActions(e); return; }
+            if (row) { this.playTrackFromList(row.dataset.id); return; }
 
             const albumCard = e.target.closest('.album-card');
             const delAlbumBtn = e.target.closest('.delete-album-btn');
@@ -292,14 +239,11 @@ export class MusicController {
                 this.renderContent();
                 return;
             }
-        });
+        }, { signal });
 
         // Модалки
-        this.createAlbumNavBtn.addEventListener('click', () => {
-            this.createModal.classList.add('active');
-            document.getElementById('newAlbumName').value = '';
-        });
-        document.getElementById('closeCreateAlbumBtn').addEventListener('click', () => this.createModal.classList.remove('active'));
+        this.createAlbumNavBtn.addEventListener('click', () => { this.createModal.classList.add('active'); document.getElementById('newAlbumName').value = ''; }, { signal });
+        document.getElementById('closeCreateAlbumBtn').addEventListener('click', () => this.createModal.classList.remove('active'), { signal });
         document.getElementById('saveNewAlbumBtn').addEventListener('click', () => {
             const name = document.getElementById('newAlbumName').value.trim();
             if (name) {
@@ -307,8 +251,8 @@ export class MusicController {
                 this.createModal.classList.remove('active');
                 this.renderContent();
             }
-        });
-        document.getElementById('closeAddToAlbumBtn').addEventListener('click', () => this.addModal.classList.remove('active'));
+        }, { signal });
+        document.getElementById('closeAddToAlbumBtn').addEventListener('click', () => this.addModal.classList.remove('active'), { signal });
     }
 
     handleTrackActions(e) {
@@ -338,8 +282,7 @@ export class MusicController {
         } else {
             if (this.currentTab === 'favorites') {
                  const favIds = this.dataManager.getFavoriteTracks();
-                 const favTracks = this.dataManager.getMusicCatalog().filter(t => favIds.includes(t.id));
-                 this.player.playlist = favTracks;
+                 this.player.playlist = this.dataManager.getMusicCatalog().filter(t => favIds.includes(t.id));
             } else {
                  this.player.playlist = this.dataManager.getMusicCatalog(); 
             }
@@ -389,9 +332,7 @@ export class MusicController {
     updatePlayIcon(isPlaying) {
         this.lpPlayBtn.innerHTML = isPlaying ? '<i class="fa-solid fa-pause"></i>' : '<i class="fa-solid fa-play"></i>';
         const activeRowIcon = this.contentArea.querySelector('.track-row.active .t-play-icon');
-        if (activeRowIcon) {
-            activeRowIcon.className = isPlaying ? 'fa-solid fa-pause t-play-icon' : 'fa-solid fa-play t-play-icon';
-        }
+        if (activeRowIcon) activeRowIcon.className = isPlaying ? 'fa-solid fa-pause t-play-icon' : 'fa-solid fa-play t-play-icon';
     }
 
     renderContent() {
@@ -412,67 +353,29 @@ export class MusicController {
 
     renderTracksList() {
         let tracks = this.dataManager.getMusicCatalog();
-        
         if (this.currentTab === 'favorites') {
             const favIds = this.dataManager.getFavoriteTracks();
             tracks = tracks.filter(t => favIds.includes(t.id));
         }
-
         if (this.searchQuery) {
-            tracks = this.searchEngine.search(tracks, this.searchQuery, [
-                { field: 'title', weight: 3 },
-                { field: 'artist', weight: 2 }
-            ]);
+            tracks = this.searchEngine.search(tracks, this.searchQuery, [{ field: 'title', weight: 3 }, { field: 'artist', weight: 2 }]);
         }
-
         if (tracks.length === 0) {
-            this.contentArea.innerHTML = '<div style="color:var(--text-muted); text-align:center; padding: 40px;">Треки не найдены</div>';
+            this.contentArea.innerHTML = MusicRenderer.renderEmptyState('Треки не найдены');
             return;
         }
 
         const favs = this.dataManager.getFavoriteTracks();
-        this.contentArea.innerHTML = tracks.map((track, index) => {
-            const isFav = favs.includes(track.id);
-            return `
-                <div class="track-row" data-id="${track.id}">
-                    <div class="t-index">
-                        <span>${index + 1}</span>
-                        <i class="fa-solid fa-play t-play-icon"></i>
-                    </div>
-                    <img src="${track.cover}" class="t-cover">
-                    <div class="t-info">
-                        <div class="t-title">${escapeHTML(track.title)}</div>
-                        <div class="t-artist">${escapeHTML(track.artist)}</div>
-                    </div>
-                    <div class="t-actions">
-                        <button class="t-btn fav ${isFav ? 'active' : ''}" data-id="${track.id}">
-                            <i class="fa-${isFav ? 'solid' : 'regular'} fa-heart"></i>
-                        </button>
-                        <button class="t-btn add" data-id="${track.id}" title="В альбом">
-                            <i class="fa-solid fa-plus"></i>
-                        </button>
-                    </div>
-                </div>
-            `;
-        }).join('');
+        this.contentArea.innerHTML = tracks.map((track, index) => MusicRenderer.renderTrackRow(track, index, favs.includes(track.id))).join('');
     }
 
     renderAlbumsList() {
         const albums = this.dataManager.getCustomAlbums();
         if (albums.length === 0) {
-            this.contentArea.innerHTML = '<div style="color:var(--text-muted); text-align:center; padding: 40px;">У вас пока нет альбомов.</div>';
+            this.contentArea.innerHTML = MusicRenderer.renderEmptyState('У вас пока нет альбомов.');
             return;
         }
-        this.contentArea.innerHTML = `<div class="albums-grid">
-            ${albums.map(album => `
-                <div class="album-card" data-id="${album.id}">
-                    <button class="delete-album-btn" data-id="${album.id}" title="Удалить"><i class="fa-solid fa-trash"></i></button>
-                    <img src="${album.cover}" class="album-cover">
-                    <div class="album-title">${escapeHTML(album.name)}</div>
-                    <div class="album-count">${album.tracks.length} треков</div>
-                </div>
-            `).join('')}
-        </div>`;
+        this.contentArea.innerHTML = `<div class="albums-grid">${albums.map(album => MusicRenderer.renderAlbumCard(album)).join('')}</div>`;
     }
 
     renderAlbumTracks(albumId) {
@@ -480,49 +383,28 @@ export class MusicController {
         if (!album) return;
 
         let tracks = album.tracks.map(id => this.dataManager.getTrackById(id)).filter(Boolean);
-        
         if (this.searchQuery) {
-            tracks = this.searchEngine.search(tracks, this.searchQuery, [
-                { field: 'title', weight: 3 },
-                { field: 'artist', weight: 2 }
-            ]);
+            tracks = this.searchEngine.search(tracks, this.searchQuery, [{ field: 'title', weight: 3 }, { field: 'artist', weight: 2 }]);
         }
 
         const favs = this.dataManager.getFavoriteTracks();
+        const header = MusicRenderer.renderAlbumHeader(album.name);
+        const empty = tracks.length === 0 ? MusicRenderer.renderEmptyState('В альбоме пусто') : '';
+        const list = tracks.map((track, index) => MusicRenderer.renderAlbumTrackRow(track, index, favs.includes(track.id))).join('');
 
-        this.contentArea.innerHTML = `
-            <div style="font-size:24px; font-weight:800; margin-bottom: 20px; color: #fff;">Альбом: ${escapeHTML(album.name)}</div>
-            ${tracks.length === 0 ? '<div style="color:var(--text-muted); padding:20px;">В альбоме пусто</div>' : ''}
-            ${tracks.map((track, index) => {
-                const isFav = favs.includes(track.id);
-                return `
-                    <div class="track-row" data-id="${track.id}">
-                        <div class="t-index"><span>${index + 1}</span><i class="fa-solid fa-play t-play-icon"></i></div>
-                        <img src="${track.cover}" class="t-cover">
-                        <div class="t-info">
-                            <div class="t-title">${escapeHTML(track.title)}</div>
-                            <div class="t-artist">${escapeHTML(track.artist)}</div>
-                        </div>
-                        <div class="t-actions">
-                            <button class="t-btn fav ${isFav ? 'active' : ''}" data-id="${track.id}"><i class="fa-${isFav ? 'solid' : 'regular'} fa-heart"></i></button>
-                        </div>
-                    </div>
-                `;
-            }).join('')}
-        `;
+        this.contentArea.innerHTML = header + empty + list;
     }
 
     openAddToAlbumModal() {
         const albums = this.dataManager.getCustomAlbums();
         const listEl = document.getElementById('albumSelectList');
-        if (albums.length === 0) { listEl.innerHTML = '<div style="color:var(--text-muted); padding:20px; text-align:center;">У вас нет альбомов. Сначала создайте альбом.</div>'; } 
-        else {
-            listEl.innerHTML = albums.map(a => `
-                <div class="select-item album-select-item" data-id="${a.id}">
-                    <img src="${a.cover}" style="width:40px;height:40px;border-radius:6px;">
-                    <span style="font-weight:600;">${escapeHTML(a.name)}</span>
-                </div>
-            `).join('');
+        
+        if (albums.length === 0) { 
+            listEl.innerHTML = MusicRenderer.renderEmptyState('У вас нет альбомов. Сначала создайте альбом.'); 
+        } else {
+            listEl.innerHTML = albums.map(a => MusicRenderer.renderAlbumSelectItem(a)).join('');
+            
+            // Навешиваем слушатели на только что созданные элементы
             listEl.querySelectorAll('.album-select-item').forEach(item => {
                 item.addEventListener('click', () => {
                     this.dataManager.addTrackToAlbum(item.dataset.id, this.trackToAdd);

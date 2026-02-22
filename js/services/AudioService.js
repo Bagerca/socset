@@ -1,18 +1,34 @@
 // js/services/AudioService.js
 
-// ВНИМАНИЕ: Мы переименовали класс с AudioRecorder на AudioService
 export class AudioService {
     constructor() {
         this.mediaRecorder = null;
         this.audioChunks = [];
+        this.stream = null;
+        
+        // Для визуализации в реальном времени
+        this.audioContext = null;
+        this.analyser = null;
+        this.source = null;
     }
 
     async start() {
         try {
-            const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-            this.mediaRecorder = new MediaRecorder(stream);
+            this.stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+            this.mediaRecorder = new MediaRecorder(this.stream);
             this.audioChunks = [];
             
+            // --- НАСТРОЙКА ВИЗУАЛИЗАТОРА ---
+            const AudioContext = window.AudioContext || window.webkitAudioContext;
+            this.audioContext = new AudioContext();
+            this.analyser = this.audioContext.createAnalyser();
+            this.analyser.fftSize = 64; // Маленький размер для плавности (32 столбика)
+            this.analyser.smoothingTimeConstant = 0.5; // Плавное затухание
+            
+            this.source = this.audioContext.createMediaStreamSource(this.stream);
+            this.source.connect(this.analyser);
+            // -------------------------------
+
             this.mediaRecorder.ondataavailable = event => this.audioChunks.push(event.data);
             this.mediaRecorder.start();
             return true;
@@ -21,6 +37,14 @@ export class AudioService {
             alert('Для записи голосового сообщения нужен доступ к микрофону!');
             return false;
         }
+    }
+
+    // Метод для получения текущей громкости (массив байт)
+    getRealTimeData() {
+        if (!this.analyser) return new Uint8Array(0);
+        const dataArray = new Uint8Array(this.analyser.frequencyBinCount);
+        this.analyser.getByteFrequencyData(dataArray);
+        return dataArray;
     }
 
     stop() {
@@ -32,46 +56,55 @@ export class AudioService {
             
             this.mediaRecorder.onstop = async () => {
                 const audioBlob = new Blob(this.audioChunks, { type: 'audio/mp3' });
+                const audioUrl = URL.createObjectURL(audioBlob);
                 const waveform = await this.analyzeAudioWaveform(audioBlob);
                 
-                // Конвертируем Blob в Base64 для сохранения
-                const reader = new FileReader();
-                reader.readAsDataURL(audioBlob);
-                reader.onloadend = () => {
-                    resolve({ base64: reader.result, waveform });
-                };
-
-                // Отключаем микрофон
-                this.mediaRecorder.stream.getTracks().forEach(track => track.stop());
+                // Чистка ресурсов
+                this.stream.getTracks().forEach(track => track.stop());
+                if(this.audioContext && this.audioContext.state !== 'closed') {
+                    this.audioContext.close();
+                }
+                
+                resolve({ blob: audioBlob, url: audioUrl, waveform });
             };
             
             this.mediaRecorder.stop();
         });
     }
 
+    async blobToBase64(blob) {
+        return new Promise((resolve) => {
+            const reader = new FileReader();
+            reader.readAsDataURL(blob);
+            reader.onloadend = () => resolve(reader.result);
+        });
+    }
+
     async analyzeAudioWaveform(audioBlob) {
         try {
             const arrayBuffer = await audioBlob.arrayBuffer();
-            const audioContext = new (window.AudioContext || window.webkitAudioContext)();
-            const audioBuffer = await audioContext.decodeAudioData(arrayBuffer);
+            // Новый контекст для анализа готового файла (не путать с real-time)
+            const offlineCtx = new (window.AudioContext || window.webkitAudioContext)();
+            const audioBuffer = await offlineCtx.decodeAudioData(arrayBuffer);
             const rawData = audioBuffer.getChannelData(0);
             
-            const samples = 20; // количество полосок волны
+            const samples = 30; 
             const blockSize = Math.floor(rawData.length / samples);
             const waveform = [];
             
             for (let i = 0; i < samples; i++) {
-                let max = 0;
+                let sum = 0;
                 for (let j = 0; j < blockSize; j++) {
-                    if (Math.abs(rawData[i * blockSize + j]) > max) max = Math.abs(rawData[i * blockSize + j]);
+                    sum += Math.abs(rawData[i * blockSize + j]);
                 }
-                let percent = Math.round(max * 100);
-                waveform.push(Math.max(15, Math.min(percent, 100))); // от 15% до 100%
+                let avg = sum / blockSize;
+                // Нормализация для красоты (умножаем, чтобы было видно лучше)
+                let val = Math.min(100, Math.round(avg * 500)); 
+                waveform.push(Math.max(10, val)); // Минимум 10% высоты
             }
             return waveform;
         } catch (e) {
-            console.warn("Ошибка анализа аудио. Использована стандартная волна.", e);
-            return Array(20).fill(0).map(() => Math.floor(Math.random() * 50) + 20);
+            return Array(30).fill(20);
         }
     }
 }

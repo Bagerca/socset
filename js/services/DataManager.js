@@ -1,7 +1,7 @@
 // js/services/DataManager.js
 
 import { generateId } from '../utils/utils.js';
-import { GAME_CONSTANTS } from '../config/GameConstants.js'; // <-- Импорт констант
+import { GAME_CONSTANTS } from '../config/GameConstants.js';
 
 export class DataManager {
     constructor() {
@@ -24,11 +24,21 @@ export class DataManager {
             { id: 'title_pro', text: 'PRO Gamer', color: '#ffd700' }
         ];
 
+        // Эти массивы заполнятся в initStorage
+        this.shopItems = [];
+        this.profile = {};
+        this.posts = [];
+    }
+
+    // НОВЫЙ МЕТОД: Асинхронная инициализация из IndexedDB
+    async initStorage() {
+        // Настраиваем localForage (необязательно, но полезно для отладки)
+        localforage.config({ name: 'CycleApp', storeName: 'cycle_data' });
+
         const defaultShopItems = [
             { id: 'shop_f1', type: 'frame', name: 'Cyberpunk Glow', author: '@system', price: 150, css: 'border-radius: 50%; box-sizing: border-box; box-shadow: 0 0 20px #00f0ff, inset 0 0 15px #00f0ff; border: 2px solid #00f0ff;' },
             { id: 'shop_f2', type: 'frame', name: 'Demon Aura', author: '@system', price: 300, css: 'border-radius: 50%; box-sizing: border-box; box-shadow: 0 0 25px #ff453a, inset 0 0 20px #ff453a; border: 3px dashed #ff453a;' }
         ];
-        this.shopItems = JSON.parse(localStorage.getItem('glassnet_shop')) || defaultShopItems;
 
         const defaultProfile = {
             name: 'Имя Пользователя', username: '@username', bio: 'Это мой элитный профиль в Cycle!',
@@ -41,10 +51,13 @@ export class DataManager {
             socials: { telegram: '', github: '' }
         };
 
-        const storedProfile = JSON.parse(localStorage.getItem('glassnet_profile'));
+        // Читаем из IndexedDB напрямую (JSON.parse больше не нужен)
+        this.shopItems = await localforage.getItem('glassnet_shop') || defaultShopItems;
+        
+        const storedProfile = await localforage.getItem('glassnet_profile') || {};
         this.profile = { ...defaultProfile, ...storedProfile };
-
-        const storedPosts = JSON.parse(localStorage.getItem('glassnet_posts')) || [];
+        
+        const storedPosts = await localforage.getItem('glassnet_posts') || [];
         this.posts = storedPosts.map(post => ({ ...post, comments: post.comments || [], views: post.views || 0, attachment: post.attachment || null }));
     }
 
@@ -78,14 +91,13 @@ export class DataManager {
 
     // --- ЛОГИКА МАГАЗИНА ---
     getShopItems() { return this.shopItems; }
-    _saveShop() { localStorage.setItem('glassnet_shop', JSON.stringify(this.shopItems)); }
+    
+    // Асинхронное сохранение
+    _saveShop() { localforage.setItem('glassnet_shop', this.shopItems); }
 
     createShopItem(name, price, css) {
         const newItem = {
-            id: 'shop_' + generateId(),
-            type: 'frame',
-            name, price, css,
-            author: this.profile.username
+            id: 'shop_' + generateId(), type: 'frame', name, price, css, author: this.profile.username
         };
         this.shopItems.unshift(newItem); 
         this._saveShop();
@@ -94,9 +106,7 @@ export class DataManager {
     updateShopItem(itemId, name, price, css) {
         const item = this.shopItems.find(i => i.id === itemId);
         if (item && item.author === this.profile.username) {
-            item.name = name;
-            item.price = price;
-            item.css = css;
+            item.name = name; item.price = price; item.css = css;
             this._saveShop();
             return true;
         }
@@ -119,15 +129,8 @@ export class DataManager {
         return false; 
     }
 
-    equipFrame(frameId) {
-        this.profile.frameId = frameId;
-        this._saveProfile();
-    }
-
-    unequipFrame() {
-        this.profile.frameId = 'frame_none';
-        this._saveProfile();
-    }
+    equipFrame(frameId) { this.profile.frameId = frameId; this._saveProfile(); }
+    unequipFrame() { this.profile.frameId = 'frame_none'; this._saveProfile(); }
 
     deleteShopItem(itemId) {
         const item = this.shopItems.find(i => i.id === itemId);
@@ -139,16 +142,12 @@ export class DataManager {
         return false;
     }
 
-    // --- ЛОГИКА ТЕГОВ ИГР (НОВОЕ) ---
-    getGameTier(tierId) {
-        return GAME_CONSTANTS.tiers[tierId] || { label: 'Unknown', color: '#999' };
-    }
-
+    // --- ЛОГИКА ТЕГОВ ИГР ---
+    getGameTier(tierId) { return GAME_CONSTANTS.tiers[tierId] || { label: 'Unknown', color: '#999' }; }
     getGameTags(tagIds) {
         if (!tagIds || !Array.isArray(tagIds)) return [];
         return tagIds.map(id => GAME_CONSTANTS.tags[id]).filter(Boolean);
     }
-
     getAllGameTags() { return GAME_CONSTANTS.tags; }
     getAllGameTiers() { return GAME_CONSTANTS.tiers; }
     getGameCategories() { return GAME_CONSTANTS.categories; }
@@ -207,7 +206,8 @@ export class DataManager {
     getFavoriteGames() { return this.profile.favoriteGames || []; }
 
     // --- СОЦИАЛКА (ПОСТЫ, КОММЕНТЫ) ---
-    _savePosts() { localStorage.setItem('glassnet_posts', JSON.stringify(this.posts)); }
+    // Асинхронное сохранение
+    _savePosts() { localforage.setItem('glassnet_posts', this.posts); }
     
     addPost(content, pollData = null, attachment = null) {
         let formattedPoll = null;
@@ -221,12 +221,8 @@ export class DataManager {
         const newPost = { 
             id: generateId(), 
             author: { 
-                name: this.profile.name, 
-                username: this.profile.username, 
-                avatar: this.profile.avatar,
-                isVerified: this.profile.isVerified,
-                verifiedBadgeType: this.profile.verifiedBadgeType,
-                frameId: this.profile.frameId
+                name: this.profile.name, username: this.profile.username, avatar: this.profile.avatar,
+                isVerified: this.profile.isVerified, verifiedBadgeType: this.profile.verifiedBadgeType, frameId: this.profile.frameId
             }, 
             content, likes: 0, isLiked: false, timestamp: Date.now(), 
             poll: formattedPoll, visibility: 'public', comments: [], views: 0, attachment 
@@ -257,12 +253,8 @@ export class DataManager {
             const newComment = { 
                 id: generateId(), 
                 author: { 
-                    username: this.profile.username, 
-                    name: this.profile.name, 
-                    avatar: this.profile.avatar,
-                    isVerified: this.profile.isVerified,
-                    verifiedBadgeType: this.profile.verifiedBadgeType,
-                    frameId: this.profile.frameId
+                    username: this.profile.username, name: this.profile.name, avatar: this.profile.avatar,
+                    isVerified: this.profile.isVerified, verifiedBadgeType: this.profile.verifiedBadgeType, frameId: this.profile.frameId
                 }, 
                 content, type, waveform, timestamp: Date.now(), likes: 0, dislikes: 0, userReaction: null 
             }; 
@@ -295,7 +287,8 @@ export class DataManager {
         this._savePosts();
     }
     
-    _saveProfile() { localStorage.setItem('glassnet_profile', JSON.stringify(this.profile)); }
+    // Асинхронное сохранение
+    _saveProfile() { localforage.setItem('glassnet_profile', this.profile); }
     getProfileData() { return this.profile; }
     saveProfileData(newProfileData) { this.profile = { ...this.profile, ...newProfileData }; this._saveProfile(); }
 }

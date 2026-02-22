@@ -1,3 +1,5 @@
+// js/controllers/FeedController.js
+
 import { escapeHTML } from '../utils/utils.js';
 import { PostRenderer } from '../components/PostRenderer.js';
 import { PostEventHandler } from '../components/PostEventHandler.js';
@@ -5,7 +7,7 @@ import { PostEventHandler } from '../components/PostEventHandler.js';
 export class FeedController {
     constructor(dataManager) {
         this.dataManager = dataManager;
-        
+        this.abortController = new AbortController();
         this.postRenderer = new PostRenderer(dataManager);
         this.postEvents = new PostEventHandler(dataManager, this.postRenderer, () => this.renderAll());
         
@@ -30,15 +32,9 @@ export class FeedController {
 
         this.isPollActive = false;
         this.currentAttachments = { music: null, game: null };
-
-        this.handleGlobalClick = () => { 
-            if(this.contextMenu) this.contextMenu.style.display = 'none'; 
-            if(this.formatMenu) this.formatMenu.style.display = 'none';
-        };
-        this.handleGlobalScroll = () => { 
-            if(this.contextMenu) this.contextMenu.style.display = 'none'; 
-            if(this.formatMenu) this.formatMenu.style.display = 'none';
-        };
+        
+        // Переменная для хранения выделения
+        this.savedRange = null;
 
         this.createGlobalContextMenu(); 
         this.createFormatContextMenu(); 
@@ -51,17 +47,47 @@ export class FeedController {
     }
 
     destroy() {
+        this.abortController.abort();
         if (this.contextMenu) this.contextMenu.remove();
         if (this.formatMenu) this.formatMenu.remove();
-        document.removeEventListener('click', this.handleGlobalClick);
-        document.removeEventListener('scroll', this.handleGlobalScroll, true);
+    }
+
+    // --- ПАРСЕР ДЛЯ ОТПРАВКИ ---
+    getFormattedContent() {
+        const clone = this.input.cloneNode(true);
+        
+        // 1. Цитаты
+        clone.querySelectorAll('.post-quote').forEach(q => {
+            q.replaceWith(`\n> ${q.innerText.trim()}\n`);
+        });
+
+        // 2. Жирный (b, strong и span с style font-weight)
+        clone.querySelectorAll('b, strong, span[style*="font-weight: bold"]').forEach(b => {
+            b.replaceWith(`**${b.innerText}**`);
+        });
+
+        // 3. Спойлеры
+        clone.querySelectorAll('.editor-spoiler').forEach(s => {
+            s.replaceWith(`||${s.innerText}||`);
+        });
+
+        // 4. Очистка div-ов (превращаем их в переносы строк)
+        let html = clone.innerHTML;
+        html = html.replace(/<div><br><\/div>/g, '\n'); // Пустые строки
+        html = html.replace(/<div>/g, '\n'); // Начало блока
+        html = html.replace(/<\/div>/g, ''); // Конец блока
+        html = html.replace(/<br>/g, '\n'); // Переносы
+
+        // Создаем временный элемент чтобы получить чистый текст без тегов
+        const temp = document.createElement('div');
+        temp.innerHTML = html;
+        return temp.innerText.trim();
     }
 
     createGlobalContextMenu() {
         if (document.getElementById('customContextMenu')) {
             document.getElementById('customContextMenu').remove();
         }
-
         const menu = document.createElement('div');
         menu.id = 'customContextMenu';
         menu.style.display = 'none';
@@ -71,8 +97,17 @@ export class FeedController {
         this.contextTargetCommentId = null;
         this.contextTargetPostId = null;
 
-        document.addEventListener('click', this.handleGlobalClick);
-        document.addEventListener('scroll', this.handleGlobalScroll, true);
+        const signal = this.abortController.signal;
+
+        document.addEventListener('click', () => { 
+            if(this.contextMenu) this.contextMenu.style.display = 'none'; 
+            if(this.formatMenu) this.formatMenu.style.display = 'none';
+        }, { signal });
+
+        document.addEventListener('scroll', () => { 
+            if(this.contextMenu) this.contextMenu.style.display = 'none'; 
+            if(this.formatMenu) this.formatMenu.style.display = 'none';
+        }, { signal, capture: true });
         
         const ctxDeleteBtn = document.getElementById('ctxDeleteComment');
         if (ctxDeleteBtn) {
@@ -82,7 +117,7 @@ export class FeedController {
                     this.postEvents._rerenderComments(this.contextTargetPostId);
                     this.contextMenu.style.display = 'none';
                 }
-            });
+            }, { signal });
         }
     }
 
@@ -108,25 +143,85 @@ export class FeedController {
         document.body.appendChild(menu);
         this.formatMenu = menu;
 
-        document.getElementById('fmtBold').addEventListener('click', () => this.applyFormat('**', '**'));
-        document.getElementById('fmtQuote').addEventListener('click', () => this.applyFormat('> ', ''));
-        document.getElementById('fmtSpoiler').addEventListener('click', () => this.applyFormat('||', '||'));
+        const signal = this.abortController.signal;
+
+        // ВАЖНО: mousedown вместо click, чтобы не терять фокус раньше времени
+        document.getElementById('fmtBold').addEventListener('mousedown', (e) => { e.preventDefault(); this.applyFormat('bold'); }, { signal });
+        document.getElementById('fmtQuote').addEventListener('mousedown', (e) => { e.preventDefault(); this.applyFormat('quote'); }, { signal });
+        document.getElementById('fmtSpoiler').addEventListener('mousedown', (e) => { e.preventDefault(); this.applyFormat('spoiler'); }, { signal });
     }
 
-    applyFormat(prefix, suffix) {
-        const start = this.input.selectionStart;
-        const end = this.input.selectionEnd;
-        if (start === end) return; 
-
-        const text = this.input.value;
-        const selected = text.substring(start, end);
-        
-        this.input.value = text.substring(0, start) + prefix + selected + suffix + text.substring(end);
-        
+    // --- ИСПРАВЛЕННАЯ ЛОГИКА ФОРМАТИРОВАНИЯ ---
+    applyFormat(type) {
         this.formatMenu.style.display = 'none';
         this.input.focus();
-        this.input.setSelectionRange(start, start + prefix.length + selected.length + suffix.length);
-        
+
+        // 1. Восстанавливаем выделение
+        if (this.savedRange) {
+            const selection = window.getSelection();
+            selection.removeAllRanges();
+            selection.addRange(this.savedRange);
+        }
+
+        const selection = window.getSelection();
+        if (!selection.rangeCount) return;
+        const range = selection.getRangeAt(0);
+
+        // 2. Логика применения стилей
+        if (type === 'bold') {
+            // Стандартная команда работает лучше всего для жирного, если выделение восстановлено
+            document.execCommand('bold', false, null);
+        } 
+        else if (type === 'quote') {
+            // Извлекаем то, что выделили (вместе с html внутри, если был)
+            const extracted = range.extractContents();
+            
+            const div = document.createElement('div');
+            div.className = 'post-quote';
+            
+            // Если выделили пустоту, пишем "Цитата", иначе вставляем фрагмент
+            if (extracted.textContent.trim() === '') {
+                div.textContent = 'Цитата';
+            } else {
+                div.appendChild(extracted);
+            }
+            
+            range.insertNode(div);
+            
+            // Ставим курсор ПОСЛЕ цитаты, чтобы можно было писать дальше
+            const space = document.createTextNode('\u200B'); // Нулевой пробел
+            div.after(space);
+            
+            // Перемещаем каретку
+            range.setStartAfter(space);
+            range.collapse(true);
+            selection.removeAllRanges();
+            selection.addRange(range);
+        } 
+        else if (type === 'spoiler') {
+            const extracted = range.extractContents();
+            
+            const span = document.createElement('span');
+            span.className = 'editor-spoiler';
+            
+            if (extracted.textContent.trim() === '') {
+                span.textContent = 'Спойлер';
+            } else {
+                span.appendChild(extracted);
+            }
+            
+            range.insertNode(span);
+            
+            // Выходим из спойлера
+            const space = document.createTextNode('\u00A0');
+            span.after(space);
+            
+            range.setStartAfter(space);
+            range.collapse(true);
+            selection.removeAllRanges();
+            selection.addRange(range);
+        }
+
         this.checkPublishState();
     }
 
@@ -135,20 +230,23 @@ export class FeedController {
         this.closePollBtn.addEventListener('click', () => this.closePoll());
         this.addOptionBtn.addEventListener('click', () => this.addPollOption());
         
-        // --- АВТОМАТИЧЕСКОЕ РАСШИРЕНИЕ ПОЛЯ ВВОДА ---
         this.input.addEventListener('input', () => {
-            this.input.style.height = 'auto'; // Сбрасываем высоту
-            this.input.style.height = (this.input.scrollHeight) + 'px'; // Ставим высоту контента
             this.checkPublishState();
         });
         
+        // --- ЗАПОМИНАЕМ ВЫДЕЛЕНИЕ ПРИ ОТКРЫТИИ МЕНЮ ---
         this.input.addEventListener('contextmenu', (e) => {
-            if (this.input.selectionStart !== this.input.selectionEnd) {
-                e.preventDefault(); 
-                this.formatMenu.style.display = 'block';
-                this.formatMenu.style.top = `${e.pageY}px`;
-                this.formatMenu.style.left = `${e.pageX}px`;
+            e.preventDefault();
+            
+            const selection = window.getSelection();
+            if(selection.rangeCount > 0) {
+                // Сохраняем текущее выделение перед тем, как клик по меню его собьет
+                this.savedRange = selection.getRangeAt(0).cloneRange();
             }
+            
+            this.formatMenu.style.display = 'block';
+            this.formatMenu.style.top = `${e.pageY}px`;
+            this.formatMenu.style.left = `${e.pageX}px`;
         });
 
         this.pollInputsContainer.addEventListener('input', () => this.checkPublishState());
@@ -279,7 +377,8 @@ export class FeedController {
     }
 
     publishPost() {
-        const text = this.input.value.trim();
+        const text = this.getFormattedContent();
+        
         let pollData = null;
         if (this.isPollActive) {
             const options = Array.from(this.pollInputsContainer.querySelectorAll('.poll-input'))
@@ -299,11 +398,8 @@ export class FeedController {
 
         if (text.length > 0 || pollData || attachData) {
             this.dataManager.addPost(text, pollData, attachData);
-            this.input.value = '';
+            this.input.innerHTML = '';
             
-            // Сброс высоты поля после отправки
-            this.input.style.height = 'auto';
-
             this.currentAttachments = { music: null, game: null };
             this.updateAttachmentPreview();
             
@@ -320,7 +416,7 @@ export class FeedController {
             if (validOptions.length >= 2) isPollValid = true;
         }
         
-        const hasText = this.input.value.trim().length > 0;
+        const hasText = this.input.innerText.trim().length > 0;
         const hasAttachment = this.currentAttachments.music || this.currentAttachments.game;
         
         this.publishBtn.disabled = !(hasText || hasAttachment || isPollValid);

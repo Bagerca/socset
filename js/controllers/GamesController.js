@@ -1,10 +1,14 @@
-import { escapeHTML, debounce } from '../utils/utils.js';
+// js/controllers/GamesController.js
+
+import { debounce } from '../utils/utils.js';
 import { SearchEngine } from '../utils/SearchEngine.js';
+import { GamesRenderer } from '../components/GamesRenderer.js';
 
 export class GamesController {
     constructor(dataManager) {
         this.dataManager = dataManager;
         this.searchEngine = new SearchEngine();
+        this.abortController = new AbortController(); // МЕНЕДЖМЕНТ ПАМЯТИ
 
         this.state = {
             searchQuery: '',
@@ -43,37 +47,29 @@ export class GamesController {
     }
 
     destroy() {
-        if (this.handleGlobalClick) document.removeEventListener('click', this.handleGlobalClick);
+        // Убиваем все локальные слушатели событий
+        this.abortController.abort();
     }
 
-    // --- 1. HERO SECTION (БАННЕР) - ИСПРАВЛЕНО ---
+    // --- 1. HERO SECTION (БАННЕР) ---
     renderHero() {
         const games = this.dataManager.getGamesCatalog();
-        
-        // 1. Фильтруем только AAA игры
         const aaaGames = games.filter(g => g.tier === 'tier_aaa');
-        
-        // 2. Если AAA нет, берем все. Если вообще пусто — выходим.
         const pool = aaaGames.length > 0 ? aaaGames : games;
-        if (pool.length === 0) { this.heroSection.style.display = 'none'; return; }
+        
+        if (pool.length === 0) { 
+            this.heroSection.style.display = 'none'; 
+            return; 
+        }
 
-        // 3. Выбираем СЛУЧАЙНУЮ игру из пула
         const heroGame = pool[Math.floor(Math.random() * pool.length)];
-
         const tierInfo = this.dataManager.getGameTier(heroGame.tier);
-        const tags = this.dataManager.getGameTags(heroGame.tags).slice(0, 3).map(t => t.label).join(' • ');
+        const tagsString = this.dataManager.getGameTags(heroGame.tags).slice(0, 3).map(t => t.label).join(' • ');
 
-        this.heroSection.innerHTML = `
-            <img src="${heroGame.icon}" class="hero-bg" alt="${heroGame.title}">
-            <div class="hero-overlay"></div>
-            <div class="hero-content">
-                <div class="hero-badge" style="background:${tierInfo.color}">${tierInfo.label}</div>
-                <div class="hero-title">${escapeHTML(heroGame.title)}</div>
-                <div class="hero-meta">${tags}</div>
-                <button class="hero-btn" data-id="${heroGame.id}"><i class="fa-solid fa-circle-info"></i> Подробнее</button>
-            </div>
-        `;
+        // ИСПОЛЬЗУЕМ RENDERER
+        this.heroSection.innerHTML = GamesRenderer.renderHero(heroGame, tierInfo, tagsString);
 
+        // Вешаем слушатель (сработает локально для элемента)
         this.heroSection.querySelector('.hero-btn').addEventListener('click', () => this.openGameDetails(heroGame));
     }
 
@@ -83,28 +79,32 @@ export class GamesController {
         const tags = this.dataManager.getAllGameTags();
         const categories = this.dataManager.getGameCategories();
 
-        let html = `<div class="filter-group"><div class="filter-group-title">Масштаб</div><div class="filter-checkbox-grid">`;
-        for (const [key, val] of Object.entries(tiers)) {
-            html += `<label class="filter-checkbox"><input type="checkbox" value="${key}" data-type="tier"> ${val.label}</label>`;
-        }
-        html += `</div></div>`;
+        let html = '';
 
+        // Собираем чекбоксы масштаба
+        let tiersHTML = Object.entries(tiers).map(([key, val]) => 
+            GamesRenderer.renderFilterCheckbox(key, 'tier', val.label)
+        ).join('');
+        html += GamesRenderer.renderFilterGroup('Масштаб', tiersHTML);
+
+        // Собираем чекбоксы категорий
         for (const [catKey, catLabel] of Object.entries(categories)) {
             const catTags = Object.values(tags).filter(t => t.category === catKey);
             if (catTags.length > 0) {
-                html += `<div class="filter-group" style="margin-top:16px;"><div class="filter-group-title">${catLabel}</div><div class="filter-checkbox-grid">`;
-                catTags.forEach(tag => {
-                    html += `<label class="filter-checkbox"><input type="checkbox" value="${tag.id}" data-type="tag"> ${tag.label}</label>`;
-                });
-                html += `</div></div>`;
+                let catHTML = catTags.map(tag => 
+                    GamesRenderer.renderFilterCheckbox(tag.id, 'tag', tag.label)
+                ).join('');
+                html += GamesRenderer.renderFilterGroup(catLabel, catHTML, true);
             }
         }
+        
         this.drawerContent.innerHTML = html;
     }
 
     // --- 3. EVENTS ---
     bindEvents() {
-        // Quick Chips
+        const signal = this.abortController.signal;
+
         this.quickChips.forEach(btn => {
             btn.addEventListener('click', () => {
                 this.quickChips.forEach(b => b.classList.remove('active'));
@@ -113,21 +113,16 @@ export class GamesController {
                 else if (btn.dataset.tier) this.state.quickFilter = btn.dataset.tier;
                 else if (btn.dataset.tag) this.state.quickFilter = btn.dataset.tag;
                 this.renderContent();
-            });
+            }, { signal });
         });
 
-        // Search
         const handleSearch = debounce((query) => {
             if (!query) { this.searchDropdown.style.display = 'none'; return; }
-            const items = this.dataManager.getGamesCatalog(); // Ищем по всей базе для дропдауна
+            const items = this.dataManager.getGamesCatalog(); 
             const results = this.searchEngine.search(items, query, [{ field: 'title', weight: 5 }]);
 
             if (results.length > 0) {
-                this.searchDropdown.innerHTML = results.slice(0, 6).map(g => `
-                    <div class="search-dropdown-item" data-id="${g.id}">
-                        <img src="${g.icon}" style="width:24px;height:32px;object-fit:cover;border-radius:4px;">
-                        <span style="font-size:14px; color:#fff;">${escapeHTML(g.title)}</span>
-                    </div>`).join('');
+                this.searchDropdown.innerHTML = results.slice(0, 6).map(g => GamesRenderer.renderSearchDropdownItem(g)).join('');
                 this.searchDropdown.style.display = 'block';
             } else {
                 this.searchDropdown.style.display = 'none';
@@ -137,19 +132,18 @@ export class GamesController {
         this.searchInput.addEventListener('input', (e) => {
             this.state.searchQuery = e.target.value.trim();
             handleSearch(this.state.searchQuery);
-        });
+        }, { signal });
 
         this.searchInput.addEventListener('keydown', (e) => {
             if (e.key === 'Enter') {
                 this.searchDropdown.style.display = 'none';
                 this.renderContent();
             }
-        });
+        }, { signal });
 
-        // Drawer
-        this.openFiltersBtn.addEventListener('click', () => this.toggleDrawer(true));
-        this.closeDrawerBtn.addEventListener('click', () => this.toggleDrawer(false));
-        this.drawerOverlay.addEventListener('click', () => this.toggleDrawer(false));
+        this.openFiltersBtn.addEventListener('click', () => this.toggleDrawer(true), { signal });
+        this.closeDrawerBtn.addEventListener('click', () => this.toggleDrawer(false), { signal });
+        this.drawerOverlay.addEventListener('click', () => this.toggleDrawer(false), { signal });
         
         this.applyFiltersBtn.addEventListener('click', () => {
             this.state.activeTiers = Array.from(this.drawerContent.querySelectorAll('input[data-type="tier"]:checked')).map(cb => cb.value);
@@ -161,7 +155,7 @@ export class GamesController {
             this.toggleDrawer(false);
             this.openFiltersBtn.classList.add('active');
             this.renderContent();
-        });
+        }, { signal });
 
         this.resetFiltersBtn.addEventListener('click', () => {
             this.drawerContent.querySelectorAll('input').forEach(cb => cb.checked = false);
@@ -171,11 +165,10 @@ export class GamesController {
             this.openFiltersBtn.classList.remove('active');
             this.toggleDrawer(false);
             this.renderContent();
-        });
+        }, { signal });
 
-        // Global Click
-        this.handleGlobalClick = (e) => {
-            // Dropdown click
+        // Глобальный клик привязан к AbortController
+        document.addEventListener('click', (e) => {
             const dropItem = e.target.closest('.search-dropdown-item');
             if (dropItem) {
                 const game = this.dataManager.getGameById(dropItem.dataset.id);
@@ -189,7 +182,6 @@ export class GamesController {
                 this.searchDropdown.style.display = 'none';
             }
 
-            // Card Fav click
             const favBtn = e.target.closest('.game-fav-btn');
             if (favBtn) {
                 e.stopPropagation();
@@ -200,20 +192,28 @@ export class GamesController {
                 return;
             }
 
-            // Card click (Details)
             const card = e.target.closest('.game-card');
             if (card) {
                 const game = this.dataManager.getGameById(card.dataset.id);
                 if (game) this.openGameDetails(game);
             }
-        };
-        document.addEventListener('click', this.handleGlobalClick);
-        document.getElementById('closeGameDetailsBtn').addEventListener('click', () => this.gameDetailsModal.classList.remove('active'));
+        }, { signal });
+
+        document.getElementById('closeGameDetailsBtn').addEventListener('click', () => {
+            const trailerEl = document.getElementById('gdTrailer');
+            if (trailerEl) trailerEl.innerHTML = '';
+            this.gameDetailsModal.classList.remove('active');
+        }, { signal });
     }
 
     toggleDrawer(show) {
-        if (show) { this.drawer.classList.add('active'); this.drawerOverlay.classList.add('active'); } 
-        else { this.drawer.classList.remove('active'); this.drawerOverlay.classList.remove('active'); }
+        if (show) { 
+            this.drawer.classList.add('active'); 
+            this.drawerOverlay.classList.add('active'); 
+        } else { 
+            this.drawer.classList.remove('active'); 
+            this.drawerOverlay.classList.remove('active'); 
+        }
     }
 
     // --- 4. FILTERING ---
@@ -256,25 +256,23 @@ export class GamesController {
     renderFilteredGrid() {
         const games = this.getFilteredGames();
         if (games.length === 0) {
-            this.contentArea.innerHTML = `<div class="games-empty-state"><i class="fa-solid fa-ghost"></i><div>Ничего не найдено</div></div>`;
+            this.contentArea.innerHTML = GamesRenderer.renderEmptyState();
             return;
         }
         this.contentArea.innerHTML = games.map(g => this.createGameCardHTML(g)).join('');
     }
 
-    // --- РЕНДЕР ЛЕНТЫ + ИСПРАВЛЕНИЕ СКРОЛЛА ---
+    // РЕНДЕР ЛЕНТЫ
     renderFeed() {
         this.contentArea.innerHTML = '';
         const allGames = this.dataManager.getGamesCatalog();
         if (allGames.length === 0) return;
 
-        // 1. Рекомендации
         const recommended = this.getRecommendations(allGames);
         if (recommended.length > 0) {
             this.renderRow('Рекомендовано вам', recommended);
         }
 
-        // 2. Случайные жанры
         const allTags = this.dataManager.getAllGameTags();
         const tagKeys = Object.keys(allTags);
         const randomKeys = tagKeys.sort(() => 0.5 - Math.random()).slice(0, 3);
@@ -286,23 +284,20 @@ export class GamesController {
             }
         });
 
-        // 3. --- ИСПРАВЛЕНИЕ СКРОЛЛА ---
-        // Добавляем обработчик колесика мыши для всех созданных горизонтальных рядов
+        // ИСПРАВЛЕНИЕ СКРОЛЛА привязано к AbortController
         const scrollContainers = this.contentArea.querySelectorAll('.games-horizontal-scroll');
         scrollContainers.forEach(container => {
             container.addEventListener('wheel', (evt) => {
-                // Если скроллим колесиком (вертикально), превращаем это в горизонтальный скролл
                 if (evt.deltaY !== 0) {
                     evt.preventDefault();
                     container.scrollLeft += evt.deltaY;
                 }
-            });
+            }, { signal: this.abortController.signal });
         });
     }
 
     getRecommendations(allGames) {
         const favIds = this.dataManager.getFavoriteGames();
-        // Если нет избранных, показываем просто случайные AAA
         if (favIds.length === 0) {
             return allGames.filter(g => g.tier === 'tier_aaa').slice(0, 8);
         }
@@ -313,7 +308,7 @@ export class GamesController {
         const tagCounts = {};
         favTags.forEach(t => tagCounts[t] = (tagCounts[t] || 0) + 1);
 
-        const scoredGames = allGames
+        return allGames
             .filter(g => !favIds.includes(g.id))
             .map(g => {
                 let score = 0;
@@ -324,19 +319,11 @@ export class GamesController {
             .sort((a, b) => b.score - a.score)
             .map(item => item.game)
             .slice(0, 8);
-
-        return scoredGames;
     }
 
     renderRow(title, games) {
-        const rowHTML = `
-            <div class="games-row-section">
-                <div class="games-row-header">${title}</div>
-                <div class="games-horizontal-scroll">
-                    ${games.map(g => this.createGameCardHTML(g)).join('')}
-                </div>
-            </div>
-        `;
+        const cardsHTML = games.map(g => this.createGameCardHTML(g)).join('');
+        const rowHTML = GamesRenderer.renderGamesRow(title, cardsHTML);
         this.contentArea.insertAdjacentHTML('beforeend', rowHTML);
     }
 
@@ -344,25 +331,8 @@ export class GamesController {
         const isFav = this.dataManager.getFavoriteGames().includes(game.id);
         const tierInfo = this.dataManager.getGameTier(game.tier);
         const displayTags = this.dataManager.getGameTags(game.tags).slice(0, 2);
-
-        return `
-            <div class="game-card" data-id="${game.id}">
-                <div class="game-cover-wrapper">
-                    <img src="${game.icon}" class="game-cover" onerror="this.src='https://placehold.co/600x800/1a1a1c/ffffff?text=Game'">
-                    <div class="game-overlay"></div>
-                    <div class="game-tier-badge" style="background:${tierInfo.color}">${tierInfo.label}</div>
-                    <button class="game-fav-btn ${isFav ? 'active' : ''}" data-id="${game.id}">
-                        <i class="fa-${isFav ? 'solid' : 'regular'} fa-heart"></i>
-                    </button>
-                </div>
-                <div class="game-info">
-                    <div class="game-title">${escapeHTML(game.title)}</div>
-                    <div class="game-tags-row">
-                        ${displayTags.map(t => `<span class="game-tag-chip">${t.label}</span>`).join('')}
-                    </div>
-                </div>
-            </div>
-        `;
+        
+        return GamesRenderer.renderGameCard(game, tierInfo, displayTags, isFav);
     }
 
     openGameDetails(game) {
