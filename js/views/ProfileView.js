@@ -27,6 +27,10 @@ export const ProfileView = {
             <div class="profile-info">
                 <div class="profile-name-row">
                     <span id="profileName" class="profile-name">Loading...</span>
+                    
+                    <!-- КОНТЕЙНЕР ДЛЯ ГАЛОЧКИ -->
+                    <div id="verifiedBadgeContainer" class="verified-badge-container" title="Подтвержденный аккаунт"></div>
+                    
                     <span id="userTitleBadge" class="user-title-badge" style="display:none"></span>
                 </div>
                 <p id="profileUsername" class="profile-username">@loading</p>
@@ -60,52 +64,99 @@ export const ProfileView = {
                     <span class="modal-title">Настройки профиля</span>
                     <button id="closeSettingsBtn" class="icon-btn-small"><i class="fa-solid fa-xmark"></i></button>
                 </div>
-                <div class="modal-body" style="gap: 20px;">
-                    <h3 class="module-header">Основное</h3>
-                    <input type="text" id="editName" class="poll-input" placeholder="Имя">
-                    <textarea id="editBio" class="poll-input" placeholder="О себе..."></textarea>
+                <div class="modal-body" style="gap: 16px;">
                     
-                    <h3 class="module-header">Визуал</h3>
-                    <label>Рамка аватара:</label>
-                    <select id="editFrame" class="poll-select" style="width:100%"></select>
-                    
-                    <label style="margin-top:10px; display:block">Фон профиля:</label>
-                    <select id="editBackground" class="poll-select" style="width:100%"></select>
-                    
-                    <label style="margin-top:10px; display:block">Звание (Title):</label>
-                    <select id="editTitle" class="poll-select" style="width:100%"></select>
+                    <!-- БЛОК 1: Основное -->
+                    <div class="settings-section">
+                        <div class="settings-section-title">Профиль и изображения</div>
+                        <input type="text" id="editName" class="poll-input" placeholder="Отображаемое имя">
+                        
+                        <div class="settings-grid">
+                            <div>
+                                <label class="file-upload-btn">
+                                    <i class="fa-solid fa-image"></i> Изменить Аватар
+                                    <input type="file" id="editAvatarFile" accept="image/*" style="display:none;">
+                                </label>
+                                <span id="avatarFileName" class="file-name-hint">Текущий аватар</span>
+                            </div>
+                            <div>
+                                <label class="file-upload-btn">
+                                    <i class="fa-solid fa-panorama"></i> Изменить Баннер
+                                    <input type="file" id="editBannerFile" accept="image/*" style="display:none;">
+                                </label>
+                                <span id="bannerFileName" class="file-name-hint">Текущий баннер</span>
+                            </div>
+                        </div>
+                        <textarea id="editBio" class="poll-input" placeholder="О себе..."></textarea>
+                    </div>
 
-                    <!-- БЛОК ГЛАВНОГО ТРЕКА -->
-                    <h3 class="module-header" style="margin-top:10px;">Главный трек профиля</h3>
-                    <div id="settingsCurrentTrack" class="settings-current-item" style="display:none; margin-bottom:10px;"></div>
-                    <div style="display:flex; gap:10px;">
-                        <button id="selectProfileTrackBtn" class="btn-post" style="flex:1; background:#222; border:1px solid var(--border-color); color:#fff;">
-                            <i class="fa-solid fa-music"></i> Выбрать трек
-                        </button>
-                        <button id="removeProfileTrackBtn" class="icon-btn" style="width:40px; height:40px; border-radius:8px; background:rgba(255,69,58,0.1); color:var(--danger); border:1px solid rgba(255,69,58,0.3);" title="Удалить трек">
-                            <i class="fa-solid fa-trash"></i>
+                    <!-- БЛОК 2: Визуал и Статус -->
+                    <div class="settings-section">
+                        <div class="settings-section-title">Внешний вид и Статус</div>
+                        <div class="settings-grid">
+                            <div>
+                                <label style="font-size: 13px; color: var(--text-muted);">Рамка аватара</label>
+                                <select id="editFrame" class="poll-select" style="width:100%; margin-top: 4px;"></select>
+                            </div>
+                            <div>
+                                <label style="font-size: 13px; color: var(--text-muted);">Фон профиля</label>
+                                <select id="editBackground" class="poll-select" style="width:100%; margin-top: 4px;"></select>
+                            </div>
+                        </div>
+                        
+                        <div class="settings-grid" style="align-items: flex-end; margin-top: 8px;">
+                            <div>
+                                <label style="font-size: 13px; color: var(--text-muted);">Игровое звание</label>
+                                <select id="editTitle" class="poll-select" style="width:100%; margin-top: 4px;"></select>
+                            </div>
+                            <div>
+                                <label style="display: flex; align-items: center; gap: 8px; cursor: pointer; margin-bottom: 6px;">
+                                    <input type="checkbox" id="checkVerified" style="width: 16px; height: 16px;">
+                                    <span style="font-size: 13px; color: #5dade2; font-weight: 600;"><i class="fa-solid fa-circle-check"></i> Верификация</span>
+                                </label>
+                                <select id="editBadgeType" class="poll-select" style="width:100%; font-size: 13px; padding: 6px 10px;">
+                                    <option value="badge-1">Стиль 1 (Классика)</option>
+                                    <option value="badge-3">Стиль 3 (VIP Щит)</option>
+                                    <option value="badge-8">Стиль 8 (Брутал)</option>
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- БЛОК 3: Модули и Соцсети -->
+                    <div class="settings-section">
+                        <div class="settings-section-title">Виджеты и Ссылки</div>
+                        <div style="display:flex; gap:16px; margin-bottom: 8px;">
+                            <label><input type="checkbox" id="checkGamesModule"> Игровой блок</label>
+                            <label><input type="checkbox" id="checkSocialsModule"> Социальные сети</label>
+                        </div>
+                        <div class="settings-grid">
+                            <input type="text" id="editTelegram" class="poll-input" placeholder="Telegram username">
+                            <input type="text" id="editGithub" class="poll-input" placeholder="GitHub username">
+                        </div>
+                    </div>
+
+                    <!-- БЛОК 4: Музыка и Игры -->
+                    <div class="settings-section">
+                        <div class="settings-section-title">Главный трек профиля</div>
+                        <div id="settingsCurrentTrack" class="settings-current-item" style="display:none; margin-bottom:10px;"></div>
+                        <div style="display:flex; gap:10px;">
+                            <button id="selectProfileTrackBtn" class="btn-post" style="flex:1; background:#222; border:1px solid var(--border-color); color:#fff;">
+                                <i class="fa-solid fa-music"></i> Выбрать трек
+                            </button>
+                            <button id="removeProfileTrackBtn" class="icon-btn" style="width:40px; height:40px; border-radius:8px; background:rgba(255,69,58,0.1); color:var(--danger); border:1px solid rgba(255,69,58,0.3);" title="Удалить трек">
+                                <i class="fa-solid fa-trash"></i>
+                            </button>
+                        </div>
+
+                        <div class="settings-section-title" style="margin-top: 16px;">Витрина игр (Drag & Drop)</div>
+                        <div id="settingsGamesList" class="settings-games-list"></div>
+                        <button id="settingsAddGameBtn" class="btn-post" style="width:100%; margin-top:10px; background:#222; border:1px solid var(--border-color); color:#fff;">
+                            <i class="fa-solid fa-plus"></i> Добавить игру на витрину
                         </button>
                     </div>
 
-                    <!-- БЛОК ВИТРИНЫ ИГР (Drag & Drop) -->
-                    <h3 class="module-header" style="margin-top:10px;">Витрина игр</h3>
-                    <div class="settings-hint">Перетаскивайте игры за иконку слева, чтобы изменить их порядок на витрине</div>
-                    <div id="settingsGamesList" class="settings-games-list"></div>
-                    <button id="settingsAddGameBtn" class="btn-post" style="width:100%; margin-top:10px; background:#222; border:1px solid var(--border-color); color:#fff;">
-                        <i class="fa-solid fa-plus"></i> Добавить на витрину
-                    </button>
-
-                    <h3 class="module-header" style="margin-top:10px;">Виджеты</h3>
-                    <div style="display:flex; gap:10px; flex-direction:column;">
-                        <label><input type="checkbox" id="checkGamesModule"> Игровой блок</label>
-                        <label><input type="checkbox" id="checkSocialsModule"> Социальные сети</label>
-                    </div>
-
-                    <h3 class="module-header">Ссылки</h3>
-                    <input type="text" id="editTelegram" class="poll-input" placeholder="Telegram username">
-                    <input type="text" id="editGithub" class="poll-input" placeholder="GitHub username">
-                    
-                    <button id="saveSettingsBtn" class="btn-post" style="width:100%; margin-top:20px; font-size: 16px;">Сохранить изменения</button>
+                    <button id="saveSettingsBtn" class="btn-post" style="width:100%; margin-top: 8px; font-size: 16px; padding: 14px;">Сохранить изменения</button>
                 </div>
             </div>
         </div>

@@ -12,133 +12,94 @@
     transition: opacity 0.3s;
 }
 
-/* Обертка для верхней части (Аватар + Текст) */
-.post-main-body {
-    display: flex;
-    gap: 16px;
-    width: 100%;
-}
-
+.post-main-body { display: flex; gap: 16px; width: 100%; }
 .post.private-post { opacity: 0.7; }
 
-/* --- МЕНЮ ОПЦИЙ (Троеточие) --- */
-.post-options-btn {
-    position: absolute;
-    top: 16px;
-    right: 16px;
-    color: var(--text-muted);
-    z-index: 5;
-}
-
+/* --- МЕНЮ ОПЦИЙ --- */
+.post-options-btn { position: absolute; top: 16px; right: 16px; color: var(--text-muted); z-index: 5; }
 .options-menu {
-    position: absolute;
-    top: 40px;
-    right: 16px;
-    background: #222224;
-    border: 1px solid var(--border-color);
-    border-radius: 8px;
-    box-shadow: 0 8px 16px rgba(0,0,0,0.3);
-    z-index: 100; 
-    overflow: hidden;
-    width: 180px;
-    display: none; 
+    position: absolute; top: 40px; right: 16px; background: #222224; border: 1px solid var(--border-color);
+    border-radius: 8px; box-shadow: 0 8px 16px rgba(0,0,0,0.3); z-index: 100; overflow: hidden;
+    width: 180px; display: none; 
 }
-
 .options-menu.active { display: block; }
-
-.menu-item {
-    display: flex; align-items: center; gap: 12px; padding: 10px 14px;
-    font-size: 14px; font-weight: 500; cursor: pointer; transition: background-color 0.2s;
-}
-.menu-item:hover { background-color: rgba(255,255,255,0.1); }
+.menu-item { display: flex; align-items: center; gap: 12px; padding: 10px 14px; font-size: 14px; font-weight: 500; cursor: pointer; transition: background-color 0.2s; }
+.menu-item:hover { background: rgba(255,255,255,0.1); }
 .menu-item-danger { color: var(--danger); }
 .menu-item i { width: 16px; text-align: center; }
 
-@keyframes slideDownPost { 
-    from { opacity: 0; transform: translateY(-10px); } 
-    to { opacity: 1; transform: translateY(0); } 
+@keyframes slideDownPost { from { opacity: 0; transform: translateY(-10px); } to { opacity: 1; transform: translateY(0); } }
+
+/* --- АВАТАР И РАМКИ --- */
+.post-avatar-wrapper {
+    position: relative;
+    width: 48px; height: 48px;
+    flex-shrink: 0;
+    overflow: visible; 
+    z-index: 1;
+}
+.post-avatar-wrapper .avatar { 
+    width: 100%; height: 100%; border-radius: 50%; 
+    background-color: #333;
+    position: relative; z-index: 1;
+}
+.post-avatar-wrapper .avatar img { 
+    width: 100%; height: 100%; object-fit: cover; border-radius: 50%; 
 }
 
-/* --- АВАТАР И ТЕКСТ --- */
-.avatar { 
-    width: 48px; height: 48px; border-radius: 50%; flex-shrink: 0; 
-    overflow: hidden; background-color: #333;
+/* 
+   ГЛАВНОЕ ИСПРАВЛЕНИЕ:
+   1. Делаем рамку в 2 раза больше (200%), чтобы CSS рисовал тонкие детали как на большой картинке.
+   2. Центрируем её (top/left -50%).
+   3. Уменьшаем обратно (scale 0.5).
+   ИТОГ: Рамка идеально совпадает по размеру, но выглядит в 2 раза четче и детальнее.
+*/
+.post-avatar-frame {
+    position: absolute;
+    width: 200%; height: 200%;
+    top: -50%; left: -50%;
+    transform: scale(0.55);
+    
+    z-index: 2; pointer-events: none;
+    background-size: contain;
+    background-repeat: no-repeat;
+    background-position: center;
+    box-sizing: border-box;
+    border-radius: 50%;
 }
-.avatar img { width: 100%; height: 100%; object-fit: cover; }
 
 .post-content { flex: 1; min-width: 0; }
-.post-header { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; }
-.post-name { font-weight: 600; font-size: 16px; }
-.post-username, .post-time { color: var(--text-muted); font-size: 14px; }
+.post-header { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; flex-wrap: wrap; }
+.post-name { font-weight: 600; font-size: 16px; line-height: 1; }
+.post-username, .post-time { color: var(--text-muted); font-size: 14px; line-height: 1; }
+
+/* ГАЛОЧКИ ДЛЯ ПОСТОВ И КОММЕНТАРИЕВ */
+.post-badge { margin-top: 1px; }
+.badge-1 { color: #1da1f2; font-size: 16px; }
+.badge-3 { font-size: 0.6em; filter: drop-shadow(0 2px 4px rgba(255, 215, 0, 0.3)); }
+.badge-3 .bg { color: #ffd700; }
+.badge-3 .fg { color: #000; font-size: 1.1em; }
+.badge-8 {
+    display: flex; align-items: center; justify-content: center;
+    width: 16px; height: 16px; background: #ff453a; color: #fff;
+    border-radius: 4px; font-size: 10px; box-shadow: 0 2px 8px rgba(255, 69, 58, 0.4);
+    transform: skewX(-10deg);
+}
+.badge-8 i { transform: skewX(10deg); }
+
+
 .post-text { font-size: 16px; line-height: 1.5; margin-bottom: 0; word-wrap: break-word; color: #e0e0e0; white-space: pre-wrap;}
-
-/* --- ФОРМАТИРОВАНИЕ ТЕКСТА (MARKDOWN) --- */
-.post-text b, .comment-text b {
-    font-weight: 800;
-    color: var(--text-main);
-}
-
-/* Стильная Цитата (Compact & Fixed) */
-.post-quote {
-    position: relative;
-    /* Умеренные отступы сверху и снизу (8px), чтобы отделить от текста */
-    margin: 8px 0;
-    /* Компактные внутренние отступы */
-    padding: 8px 12px 8px 18px;
-    
-    background: rgba(255, 255, 255, 0.03);
-    border-radius: 6px;
-    
-    /* Линия слева */
-    border-left: 3px solid #5dade2;
-    
-    /* Текст */
-    color: #c0c0c0;
-    font-size: 14px;
-    line-height: 1.4;
-    font-style: italic;
-    
-    display: block;
-}
-
-/* Декоративная иконка кавычки */
-.post-quote::before {
-    content: '\f10e'; 
-    font-family: "Font Awesome 6 Free";
-    font-weight: 900;
-    position: absolute;
-    top: 6px; /* Чуть выше */
-    right: 8px; /* Чуть правее */
-    font-size: 10px; /* Меньше и аккуратнее */
-    color: rgba(255, 255, 255, 0.1);
-    pointer-events: none;
-}
-
+.post-text b, .comment-text b { font-weight: 800; color: var(--text-main); }
+.post-quote { position: relative; margin: 8px 0; padding: 8px 12px 8px 18px; background: rgba(255, 255, 255, 0.03); border-radius: 6px; border-left: 3px solid #5dade2; color: #c0c0c0; font-size: 14px; line-height: 1.4; font-style: italic; display: block; }
+.post-quote::before { content: '\f10e'; font-family: "Font Awesome 6 Free"; font-weight: 900; position: absolute; top: 6px; right: 8px; font-size: 10px; color: rgba(255, 255, 255, 0.1); pointer-events: none; }
 .post-quote p { margin: 0; padding: 0; }
-
-/* Спойлер */
-.post-spoiler {
-    background: #333;
-    color: transparent;
-    border-radius: 4px;
-    padding: 0 6px;
-    cursor: pointer;
-    transition: background 0.3s, color 0.3s;
-    user-select: none;
-    text-shadow: none;
-}
-
-/* При клике на спойлер он показывает содержимое */
-.post-spoiler.revealed {
-    background: rgba(255, 255, 255, 0.1);
-    color: var(--text-main);
-}
+.post-spoiler { background: #333; color: transparent; border-radius: 4px; padding: 0 6px; cursor: pointer; transition: background 0.3s, color 0.3s; user-select: none; text-shadow: none; }
+.post-spoiler.revealed { background: rgba(255, 255, 255, 0.1); color: var(--text-main); }
 
 /* --- ОПРОСЫ --- */
 .poll-wrapper { margin-top: 16px; border: 1px solid var(--border-color); border-radius: var(--radius-medium); padding: 16px; display: flex; flex-direction: column; gap: 10px; background: rgba(0,0,0,0.2); }
 .poll-vote-btn { background: #1a1a1c; border: 1px solid var(--border-color); padding: 12px 16px; border-radius: 8px; cursor: pointer; transition: 0.2s; font-weight: 500; font-size: 15px; }
 .poll-vote-btn:hover { background: rgba(255,255,255,0.1); border-color: rgba(255,255,255,0.3); }
-
 .poll-result-item { position: relative; background: #1a1a1c; border-radius: 8px; overflow: hidden; padding: 12px 16px; display: flex; justify-content: space-between; align-items: center; z-index: 1; border: 1px solid transparent; }
 .poll-result-item.voted { border-color: rgba(255,255,255,0.3); }
 .poll-bar { position: absolute; left: 0; top: 0; bottom: 0; background: rgba(255,255,255,0.1); z-index: -1; transition: width 0.8s cubic-bezier(0.4, 0, 0.2, 1); }
@@ -147,47 +108,11 @@
 .poll-item-percent { font-weight: 600; font-size: 14px; }
 .poll-meta { font-size: 13px; color: var(--text-muted); margin-top: 4px; }
 
-/* --- ДЕЙСТВИЯ С ПОСТОМ (FOOTER) --- */
-.post-actions { 
-    display: flex; 
-    align-items: center;
-    gap: 16px; 
-    width: auto;
-    
-    /* Компенсация отступов для идеального выравнивания */
-    margin-left: -12px; 
-    margin-right: -20px;
-    margin-top: 4px;
-}
-
-.action-btn { 
-    display: flex; 
-    align-items: center; 
-    justify-content: center;
-    gap: 8px;
-    cursor: pointer; 
-    transition: 0.2s; 
-    user-select: none; 
-    font-size: 14px;
-    color: var(--text-muted);
-    padding: 8px 12px;
-    border-radius: 20px;
-}
-
-.action-btn:hover { 
-    color: var(--text-main); 
-    background: rgba(255, 255, 255, 0.05);
-}
-
+/* --- ДЕЙСТВИЯ С ПОСТОМ --- */
+.post-actions { display: flex; align-items: center; gap: 16px; width: auto; margin-left: -12px; margin-right: -20px; margin-top: 4px; }
+.action-btn { display: flex; align-items: center; justify-content: center; gap: 8px; cursor: pointer; transition: 0.2s; user-select: none; font-size: 14px; color: var(--text-muted); padding: 8px 12px; border-radius: 20px; }
+.action-btn:hover { color: var(--text-main); background: rgba(255, 255, 255, 0.05); }
 .action-btn.liked { color: var(--danger); }
 .action-btn.liked i { font-weight: 900; }
-
-/* КНОПКА ПРОСМОТРОВ */
-.views-btn {
-    margin-left: auto;
-    cursor: default; 
-}
-.views-btn:hover { 
-    color: var(--text-muted); 
-    background: transparent;
-}
+.views-btn { margin-left: auto; cursor: default; }
+.views-btn:hover { color: var(--text-muted); background: transparent; }

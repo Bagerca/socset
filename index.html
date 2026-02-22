@@ -12,22 +12,41 @@
     <div id="profileBackgroundLayer" class="profile-background-layer"></div>
 
     <div class="app-container">
-        <!-- САЙДБАР (Ссылки обязательно через #) -->
-        <nav class="sidebar glass-pill">
-            <div class="logo-icon">
-                <a href="#/" title="На главную">
-                    <img src="img/logo.svg" alt="Cycle Logo" class="brand-logo">
-                </a>
-            </div>
-            <div class="nav-links">
-                <a href="#/" class="nav-item nav-link" data-route="/"><i class="fa-solid fa-house"></i></a>
-                <a href="#/music" class="nav-item nav-link" data-route="/music"><i class="fa-solid fa-music"></i></a>
-                <a href="#/games" class="nav-item nav-link" data-route="/games"><i class="fa-solid fa-gamepad"></i></a>
-                <div class="nav-item" title="Поиск"><i class="fa-solid fa-magnifying-glass"></i></div>
-                <div class="nav-item" title="Уведомления"><i class="fa-solid fa-bell"></i></div>
-                <a href="#/profile" class="nav-item nav-link" data-route="/profile"><i class="fa-solid fa-user"></i></a>
-            </div>
-        </nav>
+        
+        <!-- ВРАППЕР ДЛЯ САЙДБАРОВ -->
+        <div class="sidebar-wrapper">
+            
+            <!-- ГЛАВНАЯ КОЛБА -->
+            <nav class="sidebar glass-pill">
+                <div class="logo-icon">
+                    <a href="#/" title="На главную">
+                        <img src="img/logo.svg" alt="Cycle Logo" class="brand-logo">
+                    </a>
+                </div>
+                <div class="nav-links">
+                    <a href="#/" class="nav-item nav-link" data-route="/"><i class="fa-solid fa-house"></i></a>
+                    
+                    <!-- НОВАЯ КНОПКА: БУРГЕР -->
+                    <div class="nav-item" id="burgerMenuBtn" title="Сервисы"><i class="fa-solid fa-bars"></i></div>
+                    
+                    <div class="nav-item" title="Поиск"><i class="fa-solid fa-magnifying-glass"></i></div>
+                    <div class="nav-item" title="Уведомления"><i class="fa-solid fa-bell"></i></div>
+                    <a href="#/profile" class="nav-item nav-link" data-route="/profile"><i class="fa-solid fa-user"></i></a>
+                </div>
+            </nav>
+
+            <!-- ВТОРАЯ КОЛБА (Скрытая, выезжает по клику) -->
+            <nav class="sidebar glass-pill sub-sidebar" id="subSidebar">
+                <div class="nav-links">
+                    <a href="#/music" class="nav-item nav-link" data-route="/music" title="Музыка"><i class="fa-solid fa-music"></i></a>
+                    <a href="#/games" class="nav-item nav-link" data-route="/games" title="Игры"><i class="fa-solid fa-gamepad"></i></a>
+                    
+                    <!-- НОВАЯ КНОПКА: МАГАЗИН -->
+                    <a href="#/shop" class="nav-item nav-link" data-route="/shop" title="Магазин"><i class="fa-solid fa-store"></i></a>
+                </div>
+            </nav>
+            
+        </div>
 
         <!-- КОНТЕЙНЕР ДЛЯ СТРАНИЦ -->
         <main id="app-content" class="feed"></main>
@@ -35,7 +54,6 @@
 
     <!-- ГЛОБАЛЬНЫЙ ВИДЖЕТ ПЛЕЕРА -->
     <div id="globalPlayerWidget" class="global-player-widget hidden">
-        <!-- КНОПКА ЗАКРЫТИЯ -->
         <button id="gpCloseBtn" class="icon-btn-small" style="position: absolute; top: 12px; right: 12px; z-index: 10;">
             <i class="fa-solid fa-xmark"></i>
         </button>

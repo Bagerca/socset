@@ -1,4 +1,7 @@
+// js/services/DataManager.js
+
 import { generateId } from '../utils/utils.js';
+import { GAME_CONSTANTS } from '../config/GameConstants.js'; // <-- Импорт констант
 
 export class DataManager {
     constructor() {
@@ -6,10 +9,7 @@ export class DataManager {
         this.globalGames = [];
         
         this.frames = [
-            { id: 'frame_none', name: 'Без рамки', url: null },
-            { id: 'frame_gold', name: 'Золото', url: 'https://cdn-icons-png.flaticon.com/512/4315/4315445.png' }, 
-            { id: 'frame_neon', name: 'Неон', url: 'https://cdn-icons-png.flaticon.com/512/8083/8083148.png' },
-            { id: 'frame_fire', name: 'Огонь', url: 'https://cdn-icons-png.flaticon.com/512/785/785116.png' }
+            { id: 'frame_none', name: 'Без рамки', url: null }
         ];
 
         this.backgrounds = [
@@ -24,15 +24,20 @@ export class DataManager {
             { id: 'title_pro', text: 'PRO Gamer', color: '#ffd700' }
         ];
 
+        const defaultShopItems = [
+            { id: 'shop_f1', type: 'frame', name: 'Cyberpunk Glow', author: '@system', price: 150, css: 'border-radius: 50%; box-sizing: border-box; box-shadow: 0 0 20px #00f0ff, inset 0 0 15px #00f0ff; border: 2px solid #00f0ff;' },
+            { id: 'shop_f2', type: 'frame', name: 'Demon Aura', author: '@system', price: 300, css: 'border-radius: 50%; box-sizing: border-box; box-shadow: 0 0 25px #ff453a, inset 0 0 20px #ff453a; border: 3px dashed #ff453a;' }
+        ];
+        this.shopItems = JSON.parse(localStorage.getItem('glassnet_shop')) || defaultShopItems;
+
         const defaultProfile = {
             name: 'Имя Пользователя', username: '@username', bio: 'Это мой элитный профиль в Cycle!',
             avatar: 'https://placehold.co/128x128/333333/ffffff?text=U', banner: 'https://placehold.co/800x250/111111/ffffff?text=Banner',
             frameId: 'frame_none', backgroundId: 'bg_default', titleId: 'title_newbie', musicId: null, 
+            isVerified: false, verifiedBadgeType: 'badge-1',
+            coins: 1000, purchasedFrames: [], 
             modules: { music: true, games: true, socials: true },
-            favoriteGames: [], 
-            showcaseGames: [], 
-            favoriteTracks: [],
-            customAlbums: [],
+            favoriteGames: [], showcaseGames: [], favoriteTracks: [], customAlbums: [],
             socials: { telegram: '', github: '' }
         };
 
@@ -51,7 +56,6 @@ export class DataManager {
             this.globalGames = await gamesRes.json();
             return true;
         } catch (error) {
-            console.warn("Ошибка загрузки JSON. Используем резервные данные.");
             this.globalMusic = [{ id: 'track_1', title: 'Cyber City', artist: 'Reserve', cover: 'https://placehold.co/400x400/1a1a1c/ffffff?text=Cyber', url: '' }];
             this.globalGames = [];
             return false;
@@ -60,14 +64,99 @@ export class DataManager {
 
     getMusicCatalog() { return this.globalMusic; }
     getGamesCatalog() { return this.globalGames; }
-    getFrames() { return this.frames; }
     getBackgrounds() { return this.backgrounds; }
     getTitles() { return this.titles; }
+
+    getFrames() { 
+        const purchased = (this.profile.purchasedFrames || []).map(id => {
+            const item = this.shopItems.find(i => i.id === id);
+            if (item) return { id: item.id, name: `${item.name} (CSS)`, css: item.css };
+            return null;
+        }).filter(Boolean);
+        return [...this.frames, ...purchased]; 
+    }
+
+    // --- ЛОГИКА МАГАЗИНА ---
+    getShopItems() { return this.shopItems; }
+    _saveShop() { localStorage.setItem('glassnet_shop', JSON.stringify(this.shopItems)); }
+
+    createShopItem(name, price, css) {
+        const newItem = {
+            id: 'shop_' + generateId(),
+            type: 'frame',
+            name, price, css,
+            author: this.profile.username
+        };
+        this.shopItems.unshift(newItem); 
+        this._saveShop();
+    }
+
+    updateShopItem(itemId, name, price, css) {
+        const item = this.shopItems.find(i => i.id === itemId);
+        if (item && item.author === this.profile.username) {
+            item.name = name;
+            item.price = price;
+            item.css = css;
+            this._saveShop();
+            return true;
+        }
+        return false;
+    }
+
+    buyShopItem(itemId) {
+        const item = this.shopItems.find(i => i.id === itemId);
+        if (!item) return false;
+        
+        if (!this.profile.purchasedFrames) this.profile.purchasedFrames = [];
+        if (this.profile.purchasedFrames.includes(itemId)) return true; 
+
+        if (this.profile.coins >= item.price) {
+            this.profile.coins -= item.price;
+            this.profile.purchasedFrames.push(itemId);
+            this._saveProfile();
+            return true;
+        }
+        return false; 
+    }
+
+    equipFrame(frameId) {
+        this.profile.frameId = frameId;
+        this._saveProfile();
+    }
+
+    unequipFrame() {
+        this.profile.frameId = 'frame_none';
+        this._saveProfile();
+    }
+
+    deleteShopItem(itemId) {
+        const item = this.shopItems.find(i => i.id === itemId);
+        if (item && item.author === this.profile.username) {
+            this.shopItems = this.shopItems.filter(i => i.id !== itemId);
+            this._saveShop();
+            return true;
+        }
+        return false;
+    }
+
+    // --- ЛОГИКА ТЕГОВ ИГР (НОВОЕ) ---
+    getGameTier(tierId) {
+        return GAME_CONSTANTS.tiers[tierId] || { label: 'Unknown', color: '#999' };
+    }
+
+    getGameTags(tagIds) {
+        if (!tagIds || !Array.isArray(tagIds)) return [];
+        return tagIds.map(id => GAME_CONSTANTS.tags[id]).filter(Boolean);
+    }
+
+    getAllGameTags() { return GAME_CONSTANTS.tags; }
+    getAllGameTiers() { return GAME_CONSTANTS.tiers; }
+    getGameCategories() { return GAME_CONSTANTS.categories; }
 
     getTrackById(id) { return this.globalMusic.find(t => t.id === id) || null; }
     getGameById(id) { return this.globalGames.find(g => g.id === id) || null; }
 
-    // МУЗЫКА
+    // --- ИЗБРАННОЕ И АЛЬБОМЫ ---
     toggleFavoriteTrack(trackId) {
         if (!this.profile.favoriteTracks) this.profile.favoriteTracks = [];
         const index = this.profile.favoriteTracks.indexOf(trackId);
@@ -106,7 +195,6 @@ export class DataManager {
         this._saveProfile();
     }
 
-    // ИГРЫ
     toggleFavoriteGame(gameId) {
         if (!this.profile.favoriteGames) this.profile.favoriteGames = [];
         const index = this.profile.favoriteGames.indexOf(gameId);
@@ -118,37 +206,30 @@ export class DataManager {
     
     getFavoriteGames() { return this.profile.favoriteGames || []; }
 
-    // --- ПОСТЫ И ВЗАИМОДЕЙСТВИЯ ---
+    // --- СОЦИАЛКА (ПОСТЫ, КОММЕНТЫ) ---
     _savePosts() { localStorage.setItem('glassnet_posts', JSON.stringify(this.posts)); }
     
     addPost(content, pollData = null, attachment = null) {
-        // Форматируем опрос, если он был передан
         let formattedPoll = null;
         if (pollData && pollData.options && pollData.options.length >= 2) {
             formattedPoll = {
-                options: pollData.options.map(opt => ({
-                    id: 'opt_' + generateId(),
-                    text: opt,
-                    votes: 0
-                })),
-                totalVotes: 0,
-                days: pollData.duration || 3,
-                votedOptionId: null
+                options: pollData.options.map(opt => ({ id: 'opt_' + generateId(), text: opt, votes: 0 })),
+                totalVotes: 0, days: pollData.duration || 3, votedOptionId: null
             };
         }
 
         const newPost = { 
             id: generateId(), 
-            author: { name: this.profile.name, username: this.profile.username, avatar: this.profile.avatar }, 
-            content, 
-            likes: 0, 
-            isLiked: false, 
-            timestamp: Date.now(), 
-            poll: formattedPoll, // Вставляем сформированный опрос
-            visibility: 'public', 
-            comments: [], 
-            views: 0, 
-            attachment 
+            author: { 
+                name: this.profile.name, 
+                username: this.profile.username, 
+                avatar: this.profile.avatar,
+                isVerified: this.profile.isVerified,
+                verifiedBadgeType: this.profile.verifiedBadgeType,
+                frameId: this.profile.frameId
+            }, 
+            content, likes: 0, isLiked: false, timestamp: Date.now(), 
+            poll: formattedPoll, visibility: 'public', comments: [], views: 0, attachment 
         };
         this.posts.unshift(newPost); 
         this._savePosts(); 
@@ -161,18 +242,11 @@ export class DataManager {
     getAllPosts() { return this.posts; }
     getUserPosts(username) { return this.posts.filter(post => post.author.username === username); }
 
-    // ГОЛОСОВАНИЕ В ОПРОСЕ
     votePoll(postId, optionId) {
         const post = this.posts.find(p => p.id === postId);
         if (post && post.poll && !post.poll.votedOptionId) {
             const option = post.poll.options.find(o => o.id === optionId);
-            if (option) {
-                option.votes += 1;
-                post.poll.totalVotes += 1;
-                post.poll.votedOptionId = optionId;
-                this._savePosts();
-                return true;
-            }
+            if (option) { option.votes += 1; post.poll.totalVotes += 1; post.poll.votedOptionId = optionId; this._savePosts(); return true; }
         }
         return false;
     }
@@ -180,7 +254,18 @@ export class DataManager {
     addComment(postId, content, type = 'text', waveform = null) {
         const post = this.posts.find(p => p.id === postId);
         if (post) { 
-            const newComment = { id: generateId(), author: { username: this.profile.username, name: this.profile.name, avatar: this.profile.avatar }, content, type, waveform, timestamp: Date.now(), likes: 0, dislikes: 0, userReaction: null }; 
+            const newComment = { 
+                id: generateId(), 
+                author: { 
+                    username: this.profile.username, 
+                    name: this.profile.name, 
+                    avatar: this.profile.avatar,
+                    isVerified: this.profile.isVerified,
+                    verifiedBadgeType: this.profile.verifiedBadgeType,
+                    frameId: this.profile.frameId
+                }, 
+                content, type, waveform, timestamp: Date.now(), likes: 0, dislikes: 0, userReaction: null 
+            }; 
             post.comments.push(newComment); 
             this._savePosts(); 
             return newComment; 
@@ -192,7 +277,6 @@ export class DataManager {
         if (post && post.comments) { post.comments = post.comments.filter(c => c.id !== commentId); this._savePosts(); } 
     }
 
-    // РЕАКЦИИ НА КОММЕНТАРИИ (Лайки / Дизлайки)
     toggleCommentReaction(postId, commentId, type) {
         const post = this.posts.find(p => p.id === postId);
         if (!post) return;

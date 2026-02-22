@@ -9,11 +9,11 @@ export class ProfileController {
         this.postRenderer = new PostRenderer(dataManager);
         this.postEvents = new PostEventHandler(dataManager, this.postRenderer, () => this.renderPosts());
 
-        // Временное состояние для Настроек (применяется только после нажатия "Сохранить")
         this.tempShowcaseGames = [];
         this.tempMusicId = null;
+        this.tempAvatar = null;
+        this.tempBanner = null;
 
-        // UI Элементы
         this.bgLayer = document.getElementById('profileBackgroundLayer');
         this.avatarImg = document.getElementById('avatarImage');
         this.avatarFrame = document.getElementById('avatarFrame');
@@ -22,6 +22,7 @@ export class ProfileController {
         this.usernameEl = document.getElementById('profileUsername');
         this.bioEl = document.getElementById('profileBio');
         this.titleBadge = document.getElementById('userTitleBadge');
+        this.verifiedBadgeContainer = document.getElementById('verifiedBadgeContainer'); 
         this.playerContainer = document.getElementById('profileAudioPlayerContainer');
         this.modulesContainer = document.getElementById('profileModules');
         this.postsContainer = document.getElementById('profilePostsContainer');
@@ -39,10 +40,8 @@ export class ProfileController {
         this.publishBtn = document.getElementById('publishBtn');
         this.postInput = document.getElementById('postInput');
         
-        // Модалка деталей игры
         this.gameDetailsModal = document.getElementById('gameDetailsModal');
 
-        // Глобальные обработчики (сохраняем ссылки для удаления в destroy)
         this.handleGlobalClick = (e) => {
             if (this.contextMenu && this.contextMenu.style.display === 'block') this.contextMenu.style.display = 'none';
             if (this.formatMenu) this.formatMenu.style.display = 'none';
@@ -67,7 +66,7 @@ export class ProfileController {
         };
 
         this.createGlobalContextMenu();
-        this.createFormatContextMenu(); // Инициализация меню форматирования
+        this.createFormatContextMenu();
         this.init();
     }
 
@@ -82,7 +81,6 @@ export class ProfileController {
     }
 
     destroy() {
-        // Очистка слушателей плеера
         const globalAudio = document.getElementById('globalAudioPlayer');
         if (globalAudio) {
             if (this.handleProfileAudioPlay) globalAudio.removeEventListener('play', this.handleProfileAudioPlay);
@@ -92,16 +90,44 @@ export class ProfileController {
         if (this.contextMenu) this.contextMenu.remove();
         if (this.formatMenu) this.formatMenu.remove();
         
-        // Удаляем глобальные слушатели
         document.removeEventListener('click', this.handleGlobalClick);
         document.removeEventListener('scroll', this.handleGlobalScroll, true);
         document.removeEventListener('keydown', this.handleEsc);
         
-        // Сбрасываем фон
         if (this.bgLayer) {
             this.bgLayer.style.backgroundImage = 'none';
             this.bgLayer.style.backgroundColor = 'transparent'; 
         }
+    }
+
+    async compressImage(file, maxWidth, maxHeight) {
+        return new Promise((resolve, reject) => {
+            const reader = new FileReader();
+            reader.readAsDataURL(file);
+            reader.onload = (event) => {
+                const img = new Image();
+                img.src = event.target.result;
+                img.onload = () => {
+                    const canvas = document.createElement('canvas');
+                    let width = img.width;
+                    let height = img.height;
+
+                    if (width > maxWidth || height > maxHeight) {
+                        const ratio = Math.min(maxWidth / width, maxHeight / height);
+                        width = width * ratio;
+                        height = height * ratio;
+                    }
+
+                    canvas.width = width;
+                    canvas.height = height;
+                    const ctx = canvas.getContext('2d');
+                    ctx.drawImage(img, 0, 0, width, height);
+                    resolve(canvas.toDataURL('image/jpeg', 0.8)); 
+                };
+                img.onerror = reject;
+            };
+            reader.onerror = reject;
+        });
     }
 
     createGlobalContextMenu() {
@@ -127,7 +153,6 @@ export class ProfileController {
         }
     }
 
-    // --- МЕНЮ ФОРМАТИРОВАНИЯ ТЕКСТА (Профиль) ---
     createFormatContextMenu() {
         if (document.getElementById('formatContextMenu')) document.getElementById('formatContextMenu').remove();
         const menu = document.createElement('div');
@@ -172,12 +197,38 @@ export class ProfileController {
         if (this.publishBtn) this.publishBtn.disabled = false;
     }
 
-    // --- РЕНДЕР ШАПКИ И ПЛЕЕРА ---
     renderProfileHeader() {
         const p = this.currentUser;
         this.nameEl.textContent = p.name;
         this.usernameEl.textContent = p.username;
         this.bioEl.innerHTML = escapeHTML(p.bio).replace(/\n/g, '<br>'); 
+        
+        if (this.verifiedBadgeContainer) {
+            if (p.isVerified) {
+                this.verifiedBadgeContainer.style.display = 'inline-flex';
+                let badgeHTML = '';
+                
+                if (p.verifiedBadgeType === 'badge-1') {
+                    badgeHTML = `<i class="fa-solid fa-circle-check badge-1"></i>`;
+                } else if (p.verifiedBadgeType === 'badge-3') {
+                    badgeHTML = `
+                        <span class="fa-stack badge-3">
+                            <i class="fa-solid fa-shield fa-stack-2x bg"></i>
+                            <i class="fa-solid fa-check fa-stack-1x fg"></i>
+                        </span>`;
+                } else if (p.verifiedBadgeType === 'badge-8') {
+                    badgeHTML = `<div class="badge-8"><i class="fa-solid fa-check"></i></div>`;
+                } else {
+                    badgeHTML = `<i class="fa-solid fa-circle-check badge-1"></i>`;
+                }
+                
+                this.verifiedBadgeContainer.innerHTML = badgeHTML;
+            } else {
+                this.verifiedBadgeContainer.style.display = 'none';
+                this.verifiedBadgeContainer.innerHTML = '';
+            }
+        }
+
         this.avatarImg.src = p.avatar;
         this.avatarImg.onerror = () => { this.avatarImg.src = 'https://placehold.co/128x128/333333/ffffff?text=U'; };
         this.bannerImg.src = p.banner;
@@ -192,13 +243,23 @@ export class ProfileController {
             this.bgLayer.style.backgroundColor = bg ? bg.color : '#0a0a0c';
         }
 
+        // --- ЛОГИКА РАМОК (Картинки и CSS из магазина) ---
         const frame = this.dataManager.getFrames().find(f => f.id === p.frameId);
-        if (frame && frame.url) {
-            this.avatarFrame.style.backgroundImage = `url('${frame.url}')`;
+        this.avatarFrame.style.cssText = ''; // Сбрасываем старые стили
+        
+        if (frame) {
             this.avatarFrame.style.display = 'block';
+            if (frame.url) {
+                // Если это обычная картинка
+                this.avatarFrame.style.backgroundImage = `url('${frame.url}')`;
+            } else if (frame.css) {
+                // Если это купленная CSS рамка из магазина
+                this.avatarFrame.style.backgroundImage = 'none';
+                this.avatarFrame.style.cssText = frame.css;
+            }
         } else {
-            this.avatarFrame.style.backgroundImage = 'none';
             this.avatarFrame.style.display = 'none';
+            this.avatarFrame.style.backgroundImage = 'none';
         }
 
         const title = this.dataManager.getTitles().find(t => t.id === p.titleId);
@@ -334,9 +395,7 @@ export class ProfileController {
         if (m.socials) this.renderSocialsModule();
     }
 
-    // --- ВИТРИНА ИГР (С ГОРИЗОНТАЛЬНЫМ СКРОЛЛОМ) ---
     renderGamesModule() {
-        // Используем showcaseGames для витрины
         const showcaseGames = (this.currentUser.showcaseGames || []).map(id => this.dataManager.getGameById(id)).filter(Boolean); 
         let contentHTML = '';
         
@@ -358,13 +417,11 @@ export class ProfileController {
             </div>
         `);
 
-        // Логика скролла колесиком мыши
         const carousel = document.getElementById('gamesCarousel');
         if (carousel) {
             carousel.addEventListener('wheel', (evt) => {
                 if (evt.deltaY !== 0) {
                     evt.preventDefault();
-                    // Скроллим вбок вместо вниз
                     carousel.scrollLeft += evt.deltaY;
                 }
             }, { passive: false });
@@ -397,21 +454,42 @@ export class ProfileController {
         }
     }
 
-    // --- НАСТРОЙКИ ---
     initSettingsDropdowns() {
         const fillSelect = (id, items) => {
             const el = document.getElementById(id);
             if(el) el.innerHTML = items.map(i => `<option value="${i.id}">${i.name || i.text}</option>`).join('');
         };
+        // Теперь в getFrames() подтянутся и купленные CSS рамки!
         fillSelect('editFrame', this.dataManager.getFrames());
         fillSelect('editBackground', this.dataManager.getBackgrounds());
         fillSelect('editTitle', this.dataManager.getTitles());
     }
 
     openSettings() {
+        // Переинициализируем дропдауны, чтобы новые купленные рамки появились в списке
+        this.initSettingsDropdowns();
+        
         const p = this.currentUser;
+        
+        this.tempAvatar = p.avatar;
+        this.tempBanner = p.banner;
+        document.getElementById('avatarFileName').textContent = 'Текущий аватар';
+        document.getElementById('bannerFileName').textContent = 'Текущий баннер';
+        document.getElementById('editAvatarFile').value = '';
+        document.getElementById('editBannerFile').value = '';
+        
         document.getElementById('editName').value = p.name;
         document.getElementById('editBio').value = p.bio || '';
+        
+        const isVerified = p.isVerified || false;
+        const checkVerifiedEl = document.getElementById('checkVerified');
+        const badgeTypeEl = document.getElementById('editBadgeType');
+        
+        checkVerifiedEl.checked = isVerified;
+        badgeTypeEl.value = p.verifiedBadgeType || 'badge-1';
+        badgeTypeEl.disabled = !isVerified;
+        badgeTypeEl.style.opacity = isVerified ? '1' : '0.5';
+        
         document.getElementById('editTelegram').value = p.socials.telegram || '';
         document.getElementById('editGithub').value = p.socials.github || '';
         document.getElementById('editFrame').value = p.frameId;
@@ -420,7 +498,6 @@ export class ProfileController {
         document.getElementById('checkGamesModule').checked = p.modules.games;
         document.getElementById('checkSocialsModule').checked = p.modules.socials;
         
-        // Загружаем текущие данные во временные переменные
         this.tempShowcaseGames = [...(p.showcaseGames || [])];
         this.tempMusicId = p.musicId || null;
         
@@ -473,7 +550,6 @@ export class ProfileController {
                 <button class="icon-btn-small remove-item-btn" title="Удалить из списка"><i class="fa-solid fa-xmark"></i></button>
             `;
             
-            // Drag & Drop
             el.addEventListener('dragstart', (e) => {
                 e.dataTransfer.setData('text/plain', index);
                 e.dataTransfer.effectAllowed = 'move';
@@ -498,7 +574,6 @@ export class ProfileController {
                 }
             });
             
-            // Кнопка удаления
             el.querySelector('.remove-item-btn').addEventListener('click', () => {
                 this.tempShowcaseGames.splice(index, 1);
                 this.renderSettingsGamesList();
@@ -514,14 +589,21 @@ export class ProfileController {
         tg = tg.replace(/https?:\/\/(www\.)?(t\.me|telegram\.me)\//g, '').replace('@', '');
         gh = gh.replace(/https?:\/\/(www\.)?github\.com\//g, '').replace('@', '');
 
+        let avatarVal = this.tempAvatar || 'https://placehold.co/128x128/333333/ffffff?text=U';
+        let bannerVal = this.tempBanner || 'https://placehold.co/800x250/111111/ffffff?text=Banner';
+
         const newData = {
             name: document.getElementById('editName').value,
             bio: document.getElementById('editBio').value,
+            avatar: avatarVal,
+            banner: bannerVal,
+            isVerified: document.getElementById('checkVerified').checked,
+            verifiedBadgeType: document.getElementById('editBadgeType').value,
             socials: { telegram: tg, github: gh },
             frameId: document.getElementById('editFrame').value,
             backgroundId: document.getElementById('editBackground').value,
             titleId: document.getElementById('editTitle').value,
-            showcaseGames: this.tempShowcaseGames, // Сохраняем именно ВИТРИНУ
+            showcaseGames: this.tempShowcaseGames,
             musicId: this.tempMusicId,
             modules: {
                 music: false, 
@@ -576,14 +658,44 @@ export class ProfileController {
     }
 
     closeGameModal() {
-        // Останавливаем видео
         const trailerEl = document.getElementById('gdTrailer');
         if (trailerEl) trailerEl.innerHTML = '';
-        
         this.gameDetailsModal.classList.remove('active');
     }
 
     initEventListeners() {
+        const avatarInput = document.getElementById('editAvatarFile');
+        const bannerInput = document.getElementById('editBannerFile');
+        
+        if (avatarInput) {
+            avatarInput.addEventListener('change', async (e) => {
+                if (e.target.files && e.target.files[0]) {
+                    const file = e.target.files[0];
+                    document.getElementById('avatarFileName').textContent = file.name;
+                    this.tempAvatar = await this.compressImage(file, 400, 400);
+                }
+            });
+        }
+
+        if (bannerInput) {
+            bannerInput.addEventListener('change', async (e) => {
+                if (e.target.files && e.target.files[0]) {
+                    const file = e.target.files[0];
+                    document.getElementById('bannerFileName').textContent = file.name;
+                    this.tempBanner = await this.compressImage(file, 1200, 600);
+                }
+            });
+        }
+        
+        const checkVerifiedEl = document.getElementById('checkVerified');
+        const badgeTypeEl = document.getElementById('editBadgeType');
+        if (checkVerifiedEl && badgeTypeEl) {
+            checkVerifiedEl.addEventListener('change', (e) => {
+                badgeTypeEl.disabled = !e.target.checked;
+                badgeTypeEl.style.opacity = e.target.checked ? '1' : '0.5';
+            });
+        }
+        
         this.postsContainer.addEventListener('click', (e) => this.postEvents.handleEvent(e));
         
         this.postsContainer.addEventListener('contextmenu', (e) => {
@@ -616,7 +728,6 @@ export class ProfileController {
         this.closeSelectionBtn.addEventListener('click', () => { if(this.selectionModal) this.selectionModal.classList.remove('active'); });
         document.addEventListener('keydown', this.handleEsc);
         
-        // КЛИК ПО ИГРЕ В ВИТРИНЕ ПРОФИЛЯ
         this.modulesContainer.addEventListener('click', (e) => {
             const item = e.target.closest('.showcase-item');
             if (item) {
@@ -653,19 +764,17 @@ export class ProfileController {
                 if (text) {
                     this.dataManager.addPost(text);
                     this.postInput.value = '';
-                    this.postInput.style.height = 'auto'; // Сброс высоты
+                    this.postInput.style.height = 'auto'; 
                     this.publishBtn.disabled = true;
                     this.renderPosts(); 
                 }
             });
             this.postInput.addEventListener('input', () => {
                 this.publishBtn.disabled = this.postInput.value.trim().length === 0;
-                // Авто-ресайз
                 this.postInput.style.height = 'auto';
                 this.postInput.style.height = (this.postInput.scrollHeight) + 'px';
             });
             
-            // Контекстное меню форматирования в профиле
             this.postInput.addEventListener('contextmenu', (e) => {
                 if (this.postInput.selectionStart !== this.postInput.selectionEnd) {
                     e.preventDefault();

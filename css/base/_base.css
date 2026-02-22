@@ -1,3 +1,5 @@
+/* css/base/_base.css */
+
 * { 
     margin: 0; 
     padding: 0; 
@@ -34,5 +36,98 @@ a {
         padding: 16px; 
         padding-bottom: 100px; 
         gap: 20px;
+    }
+}
+
+/* --- Глобальные стили для выпадающих списков поиска (С АНИМАЦИЯМИ) --- */
+
+.search-dropdown-menu {
+    position: absolute;
+    top: calc(100% + 10px);
+    left: 0;
+    width: 100%;
+    
+    /* Стекло и тени */
+    background: rgba(34, 34, 36, 0.95);
+    backdrop-filter: blur(12px);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 16px;
+    box-shadow: 
+        0 10px 40px rgba(0, 0, 0, 0.6),
+        0 0 0 1px rgba(255, 255, 255, 0.05); /* Тонкая обводка */
+    
+    z-index: 100;
+    overflow: hidden;
+    
+    /* Анимация появления самого контейнера */
+    transform-origin: top center;
+    animation: menuPopIn 0.25s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+}
+
+/* Пункт списка */
+.search-dropdown-item {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 12px 16px;
+    cursor: pointer;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.03);
+    position: relative;
+    overflow: hidden;
+    transition: background 0.2s, padding-left 0.2s; /* Плавный сдвиг текста */
+    
+    /* Начальное состояние для каскадной анимации */
+    opacity: 0;
+    animation: itemSlideIn 0.3s ease forwards;
+}
+
+.search-dropdown-item:last-child { 
+    border-bottom: none; 
+}
+
+/* Ховер эффект: подсветка + легкий сдвиг */
+.search-dropdown-item:hover {
+    background: rgba(255, 255, 255, 0.08);
+    padding-left: 20px; /* Сдвиг текста вправо */
+}
+
+/* Эффект нажатия */
+.search-dropdown-item:active {
+    background: rgba(255, 255, 255, 0.12);
+    transform: scale(0.99); /* Легкое уменьшение */
+}
+
+/* --- КАСКАДНАЯ АНИМАЦИЯ (Waterfall) --- */
+/* Каждый следующий элемент появляется с небольшой задержкой */
+.search-dropdown-item:nth-child(1) { animation-delay: 0.05s; }
+.search-dropdown-item:nth-child(2) { animation-delay: 0.08s; }
+.search-dropdown-item:nth-child(3) { animation-delay: 0.11s; }
+.search-dropdown-item:nth-child(4) { animation-delay: 0.14s; }
+.search-dropdown-item:nth-child(5) { animation-delay: 0.17s; }
+.search-dropdown-item:nth-child(6) { animation-delay: 0.20s; }
+
+/* --- KEYFRAMES (Сами движения) --- */
+
+/* Пружинистое появление меню */
+@keyframes menuPopIn {
+    0% {
+        opacity: 0;
+        transform: translateY(-10px) scale(0.95);
+    }
+    100% {
+        opacity: 1;
+        transform: translateY(0) scale(1);
+    }
+}
+
+/* Мягкий выезд пунктов сбоку */
+@keyframes itemSlideIn {
+    0% {
+        opacity: 0;
+        transform: translateX(-15px);
+    }
+    100% {
+        opacity: 1;
+        transform: translateX(0);
     }
 }

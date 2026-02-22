@@ -3,223 +3,170 @@
 .games-page-container {
     display: flex;
     flex-direction: column;
-    gap: 24px;
+    gap: 30px;
     width: 100%;
+    position: relative;
+    padding-bottom: 40px;
 }
 
-/* Верхняя панель (табы + поиск) */
-.games-header-panel {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    flex-wrap: wrap;
-    gap: 16px;
-    background: var(--surface);
-    padding: 16px 24px;
-    border-radius: var(--radius-large);
-    border: 1px solid var(--border-color);
-    box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+/* --- HERO SECTION --- */
+.hero-section {
+    position: relative; width: 100%; height: 300px;
+    border-radius: 24px; overflow: hidden; display: flex; align-items: flex-end;
+    box-shadow: 0 20px 50px rgba(0,0,0,0.5); border: 1px solid var(--border-color);
 }
+.hero-bg {
+    position: absolute; top: 0; left: 0; width: 100%; height: 100%; object-fit: cover;
+    z-index: 0; transition: transform 10s ease;
+}
+.hero-section:hover .hero-bg { transform: scale(1.05); }
+.hero-overlay {
+    position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+    background: linear-gradient(to top, #0a0a0c 10%, rgba(10,10,12, 0.4) 60%, transparent 100%); z-index: 1;
+}
+.hero-content {
+    position: relative; z-index: 2; padding: 30px; width: 100%; display: flex; flex-direction: column; gap: 10px;
+}
+.hero-badge {
+    background: #ffd700; color: #000; font-weight: 800; font-size: 11px;
+    padding: 4px 10px; border-radius: 4px; text-transform: uppercase; width: fit-content;
+}
+.hero-title {
+    font-size: 36px; font-weight: 900; line-height: 1; color: #fff; text-shadow: 0 4px 10px rgba(0,0,0,0.5);
+}
+.hero-meta { display: flex; gap: 10px; color: #ccc; font-size: 14px; }
+.hero-btn {
+    background: #fff; color: #000; border: none; padding: 10px 24px; border-radius: 8px;
+    font-weight: 700; cursor: pointer; transition: 0.2s; width: fit-content;
+}
+.hero-btn:hover { background: #e0e0e0; }
 
-.games-tabs {
-    display: flex;
-    gap: 8px;
-}
-
-.games-tab-btn {
-    background: transparent;
-    border: 1px solid transparent;
-    color: var(--text-muted);
-    padding: 10px 20px;
-    border-radius: 100px;
-    font-size: 14px;
-    font-weight: 600;
-    cursor: pointer;
-    transition: 0.2s;
-    display: flex;
-    align-items: center;
-    gap: 8px;
-}
-
-.games-tab-btn:hover {
-    color: var(--text-main);
-    background: rgba(255,255,255,0.05);
-}
-
-.games-tab-btn.active {
-    background: var(--text-main);
-    color: var(--bg-base);
-}
+/* --- CONTROL BAR --- */
+.games-controls { display: flex; flex-direction: column; gap: 16px; }
+.games-top-row { display: flex; gap: 12px; align-items: center; }
 
 .games-search-box {
-    display: flex;
-    align-items: center;
-    gap: 12px;
-    background: #1a1a1c;
-    padding: 10px 20px;
-    border-radius: 100px;
-    border: 1px solid var(--border-color);
-    flex: 1;
-    max-width: 300px;
-    transition: 0.2s;
+    flex: 1; position: relative; background: #1a1a1c; border: 1px solid var(--border-color);
+    border-radius: 12px; display: flex; align-items: center; padding: 0 16px; height: 48px; transition: 0.2s;
+}
+.games-search-box:focus-within { border-color: rgba(255,255,255,0.3); background: #222; }
+.games-search-box i { color: var(--text-muted); margin-right: 12px; }
+.games-search-box input { background: transparent; border: none; outline: none; color: #fff; font-size: 15px; width: 100%; }
+
+.filter-toggle-btn {
+    height: 48px; padding: 0 20px; background: #1a1a1c; border: 1px solid var(--border-color);
+    border-radius: 12px; color: var(--text-main); font-weight: 600; cursor: pointer;
+    display: flex; align-items: center; gap: 8px; transition: 0.2s;
+}
+.filter-toggle-btn:hover { background: rgba(255,255,255,0.1); }
+.filter-toggle-btn.active { background: #fff; color: #000; }
+
+.quick-chips-row { display: flex; gap: 8px; overflow-x: auto; padding-bottom: 4px; scrollbar-width: none; }
+.filter-chip {
+    padding: 8px 16px; border-radius: 100px; background: rgba(255,255,255,0.05);
+    border: 1px solid transparent; color: var(--text-muted); font-size: 13px; font-weight: 600;
+    cursor: pointer; white-space: nowrap; transition: 0.2s;
+}
+.filter-chip:hover { background: rgba(255,255,255,0.1); color: #fff; }
+.filter-chip.active { background: #fff; color: #000; }
+
+/* --- HORIZONTAL ROWS (ЛЕНТА) --- */
+.games-row-section {
+    display: flex; flex-direction: column; gap: 16px;
+    animation: fadeIn 0.5s ease;
+}
+.games-row-header { font-size: 20px; font-weight: 700; color: #fff; padding-left: 4px; }
+
+.games-horizontal-scroll {
+    display: flex; gap: 20px; overflow-x: auto;
+    padding: 4px 4px 20px 4px; /* Паддинг снизу для тени при ховере */
+    scroll-snap-type: x mandatory;
+    scrollbar-width: none; /* Скрываем скроллбар */
+}
+.games-horizontal-scroll::-webkit-scrollbar { display: none; }
+
+/* Карточка в скролле (фиксированная ширина) */
+.games-horizontal-scroll .game-card {
+    flex: 0 0 220px; /* Жесткая ширина карточки в ряду */
+    scroll-snap-align: start;
 }
 
-.games-search-box:focus-within {
-    border-color: rgba(255,255,255,0.3);
-}
-
-.games-search-box input {
-    background: transparent;
-    border: none;
-    outline: none;
-    color: var(--text-main);
-    font-size: 14px;
-    width: 100%;
-}
-
-/* Сетка игр */
+/* --- GRID (ДЛЯ ПОИСКА) --- */
 .games-grid-container {
-    display: grid;
-    /* Умная адаптивная сетка: карточки не будут уже 180px */
-    grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
-    gap: 20px;
+    display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 24px;
 }
 
+/* --- GAME CARD (COMMON) --- */
 .game-card {
-    background: var(--surface);
-    border: 1px solid var(--border-color);
-    border-radius: 16px;
-    overflow: hidden;
-    transition: transform 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275), box-shadow 0.2s;
-    position: relative;
-    box-shadow: 0 5px 15px rgba(0,0,0,0.2);
+    background: var(--surface); border: 1px solid var(--border-color); border-radius: 16px;
+    overflow: hidden; transition: transform 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275), box-shadow 0.2s;
+    position: relative; box-shadow: 0 5px 15px rgba(0,0,0,0.2); display: flex; flex-direction: column;
+}
+.game-card:hover { transform: translateY(-6px); box-shadow: 0 15px 30px rgba(0,0,0,0.4); border-color: rgba(255,255,255,0.2); }
+
+.game-cover-wrapper { position: relative; width: 100%; aspect-ratio: 3/4; overflow: hidden; }
+.game-cover { width: 100%; height: 100%; object-fit: cover; transition: transform 0.4s ease; }
+.game-card:hover .game-cover { transform: scale(1.06); }
+
+.game-tier-badge {
+    position: absolute; top: 10px; left: 10px; padding: 3px 8px; border-radius: 4px;
+    font-size: 10px; font-weight: 800; text-transform: uppercase; color: #fff;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.5); z-index: 5;
 }
 
-.game-card:hover {
-    transform: translateY(-6px);
-    box-shadow: 0 15px 30px rgba(0,0,0,0.4);
-    border-color: rgba(255,255,255,0.2);
-}
-
-.game-cover-wrapper {
-    width: 100%;
-    aspect-ratio: 3/4; /* Формат коробок дисков */
-    position: relative;
-    overflow: hidden;
-}
-
-.game-cover {
-    width: 100%;
-    height: 100%;
-    object-fit: cover;
-    transition: transform 0.4s ease;
-}
-
-.game-card:hover .game-cover {
-    transform: scale(1.06);
-}
-
-/* Градиент при наведении (чтобы белое сердечко было лучше видно на светлых играх) */
 .game-overlay {
-    position: absolute;
-    top: 0; left: 0; width: 100%; height: 100%;
-    background: linear-gradient(to bottom, rgba(0,0,0,0.6) 0%, transparent 40%);
-    opacity: 0;
-    transition: opacity 0.3s ease;
-    pointer-events: none;
+    position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+    background: linear-gradient(to bottom, rgba(0,0,0,0.3) 0%, transparent 50%, rgba(0,0,0,0.8) 100%);
+    opacity: 0; transition: 0.3s; pointer-events: none;
 }
+.game-card:hover .game-overlay { opacity: 1; }
 
-.game-card:hover .game-overlay {
-    opacity: 1;
-}
-
-/* Кнопка Лайка (Сердечко) */
 .game-fav-btn {
-    position: absolute;
-    top: 12px; right: 12px;
-    background: rgba(0,0,0,0.5);
-    border: 1px solid rgba(255,255,255,0.1);
-    color: #fff;
-    width: 36px; height: 36px;
-    border-radius: 50%;
-    display: flex; align-items: center; justify-content: center;
-    font-size: 15px;
-    cursor: pointer;
-    transition: 0.2s;
-    backdrop-filter: blur(4px);
-    
-    /* Скрыто по умолчанию, появляется при наведении на карточку */
-    opacity: 0;
-    transform: translateY(-10px);
+    position: absolute; top: 10px; right: 10px; width: 32px; height: 32px; border-radius: 50%;
+    background: rgba(0,0,0,0.6); backdrop-filter: blur(4px); border: 1px solid rgba(255,255,255,0.1);
+    color: #fff; display: flex; align-items: center; justify-content: center; cursor: pointer;
+    opacity: 0; transform: translateY(-10px); transition: 0.2s; z-index: 10;
+}
+.game-card:hover .game-fav-btn { opacity: 1; transform: translateY(0); }
+.game-fav-btn.active { opacity: 1; transform: translateY(0); color: #ff453a; border-color: rgba(255,69,58,0.3); }
+
+.game-info { padding: 14px; background: var(--surface); display: flex; flex-direction: column; gap: 6px; flex: 1; }
+.game-title { font-weight: 700; font-size: 16px; color: #fff; line-height: 1.2; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.game-tags-row { display: flex; flex-wrap: wrap; gap: 6px; margin-top: auto; overflow: hidden; height: 20px; }
+.game-tag-chip {
+    font-size: 10px; background: rgba(255, 255, 255, 0.08); color: var(--text-muted);
+    padding: 2px 6px; border-radius: 4px; white-space: nowrap;
 }
 
-.game-card:hover .game-fav-btn {
-    opacity: 1;
-    transform: translateY(0);
-}
+.games-empty-state { grid-column: 1 / -1; padding: 60px; text-align: center; color: var(--text-muted); }
+.games-empty-state i { font-size: 48px; opacity: 0.2; }
 
-/* Если уже в избранном — показываем всегда */
-.game-fav-btn.active {
-    opacity: 1;
-    transform: translateY(0);
-    color: var(--danger);
-    border-color: rgba(255,69,58,0.3);
+/* DRAWER */
+.filter-drawer-overlay {
+    position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+    background: rgba(0,0,0,0.6); backdrop-filter: blur(4px); z-index: 999;
+    opacity: 0; pointer-events: none; transition: 0.3s;
 }
-
-.game-fav-btn:hover {
-    transform: scale(1.15) !important;
-    background: rgba(0,0,0,0.8);
+.filter-drawer-overlay.active { opacity: 1; pointer-events: auto; }
+.filter-drawer {
+    position: fixed; top: 0; right: -320px; width: 320px; height: 100%;
+    background: #141416; border-left: 1px solid var(--border-color); padding: 24px;
+    z-index: 1000; transition: right 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+    display: flex; flex-direction: column; gap: 24px; box-shadow: -10px 0 40px rgba(0,0,0,0.5);
 }
+.filter-drawer.active { right: 0; }
+.drawer-header { display: flex; justify-content: space-between; align-items: center; }
+.drawer-title { font-size: 20px; font-weight: 700; }
+.drawer-content { flex: 1; overflow-y: auto; display: flex; flex-direction: column; gap: 24px; }
+.filter-group-title { font-size: 12px; text-transform: uppercase; color: var(--text-muted); font-weight: 700; margin-bottom: 10px; }
+.filter-checkbox-grid { display: grid; grid-template-columns: 1fr; gap: 8px; }
+.filter-checkbox { display: flex; align-items: center; gap: 10px; cursor: pointer; font-size: 14px; color: #ccc; }
+.filter-checkbox input { accent-color: #fff; width: 16px; height: 16px; }
+.drawer-footer { padding-top: 16px; border-top: 1px solid var(--border-color); display: flex; gap: 10px; }
 
-.game-info {
-    padding: 14px;
-    position: relative;
-    z-index: 2;
-    background: var(--surface);
-}
-
-.game-title {
-    font-weight: 700;
-    font-size: 15px;
-    margin-bottom: 4px;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-}
-
-.game-genre {
-    font-size: 12px;
-    color: var(--text-muted);
-}
-
-.games-empty-state {
-    grid-column: 1 / -1;
-    padding: 60px 20px;
-    text-align: center;
-    color: var(--text-muted);
-    font-size: 16px;
-    display: flex;
-    flex-direction: column;
-    gap: 16px;
-    align-items: center;
-}
-
-.games-empty-state i {
-    font-size: 40px;
-    opacity: 0.3;
-}
-
-/* Мобильный адаптив */
+/* Адаптив */
 @media (max-width: 600px) {
-    .games-header-panel {
-        flex-direction: column;
-        align-items: stretch;
-    }
-    .games-search-box {
-        max-width: none;
-    }
-    .games-grid-container {
-        /* Делаем карточки чуть уже на мобилках */
-        grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
-    }
+    .hero-section { height: 240px; }
+    .games-top-row { flex-wrap: wrap; }
+    .filter-drawer { width: 100%; right: -100%; }
 }

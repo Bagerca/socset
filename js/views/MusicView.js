@@ -1,3 +1,5 @@
+// js/views/MusicView.js
+
 import { MusicController } from '../controllers/MusicController.js';
 
 export const MusicView = {
@@ -60,9 +62,12 @@ export const MusicView = {
                         <button id="backToAlbumsBtn" class="icon-btn" style="display:none;"><i class="fa-solid fa-arrow-left"></i></button>
                     </div>
                     
-                    <div id="musicSearchWrapper" class="music-search-modern">
+                    <!-- ОБНОВЛЕННЫЙ ПОИСК МУЗЫКИ -->
+                    <div id="musicSearchWrapper" class="music-search-modern" style="position: relative; overflow: visible;">
                         <i class="fa-solid fa-magnifying-glass"></i>
                         <input type="text" id="musicSearchInput" placeholder="Поиск музыки...">
+                        <!-- Выпадающее меню совпадений -->
+                        <div id="musicSearchDropdown" class="search-dropdown-menu" style="display: none;"></div>
                     </div>
                     
                     <button id="createAlbumNavBtn" class="btn-post btn-create-alb" style="display:none;">
@@ -74,7 +79,7 @@ export const MusicView = {
             </div>
         </div>
 
-        <!-- Модалки (без изменений) -->
+        <!-- Модалки (Создание и добавление в альбом) -->
         <div id="createAlbumModal" class="modal-overlay">
             <div class="modal-content" style="max-width: 400px;">
                 <div class="modal-header">

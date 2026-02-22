@@ -1,12 +1,19 @@
+/* Обертка для двух сайдбаров */
+.sidebar-wrapper {
+    position: sticky;
+    top: 40px;
+    height: fit-content;
+    z-index: 100;
+    width: 72px; /* Фиксируем ширину, чтобы абсолютное позиционирование работало точно */
+}
+
+/* Главный сайдбар */
 .sidebar.glass-pill {
-    width: 72px; 
+    width: 100%; 
     border-radius: var(--radius-pill); 
     background: var(--pill-bg);
     border: 1px solid var(--border-color); 
     padding: 32px 0; 
-    height: fit-content;
-    position: sticky; 
-    top: 40px; 
     display: flex; 
     flex-direction: column; 
     align-items: center; 
@@ -14,7 +21,7 @@
     box-shadow: 0 20px 40px rgba(0, 0, 0, 0.5);
 }
 
-/* --- СТИЛИ ЛОГОТИПА CYCLE --- */
+/* --- ЛОГОТИП И ИКОНКИ --- */
 .logo-icon { 
     display: flex;
     align-items: center;
@@ -26,7 +33,6 @@
     line-height: 0;
 }
 
-/* Настройки размера и тени картинки */
 .brand-logo {
     width: 44px;
     height: 44px;
@@ -34,11 +40,9 @@
     transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
-/* Легкое увеличение лого при наведении */
 .logo-icon a:hover .brand-logo {
     transform: scale(1.1);
 }
-/* -------------------------------------- */
 
 .nav-links { 
     display: flex; 
@@ -59,8 +63,6 @@
     color: var(--text-muted); 
     cursor: pointer; 
     transition: 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-    
-    /* УБИРАЕМ ПОДЧЕРКИВАНИЕ ДЛЯ ИКОНОК */
     text-decoration: none; 
 }
 
@@ -75,22 +77,76 @@
     box-shadow: 0 8px 16px rgba(255, 255, 255, 0.1); 
 }
 
-/* Адаптив для сайдбара (мобильные устройства) */
+/* Активный статус кнопки Бургера (чтобы отличалась от активной страницы) */
+#burgerMenuBtn.active {
+    color: var(--text-main);
+    background: rgba(255, 255, 255, 0.1);
+    box-shadow: none;
+}
+
+/* --- ВТОРАЯ КОЛБА (СЕРВИСЫ) --- */
+.sub-sidebar {
+    position: absolute;
+    /* Теперь она привязана к правой стороне и выезжает СЛЕВА: 72px (ширина основной) + 16px (отступ) = 88px */
+    right: 88px; 
+    left: auto;
+    top: 50%;
+    /* translateX(20px) прячет ее чуть правее для эффекта выезда из-под основной колбы */
+    transform: translateY(-50%) translateX(20px) scale(0.95);
+    opacity: 0;
+    pointer-events: none;
+    padding: 24px 0; 
+    gap: 0; 
+    transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+}
+
+.sub-sidebar.active {
+    transform: translateY(-50%) translateX(0) scale(1);
+    opacity: 1;
+    pointer-events: auto;
+}
+
+/* --- МОБИЛЬНЫЙ АДАПТИВ --- */
 @media (max-width: 768px) {
+    .sidebar-wrapper {
+        position: fixed;
+        bottom: 24px;
+        left: 24px;
+        right: 24px;
+        top: auto;
+        width: auto; /* Сбрасываем жесткую ширину для мобилки */
+    }
+
     .sidebar.glass-pill {
-        width: auto; 
         height: 64px; 
         flex-direction: row; 
         padding: 0 32px;
-        bottom: 24px; 
-        top: auto; 
-        position: fixed;
-        left: 24px; 
-        right: 24px; 
-        z-index: 100; 
         gap: 0; 
         justify-content: space-between;
     }
+    
     .logo-icon { display: none; }
-    .nav-links { flex-direction: row; justify-content: space-between; gap: 0; }
+    .nav-links { flex-direction: row; justify-content: space-between; gap: 0; width: 100%;}
+    
+    /* Мобильная вторая колба выезжает ВВЕРХ над основным меню */
+    .sub-sidebar {
+        left: 50%;
+        right: auto; /* Сбрасываем правостороннюю привязку */
+        top: auto;
+        bottom: 80px; /* 64px высота меню + 16px отступ */
+        transform: translateX(-50%) translateY(20px) scale(0.95);
+        flex-direction: row; 
+        width: fit-content;
+        height: 64px;
+        padding: 0 24px;
+    }
+
+    .sub-sidebar.active {
+        transform: translateX(-50%) translateY(0) scale(1);
+    }
+
+    .sub-sidebar .nav-links {
+        gap: 24px; 
+        justify-content: center;
+    }
 }

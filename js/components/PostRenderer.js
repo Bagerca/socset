@@ -5,10 +5,51 @@ export class PostRenderer {
         this.dataManager = dataManager;
     }
 
+    // Вспомогательный метод для генерации галочки
+    _createBadgeHTML(isVerified, badgeType) {
+        if (!isVerified) return '';
+        if (badgeType === 'badge-3') {
+            return `<span class="fa-stack post-badge badge-3" title="Подтвержденный аккаунт"><i class="fa-solid fa-shield fa-stack-2x bg"></i><i class="fa-solid fa-check fa-stack-1x fg"></i></span>`;
+        } else if (badgeType === 'badge-8') {
+            return `<div class="post-badge badge-8" title="Подтвержденный аккаунт"><i class="fa-solid fa-check"></i></div>`;
+        } else {
+            return `<i class="fa-solid fa-circle-check post-badge badge-1" title="Подтвержденный аккаунт"></i>`;
+        }
+    }
+
+    // Вспомогательный метод для генерации рамки аватара
+    _createFrameHTML(frameId) {
+        if (!frameId || frameId === 'frame_none') return '';
+        const frame = this.dataManager.getFrames().find(f => f.id === frameId);
+        if (!frame) return '';
+        
+        if (frame.url) {
+            return `<div class="post-avatar-frame" style="background-image: url('${frame.url}');"></div>`;
+        } else if (frame.css) {
+            return `<div class="post-avatar-frame" style="${frame.css}"></div>`;
+        }
+        return '';
+    }
+
     createPostHTML(post) {
         const currentUser = this.dataManager.getProfileData();
+        let authorData = post.author;
+
+        // ДИНАМИЧЕСКОЕ ОБНОВЛЕНИЕ: Если пост принадлежит текущему юзеру, 
+        // подтягиваем его актуальный аватар, галочку и рамку!
+        if (authorData.username === currentUser.username) {
+            authorData = {
+                ...authorData,
+                name: currentUser.name,
+                avatar: currentUser.avatar,
+                isVerified: currentUser.isVerified,
+                verifiedBadgeType: currentUser.verifiedBadgeType,
+                frameId: currentUser.frameId
+            };
+        }
+
         const isPrivate = post.visibility === 'private';
-        const isAuthor = post.author.username === currentUser.username;
+        const isAuthor = authorData.username === currentUser.username;
 
         let optionsMenuHTML = '';
         if (isAuthor) {
@@ -24,18 +65,26 @@ export class PostRenderer {
         let pollHTML = this._createPollHTML(post);
         let commentsHTML = post.comments ? post.comments.map(c => this.createCommentHTML(c, post.id)).join('') : '';
 
+        const badgeHTML = this._createBadgeHTML(authorData.isVerified, authorData.verifiedBadgeType);
+        const frameHTML = this._createFrameHTML(authorData.frameId);
         const formattedTime = formatTime(post.timestamp);
 
-        // Используем parseFormatting для текста поста
         return `
             <article class="post ${isPrivate ? 'private-post' : ''}" data-id="${post.id}">
                 ${optionsMenuHTML}
                 <div class="post-main-body">
-                    <div class="avatar"><img src="${post.author.avatar}" alt="Аватар" onerror="this.src='https://placehold.co/48x48/333333/ffffff?text=U'"></div>
+                    
+                    <!-- Обертка аватара для рамки -->
+                    <div class="post-avatar-wrapper">
+                        <div class="avatar"><img src="${authorData.avatar}" alt="Аватар" onerror="this.src='https://placehold.co/48x48/333333/ffffff?text=U'"></div>
+                        ${frameHTML}
+                    </div>
+
                     <div class="post-content">
                         <div class="post-header">
-                            <span class="post-name">${escapeHTML(post.author.name)}</span>
-                            <span class="post-username">${escapeHTML(post.author.username)}</span>
+                            <span class="post-name">${escapeHTML(authorData.name)}</span>
+                            ${badgeHTML}
+                            <span class="post-username">${escapeHTML(authorData.username)}</span>
                             <span class="post-time">· ${formattedTime}</span>
                         </div>
                         <div class="post-text">${post.content ? parseFormatting(post.content) : ''}</div>
@@ -70,6 +119,21 @@ export class PostRenderer {
     }
 
     createCommentHTML(comment, postId) {
+        const currentUser = this.dataManager.getProfileData();
+        let authorData = comment.author;
+
+        // Динамическое обновление и для комментариев
+        if (authorData.username === currentUser.username) {
+            authorData = {
+                ...authorData,
+                name: currentUser.name,
+                avatar: currentUser.avatar,
+                isVerified: currentUser.isVerified,
+                verifiedBadgeType: currentUser.verifiedBadgeType,
+                frameId: currentUser.frameId
+            };
+        }
+
         let contentHTML = '';
         if (comment.type === 'audio') {
             const heights = comment.waveform || Array(20).fill(20);
@@ -84,20 +148,28 @@ export class PostRenderer {
                     </div>
                 </div>`;
         } else {
-            // Используем parseFormatting для текста комментария
             contentHTML = `<div class="comment-text">${parseFormatting(comment.content)}</div>`;
         }
+
+        const badgeHTML = this._createBadgeHTML(authorData.isVerified, authorData.verifiedBadgeType);
+        const frameHTML = this._createFrameHTML(authorData.frameId);
 
         const likedClass = comment.userReaction === 'like' ? 'active-like' : '';
         const dislikedClass = comment.userReaction === 'dislike' ? 'active-dislike' : '';
         const formattedTime = formatTime(comment.timestamp);
 
         return `
-            <div class="comment-item" data-id="${comment.id}" data-post-id="${postId}" data-author="${comment.author.username}">
-                <img src="${comment.author.avatar}" class="comment-avatar" alt="Аватар" onerror="this.src='https://placehold.co/36x36/333333/ffffff?text=U'">
+            <div class="comment-item" data-id="${comment.id}" data-post-id="${postId}" data-author="${authorData.username}">
+                
+                <div class="comment-avatar-wrapper">
+                    <img src="${authorData.avatar}" class="comment-avatar" alt="Аватар" onerror="this.src='https://placehold.co/36x36/333333/ffffff?text=U'">
+                    ${frameHTML}
+                </div>
+
                 <div class="comment-content-wrapper">
                     <div class="comment-header">
-                        <span class="comment-author">${escapeHTML(comment.author.name)}</span>
+                        <span class="comment-author">${escapeHTML(authorData.name)}</span>
+                        ${badgeHTML}
                         <span class="comment-date">· ${formattedTime}</span>
                     </div>
                     ${contentHTML}
@@ -116,31 +188,19 @@ export class PostRenderer {
 
     _createAttachmentHTML(attachment) {
         if (!attachment) return '';
-        
-        let musicId = null;
-        let gameId = null;
-
-        if (attachment.type) {
-            if (attachment.type === 'music') musicId = attachment.id;
-            if (attachment.type === 'game') gameId = attachment.id;
-        } else {
-            musicId = attachment.music;
-            gameId = attachment.game;
-        }
+        let musicId = null; let gameId = null;
+        if (attachment.type) { if (attachment.type === 'music') musicId = attachment.id; if (attachment.type === 'game') gameId = attachment.id; } 
+        else { musicId = attachment.music; gameId = attachment.game; }
 
         let html = '';
-
         if (musicId) {
             const track = this.dataManager.getTrackById(musicId);
             if (track) {
                 let isPlaying = false;
                 if (window.cyclePlayer && !window.cyclePlayer.audio.paused) {
                     const currentTrack = window.cyclePlayer.playlist[window.cyclePlayer.currentIndex];
-                    if (currentTrack && currentTrack.id === track.id) {
-                        isPlaying = true;
-                    }
+                    if (currentTrack && currentTrack.id === track.id) isPlaying = true;
                 }
-
                 html += `
                     <div class="post-music-card">
                         <img src="${track.cover}" class="post-music-cover">
@@ -154,7 +214,6 @@ export class PostRenderer {
                     </div>`;
             }
         }
-
         if (gameId) {
             const game = this.dataManager.getGameById(gameId);
             if (game) {
@@ -169,7 +228,6 @@ export class PostRenderer {
                     </div>`;
             }
         }
-
         return html;
     }
 
@@ -181,9 +239,7 @@ export class PostRenderer {
                 const percent = post.poll.totalVotes === 0 ? 0 : Math.round((opt.votes / post.poll.totalVotes) * 100);
                 const isVoted = post.poll.votedOptionId === opt.id;
                 html += `<div class="poll-result-item ${isVoted?'voted':''}"><div class="poll-bar" style="width: ${percent}%"></div><span class="poll-item-text">${escapeHTML(opt.text)}</span><span class="poll-item-percent">${percent}%</span></div>`;
-            } else { 
-                html += `<div class="poll-vote-btn" data-post-id="${post.id}" data-option-id="${opt.id}">${escapeHTML(opt.text)}</div>`; 
-            }
+            } else { html += `<div class="poll-vote-btn" data-post-id="${post.id}" data-option-id="${opt.id}">${escapeHTML(opt.text)}</div>`; }
         });
         html += `<div class="poll-meta">${post.poll.totalVotes} голосов · Завершится через ${post.poll.days} дн.</div></div>`;
         return html;
