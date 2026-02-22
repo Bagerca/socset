@@ -44,7 +44,8 @@
     padding: 8px 12px 8px 18px; 
     background: rgba(255, 255, 255, 0.03); 
     border-radius: 6px; 
-    border-left: 3px solid #5dade2; 
+    /* ИЗМЕНЕНО: Цвет линии цитирования на нейтральный стеклянный */
+    border-left: 3px solid rgba(255, 255, 255, 0.3); 
     color: #c0c0c0; 
     font-size: 14px; 
     line-height: 1.4; 

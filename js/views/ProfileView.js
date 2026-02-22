@@ -1,3 +1,5 @@
+// js/views/ProfileView.js
+
 import { ProfileController } from '../controllers/ProfileController.js';
 
 export const ProfileView = {
@@ -27,10 +29,7 @@ export const ProfileView = {
             <div class="profile-info">
                 <div class="profile-name-row">
                     <span id="profileName" class="profile-name">Loading...</span>
-                    
-                    <!-- КОНТЕЙНЕР ДЛЯ ГАЛОЧКИ -->
                     <div id="verifiedBadgeContainer" class="verified-badge-container" title="Подтвержденный аккаунт"></div>
-                    
                     <span id="userTitleBadge" class="user-title-badge" style="display:none"></span>
                 </div>
                 <p id="profileUsername" class="profile-username">@loading</p>
@@ -40,10 +39,12 @@ export const ProfileView = {
             <!-- Модули (Витрины) -->
             <div id="profileModules" class="profile-modules"></div>
 
-            <!-- Блок создания поста в профиле -->
+            <!-- Блок создания поста в профиле (ОБНОВЛЕНО) -->
             <div style="padding: 24px; border-top: 1px solid var(--border-color);">
                 <div class="compose-box" style="box-shadow: none; border: 1px solid var(--border-color); background: #1a1a1c;">
-                    <textarea id="postInput" placeholder="Написать в профиль..."></textarea>
+                    <!-- Новый DIV редактор вместо Textarea -->
+                    <div id="postInput" class="compose-input" contenteditable="true" placeholder="Написать в профиль..."></div>
+                    
                     <div class="compose-actions">
                         <div class="action-icons">
                             <button id="attachMusicBtn" class="icon-btn" disabled><i class="fa-solid fa-music"></i></button>
@@ -189,6 +190,7 @@ export const ProfileView = {
                         <div class="gd-info">
                             <div id="gdTitle" class="gd-title">Название</div>
                             <div id="gdGenre" class="gd-genre">Жанр</div>
+                            <div id="gdTagsList" class="gd-tags-list"></div>
                             <div id="gdDescription" class="gd-desc">Описание...</div>
                         </div>
                     </div>

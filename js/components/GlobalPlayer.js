@@ -1,27 +1,36 @@
-import { escapeHTML } from '../utils/utils.js';
+// js/components/GlobalPlayer.js
 
 export class GlobalPlayer {
     constructor(dataManager) {
         this.dataManager = dataManager;
         
-        this.widget = document.getElementById('globalPlayerWidget');
         this.audio = document.getElementById('globalAudioPlayer');
-        this.btnClose = document.getElementById('gpCloseBtn');
         
-        this.elCover = document.getElementById('gpCover');
-        this.elTitle = document.getElementById('gpTitle');
-        this.elArtist = document.getElementById('gpArtist');
+        // UI Элементы ПАРЯЩЕГО ПЛЕЕРА
+        this.widget = document.getElementById('floatingMiniPlayer');
+        this.bg = document.getElementById('fmpBg');
+        this.elCover = document.getElementById('fmpCover');
+        this.elTitle = document.getElementById('fmpTitle');
+        this.elArtist = document.getElementById('fmpArtist');
         
-        this.btnPlay = document.getElementById('gpPlayBtn');
-        this.btnPrev = document.getElementById('gpPrevBtn');
-        this.btnNext = document.getElementById('gpNextBtn');
+        this.btnPlay = document.getElementById('fmpPlay');
+        this.btnPrev = document.getElementById('fmpPrev');
+        this.btnNext = document.getElementById('fmpNext');
+        this.btnShuffle = document.getElementById('fmpShuffle');
+        this.btnRepeat = document.getElementById('fmpRepeat');
+        this.btnFav = document.getElementById('fmpFavBtn');
         
-        this.progressBar = document.getElementById('gpProgressBar');
-        this.timeCurrent = document.getElementById('gpCurrentTime');
-        this.timeDuration = document.getElementById('gpDuration');
+        this.progressBar = document.getElementById('fmpProgressBar');
+        this.timeCurrent = document.getElementById('fmpCurrentTime');
+        this.timeDuration = document.getElementById('fmpDuration');
         
-        this.volumeBar = document.getElementById('gpVolumeBar');
-        this.volumeIcon = document.getElementById('gpVolumeIcon');
+        this.volumeBar = document.getElementById('fmpVolumeBar');
+        this.volumeIcon = document.getElementById('fmpVolumeIcon');
+
+        // Свернутый режим (Docked)
+        this.dockedOverlay = document.getElementById('fmpDockedOverlay');
+        this.dockedCover = document.getElementById('fmpDockedCover');
+        this.dockedPlayBtn = document.getElementById('fmpDockedPlayBtn');
 
         this.playlist = [];
         this.currentIndex = -1;
@@ -34,15 +43,11 @@ export class GlobalPlayer {
     }
 
     init() {
-        this.playlist = this.dataManager.getMusicCatalog();
         this.updateSliderBg(this.progressBar);
         this.updateSliderBg(this.volumeBar);
+        this.initDraggablePlayer();
 
-        this.btnClose.addEventListener('click', () => {
-            this.audio.pause();
-            this.widget.classList.add('hidden');
-        });
-
+        // Аудио события
         this.audio.addEventListener('timeupdate', () => this.updateProgress());
         this.audio.addEventListener('loadedmetadata', () => {
             this.timeDuration.textContent = this.formatTime(this.audio.duration);
@@ -69,10 +74,35 @@ export class GlobalPlayer {
             this.updateSliderBg(this.volumeBar);
         });
 
+        // Контролы
         this.btnPlay.addEventListener('click', () => this.togglePlay());
         this.btnNext.addEventListener('click', () => this.next());
         this.btnPrev.addEventListener('click', () => this.prev());
+        
+        this.btnShuffle.addEventListener('click', () => {
+            this.isShuffle = !this.isShuffle;
+            this.btnShuffle.classList.toggle('active', this.isShuffle);
+        });
+        
+        this.btnRepeat.addEventListener('click', () => {
+            this.repeatMode = (this.repeatMode + 1) % 3;
+            this.btnRepeat.classList.toggle('active', this.repeatMode !== 0);
+            this.btnRepeat.innerHTML = this.repeatMode === 2 ? '<i class="fa-solid fa-repeat"></i><span>1</span>' : '<i class="fa-solid fa-repeat"></i>';
+        });
 
+        // Избранное
+        this.btnFav.addEventListener('click', () => {
+            const currentTrack = this.playlist[this.currentIndex];
+            if (currentTrack) {
+                const isFav = this.dataManager.toggleFavoriteTrack(currentTrack.id);
+                this.btnFav.innerHTML = `<i class="fa-${isFav ? 'solid' : 'regular'} fa-heart"></i>`;
+                this.btnFav.classList.toggle('active', isFav);
+                // Отправляем эвент, чтобы обновить списки во вкладке Музыка
+                document.dispatchEvent(new CustomEvent('cycle:fav-changed')); 
+            }
+        });
+
+        // Прогресс
         this.progressBar.addEventListener('input', () => {
             this.isDragging = true;
             this.timeCurrent.textContent = this.formatTime(this.progressBar.value);
@@ -83,8 +113,114 @@ export class GlobalPlayer {
             this.audio.currentTime = this.progressBar.value;
         });
 
+        // Громкость
         this.volumeBar.addEventListener('input', (e) => { this.audio.volume = e.target.value / 100; });
         this.volumeIcon.addEventListener('click', () => { this.audio.muted = !this.audio.muted; });
+    }
+
+    // --- ФИЗИКА ПЛАВУЧЕГО ПЛЕЕРА ---
+    initDraggablePlayer() {
+        const widget = this.widget;
+        let isDraggingPlayer = false;
+        let startX, startY;
+        
+        let currentX = window.innerWidth - 360 - 24; 
+        let currentY = window.innerHeight - 220 - 24; 
+
+        widget.style.left = `${currentX}px`;
+        widget.style.top = `${currentY}px`;
+
+        const clamp = (val, min, max) => Math.max(min, Math.min(val, max));
+
+        const snapToCorners = () => {
+            const pad = 24;
+            const w = widget.offsetWidth;
+            const h = widget.offsetHeight;
+            const screenW = window.innerWidth;
+            const screenH = window.innerHeight;
+
+            if (currentX < -w / 3) { 
+                widget.classList.add('docked-left');
+                currentX = -w + 64; 
+                widget.style.left = `${currentX}px`;
+                return;
+            }
+            if (currentX > screenW - (w * 0.66)) { 
+                widget.classList.add('docked-right');
+                currentX = screenW - 64; 
+                widget.style.left = `${currentX}px`;
+                return;
+            }
+
+            widget.classList.remove('docked-left', 'docked-right');
+
+            const snapLeft = pad;
+            const snapRight = screenW - w - pad;
+            const snapTop = 80; 
+            const snapBottom = screenH - h - pad;
+
+            const distLeft = Math.abs(currentX - snapLeft);
+            const distRight = Math.abs(currentX - snapRight);
+            const distTop = Math.abs(currentY - snapTop);
+            const distBottom = Math.abs(currentY - snapBottom);
+
+            currentX = distLeft < distRight ? snapLeft : snapRight;
+            currentY = distTop < distBottom ? snapTop : snapBottom;
+
+            currentY = clamp(currentY, snapTop, snapBottom);
+
+            widget.style.left = `${currentX}px`;
+            widget.style.top = `${currentY}px`;
+        };
+
+        window.addEventListener('resize', () => { if (!isDraggingPlayer && !widget.classList.contains('hidden')) snapToCorners(); });
+
+        widget.addEventListener('pointerdown', (e) => {
+            if (e.target.closest('button, input')) return;
+            isDraggingPlayer = true;
+            widget.style.transition = 'none'; 
+            startX = e.clientX - currentX;
+            startY = e.clientY - currentY;
+            widget.setPointerCapture(e.pointerId);
+            widget.style.cursor = 'grabbing';
+        });
+
+        widget.addEventListener('pointermove', (e) => {
+            if (!isDraggingPlayer) return;
+            currentX = e.clientX - startX;
+            currentY = e.clientY - startY;
+            
+            if (widget.classList.contains('docked-left') && currentX > -widget.offsetWidth / 2) {
+                widget.classList.remove('docked-left');
+            }
+            if (widget.classList.contains('docked-right') && currentX < window.innerWidth - widget.offsetWidth / 2) {
+                widget.classList.remove('docked-right');
+            }
+
+            widget.style.left = `${currentX}px`;
+            widget.style.top = `${currentY}px`;
+        });
+
+        widget.addEventListener('pointerup', (e) => {
+            if (!isDraggingPlayer) return;
+            isDraggingPlayer = false;
+            widget.releasePointerCapture(e.pointerId);
+            widget.style.cursor = 'grab';
+            widget.style.transition = 'left 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275), top 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275)';
+            snapToCorners(); 
+        });
+
+        this.dockedOverlay.addEventListener('click', (e) => {
+            if (e.target.closest('#fmpDockedPlayBtn')) {
+                this.togglePlay();
+                return;
+            }
+            widget.classList.remove('docked-left', 'docked-right');
+            widget.style.transition = 'left 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275), top 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275)';
+            if (currentX < 0) currentX = 24;
+            if (currentX > window.innerWidth - widget.offsetWidth) currentX = window.innerWidth - widget.offsetWidth - 24;
+            widget.style.left = `${currentX}px`;
+        });
     }
 
     async safePlay() {
@@ -107,14 +243,20 @@ export class GlobalPlayer {
         if (!track) return;
         if (!this.audio.src.includes(track.url)) {
             this.audio.src = track.url;
+            
             this.elCover.src = track.cover;
+            this.dockedCover.src = track.cover;
+            this.bg.style.backgroundImage = `url('${track.cover}')`;
+            
             this.elTitle.textContent = track.title;
             this.elTitle.title = track.title;
             this.elArtist.textContent = track.artist;
             
+            const isFav = this.dataManager.getFavoriteTracks().includes(track.id);
+            this.btnFav.innerHTML = `<i class="fa-${isFav ? 'solid' : 'regular'} fa-heart"></i>`;
+            this.btnFav.classList.toggle('active', isFav);
+
             document.dispatchEvent(new CustomEvent('cycle:track-changed', { detail: track }));
-            
-            // Синхронизируем кнопки в постах при смене трека
             this.syncPostPlayButtons();
         }
     }
@@ -135,18 +277,14 @@ export class GlobalPlayer {
 
     next(auto = false) {
         if (this.playlist.length === 0) return;
-
         if (this.isShuffle) {
             let newIndex = Math.floor(Math.random() * this.playlist.length);
-            if (this.playlist.length > 1 && newIndex === this.currentIndex) {
-                newIndex = (newIndex + 1) % this.playlist.length;
-            }
+            if (this.playlist.length > 1 && newIndex === this.currentIndex) newIndex = (newIndex + 1) % this.playlist.length;
             this.currentIndex = newIndex;
         } else {
             if (auto && this.repeatMode === 0 && this.currentIndex === this.playlist.length - 1) return;
             this.currentIndex = (this.currentIndex + 1) % this.playlist.length;
         }
-
         this.loadTrack(this.playlist[this.currentIndex]);
         this.safePlay();
     }
@@ -154,33 +292,19 @@ export class GlobalPlayer {
     prev() {
         if (this.playlist.length === 0) return;
         if (this.audio.currentTime > 3) { this.audio.currentTime = 0; return; }
-        
         if (this.isShuffle) {
             this.currentIndex = Math.floor(Math.random() * this.playlist.length);
         } else {
             this.currentIndex = (this.currentIndex - 1 + this.playlist.length) % this.playlist.length;
         }
-        
         this.loadTrack(this.playlist[this.currentIndex]);
         this.safePlay();
     }
 
-    toggleShuffle() {
-        this.isShuffle = !this.isShuffle;
-        return this.isShuffle;
-    }
-
-    toggleRepeat() {
-        this.repeatMode = (this.repeatMode + 1) % 3;
-        return this.repeatMode;
-    }
-
     updateSliderBg(slider) {
-        const min = slider.min || 0;
-        const max = slider.max || 100;
-        const val = slider.value;
+        const min = slider.min || 0; const max = slider.max || 100; const val = slider.value;
         const percentage = max == 0 ? 0 : ((val - min) / (max - min)) * 100;
-        slider.style.background = `linear-gradient(to right, #ffffff ${percentage}%, rgba(255,255,255,0.1) ${percentage}%)`;
+        slider.style.background = `linear-gradient(to right, #fff ${percentage}%, rgba(255,255,255,0.1) ${percentage}%)`;
     }
 
     updateProgress() {
@@ -191,14 +315,14 @@ export class GlobalPlayer {
     }
 
     updatePlayBtn(isPlaying) {
-        this.btnPlay.innerHTML = isPlaying ? '<i class="fa-solid fa-pause"></i>' : '<i class="fa-solid fa-play"></i>';
-        document.dispatchEvent(new CustomEvent('cycle:play-state', { detail: isPlaying }));
+        const iconHTML = isPlaying ? '<i class="fa-solid fa-pause"></i>' : '<i class="fa-solid fa-play"></i>';
+        this.btnPlay.innerHTML = iconHTML;
+        this.dockedPlayBtn.innerHTML = iconHTML;
         
-        // Синхронизируем кнопки в постах при нажатии Play/Pause
+        document.dispatchEvent(new CustomEvent('cycle:play-state', { detail: isPlaying }));
         this.syncPostPlayButtons();
     }
 
-    // НОВЫЙ МЕТОД ДЛЯ СИНХРОНИЗАЦИИ ПОСТОВ НА ЛЕТУ
     syncPostPlayButtons() {
         const currentTrack = this.playlist[this.currentIndex];
         document.querySelectorAll('.post-music-play-btn').forEach(btn => {
@@ -211,9 +335,9 @@ export class GlobalPlayer {
     }
 
     updateVolumeIcon(val) {
-        if (val == 0) this.volumeIcon.className = 'fa-solid fa-volume-xmark';
-        else if (val < 50) this.volumeIcon.className = 'fa-solid fa-volume-low';
-        else this.volumeIcon.className = 'fa-solid fa-volume-high';
+        if (val == 0) { this.volumeIcon.className = 'fa-solid fa-volume-xmark muted'; } 
+        else if (val < 50) { this.volumeIcon.className = 'fa-solid fa-volume-low'; } 
+        else { this.volumeIcon.className = 'fa-solid fa-volume-high'; }
     }
 
     formatTime(seconds) {

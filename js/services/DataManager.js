@@ -2,6 +2,7 @@
 
 import { generateId } from '../utils/utils.js';
 import { GAME_CONSTANTS } from '../config/GameConstants.js';
+import { MUSIC_CONSTANTS } from '../config/MusicConstants.js'; // ДОБАВИЛИ ИМПОРТ МУЗЫКАЛЬНЫХ КОНСТАНТ
 
 export class DataManager {
     constructor() {
@@ -30,7 +31,7 @@ export class DataManager {
         this.posts = [];
     }
 
-    // НОВЫЙ МЕТОД: Асинхронная инициализация из IndexedDB
+    // Асинхронная инициализация из IndexedDB
     async initStorage() {
         // Настраиваем localForage (необязательно, но полезно для отладки)
         localforage.config({ name: 'CycleApp', storeName: 'cycle_data' });
@@ -151,6 +152,10 @@ export class DataManager {
     getAllGameTags() { return GAME_CONSTANTS.tags; }
     getAllGameTiers() { return GAME_CONSTANTS.tiers; }
     getGameCategories() { return GAME_CONSTANTS.categories; }
+
+    // --- ЛОГИКА ЖАНРОВ МУЗЫКИ ---
+    getAllMusicGenres() { return MUSIC_CONSTANTS.genres; }
+    getMusicGenreById(id) { return MUSIC_CONSTANTS.genres[id] || { id: 'unknown', label: 'Неизвестно', color: '#333' }; }
 
     getTrackById(id) { return this.globalMusic.find(t => t.id === id) || null; }
     getGameById(id) { return this.globalGames.find(g => g.id === id) || null; }

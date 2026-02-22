@@ -90,7 +90,8 @@
 
 .post-text { font-size: 16px; line-height: 1.5; margin-bottom: 0; word-wrap: break-word; color: #e0e0e0; white-space: pre-wrap;}
 .post-text b, .comment-text b { font-weight: 800; color: var(--text-main); }
-.post-quote { position: relative; margin: 8px 0; padding: 8px 12px 8px 18px; background: rgba(255, 255, 255, 0.03); border-radius: 6px; border-left: 3px solid #5dade2; color: #c0c0c0; font-size: 14px; line-height: 1.4; font-style: italic; display: block; }
+/* ИЗМЕНЕНО: Цвет линии цитирования на нейтральный стеклянный */
+.post-quote { position: relative; margin: 8px 0; padding: 8px 12px 8px 18px; background: rgba(255, 255, 255, 0.03); border-radius: 6px; border-left: 3px solid rgba(255, 255, 255, 0.3); color: #c0c0c0; font-size: 14px; line-height: 1.4; font-style: italic; display: block; }
 .post-quote::before { content: '\f10e'; font-family: "Font Awesome 6 Free"; font-weight: 900; position: absolute; top: 6px; right: 8px; font-size: 10px; color: rgba(255, 255, 255, 0.1); pointer-events: none; }
 .post-quote p { margin: 0; padding: 0; }
 .post-spoiler { background: #333; color: transparent; border-radius: 4px; padding: 0 6px; cursor: pointer; transition: background 0.3s, color 0.3s; user-select: none; text-shadow: none; }

@@ -3,11 +3,12 @@
 import { escapeHTML } from '../utils/utils.js';
 import { PostRenderer } from '../components/PostRenderer.js';
 import { PostEventHandler } from '../components/PostEventHandler.js';
+import { ProfileRenderer } from '../components/ProfileRenderer.js';
 
 export class ProfileController {
     constructor(dataManager) {
         this.dataManager = dataManager;
-        this.abortController = new AbortController(); // МЕНЕДЖМЕНТ ПАМЯТИ
+        this.abortController = new AbortController();
         this.currentUser = null;
         this.postRenderer = new PostRenderer(dataManager);
         this.postEvents = new PostEventHandler(dataManager, this.postRenderer, () => this.renderPosts());
@@ -16,7 +17,11 @@ export class ProfileController {
         this.tempMusicId = null;
         this.tempAvatar = null;
         this.tempBanner = null;
+        
+        // Для WYSIWYG редактора
+        this.savedRange = null;
 
+        // UI References
         this.bgLayer = document.getElementById('profileBackgroundLayer');
         this.avatarImg = document.getElementById('avatarImage');
         this.avatarFrame = document.getElementById('avatarFrame');
@@ -61,9 +66,7 @@ export class ProfileController {
     }
 
     destroy() {
-        // ОДНА СТРОКА УБИВАЕТ ВСЕ ГЛОБАЛЬНЫЕ СЛУШАТЕЛИ (Плеер, Клик, Скролл, Esc)
         this.abortController.abort();
-        
         if (this.contextMenu) this.contextMenu.remove();
         if (this.formatMenu) this.formatMenu.remove();
         
@@ -71,6 +74,24 @@ export class ProfileController {
             this.bgLayer.style.backgroundImage = 'none';
             this.bgLayer.style.backgroundColor = 'transparent'; 
         }
+    }
+
+    // --- ПАРСЕР ДЛЯ ОТПРАВКИ ИЗ ПРОФИЛЯ ---
+    getFormattedContent() {
+        const clone = this.postInput.cloneNode(true);
+        clone.querySelectorAll('.post-quote').forEach(q => q.replaceWith(`\n> ${q.innerText.trim()}\n`));
+        clone.querySelectorAll('b, strong, span[style*="font-weight: bold"]').forEach(b => b.replaceWith(`**${b.innerText}**`));
+        clone.querySelectorAll('.editor-spoiler').forEach(s => s.replaceWith(`||${s.innerText}||`));
+        
+        let html = clone.innerHTML;
+        html = html.replace(/<div><br><\/div>/g, '\n');
+        html = html.replace(/<div>/g, '\n');
+        html = html.replace(/<\/div>/g, '');
+        html = html.replace(/<br>/g, '\n');
+
+        const temp = document.createElement('div');
+        temp.innerHTML = html;
+        return temp.innerText.trim();
     }
 
     async compressImage(file, maxWidth, maxHeight) {
@@ -111,6 +132,8 @@ export class ProfileController {
         menu.innerHTML = `<div class="context-menu-item danger" id="ctxDeleteComment"><i class="fa-solid fa-trash"></i> Удалить комментарий</div>`;
         document.body.appendChild(menu);
         this.contextMenu = menu;
+        this.contextTargetCommentId = null;
+        this.contextTargetPostId = null;
         
         const signal = this.abortController.signal;
 
@@ -172,27 +195,55 @@ export class ProfileController {
 
         const signal = this.abortController.signal;
 
-        document.getElementById('fmtBold').addEventListener('click', () => this.applyFormat('**', '**'), { signal });
-        document.getElementById('fmtQuote').addEventListener('click', () => this.applyFormat('> ', ''), { signal });
-        document.getElementById('fmtSpoiler').addEventListener('click', () => this.applyFormat('||', '||'), { signal });
+        document.getElementById('fmtBold').addEventListener('mousedown', (e) => { e.preventDefault(); this.applyFormat('bold'); }, { signal });
+        document.getElementById('fmtQuote').addEventListener('mousedown', (e) => { e.preventDefault(); this.applyFormat('quote'); }, { signal });
+        document.getElementById('fmtSpoiler').addEventListener('mousedown', (e) => { e.preventDefault(); this.applyFormat('spoiler'); }, { signal });
     }
 
-    applyFormat(prefix, suffix) {
+    applyFormat(type) {
         if (!this.postInput) return;
+        this.postInput.focus();
         
-        const start = this.postInput.selectionStart;
-        const end = this.postInput.selectionEnd;
-        if (start === end) return;
-        
-        const text = this.postInput.value;
-        const selected = text.substring(start, end);
-        this.postInput.value = text.substring(0, start) + prefix + selected + suffix + text.substring(end);
+        if (this.savedRange) {
+            const selection = window.getSelection();
+            selection.removeAllRanges();
+            selection.addRange(this.savedRange);
+        }
+
+        const selection = window.getSelection();
+        if (!selection.rangeCount) return;
+        const range = selection.getRangeAt(0);
+
+        if (type === 'bold') {
+            document.execCommand('bold', false, null);
+        } else if (type === 'quote') {
+            const extracted = range.extractContents();
+            const div = document.createElement('div');
+            div.className = 'post-quote';
+            if (extracted.textContent.trim() === '') div.textContent = 'Цитата'; else div.appendChild(extracted);
+            range.insertNode(div);
+            const br = document.createElement('br'); div.after(br);
+            range.setStartAfter(br); range.collapse(true);
+            selection.removeAllRanges(); selection.addRange(range);
+        } else if (type === 'spoiler') {
+            const extracted = range.extractContents();
+            const span = document.createElement('span');
+            span.className = 'editor-spoiler';
+            if (extracted.textContent.trim() === '') span.textContent = 'Спойлер'; else span.appendChild(extracted);
+            range.insertNode(span);
+            const space = document.createTextNode('\u00A0'); span.after(space);
+            range.setStartAfter(space); range.collapse(true);
+            selection.removeAllRanges(); selection.addRange(range);
+        }
         
         this.formatMenu.style.display = 'none';
-        this.postInput.focus();
-        this.postInput.setSelectionRange(start, start + prefix.length + selected.length + suffix.length);
-        
-        if (this.publishBtn) this.publishBtn.disabled = false;
+        this.checkPublishState();
+    }
+
+    checkPublishState() {
+        if (this.publishBtn && this.postInput) {
+            this.publishBtn.disabled = this.postInput.innerText.trim().length === 0;
+        }
     }
 
     renderProfileHeader() {
@@ -204,23 +255,7 @@ export class ProfileController {
         if (this.verifiedBadgeContainer) {
             if (p.isVerified) {
                 this.verifiedBadgeContainer.style.display = 'inline-flex';
-                let badgeHTML = '';
-                
-                if (p.verifiedBadgeType === 'badge-1') {
-                    badgeHTML = `<i class="fa-solid fa-circle-check badge-1"></i>`;
-                } else if (p.verifiedBadgeType === 'badge-3') {
-                    badgeHTML = `
-                        <span class="fa-stack badge-3">
-                            <i class="fa-solid fa-shield fa-stack-2x bg"></i>
-                            <i class="fa-solid fa-check fa-stack-1x fg"></i>
-                        </span>`;
-                } else if (p.verifiedBadgeType === 'badge-8') {
-                    badgeHTML = `<div class="badge-8"><i class="fa-solid fa-check"></i></div>`;
-                } else {
-                    badgeHTML = `<i class="fa-solid fa-circle-check badge-1"></i>`;
-                }
-                
-                this.verifiedBadgeContainer.innerHTML = badgeHTML;
+                this.verifiedBadgeContainer.innerHTML = ProfileRenderer.renderBadge(p.verifiedBadgeType);
             } else {
                 this.verifiedBadgeContainer.style.display = 'none';
                 this.verifiedBadgeContainer.innerHTML = '';
@@ -242,20 +277,7 @@ export class ProfileController {
         }
 
         const frame = this.dataManager.getFrames().find(f => f.id === p.frameId);
-        this.avatarFrame.style.cssText = ''; 
-        
-        if (frame) {
-            this.avatarFrame.style.display = 'block';
-            if (frame.url) {
-                this.avatarFrame.style.backgroundImage = `url('${frame.url}')`;
-            } else if (frame.css) {
-                this.avatarFrame.style.backgroundImage = 'none';
-                this.avatarFrame.style.cssText = frame.css;
-            }
-        } else {
-            this.avatarFrame.style.display = 'none';
-            this.avatarFrame.style.backgroundImage = 'none';
-        }
+        ProfileRenderer.applyFrameToElement(this.avatarFrame, frame);
 
         const title = this.dataManager.getTitles().find(t => t.id === p.titleId);
         if (title && title.id !== 'title_none') {
@@ -269,22 +291,7 @@ export class ProfileController {
         if (p.musicId) {
             const track = this.dataManager.getTrackById(p.musicId);
             if (track) {
-                this.playerContainer.innerHTML = `
-                    <div id="profilePlayerWrapper" class="profile-dynamic-player">
-                        <canvas id="profileAudioCanvas" class="profile-bg-canvas"></canvas>
-                        <div id="profilePlayerClickArea" class="profile-cover-wrapper" title="Play / Pause">
-                            <img src="${track.cover}" class="profile-player-cover">
-                            <div class="profile-player-overlay">
-                                <i class="fa-solid fa-play play-icon"></i>
-                                <i class="fa-solid fa-pause pause-icon"></i>
-                            </div>
-                        </div>
-                        <div class="profile-player-info">
-                            <span class="profile-player-title">${escapeHTML(track.title)}</span>
-                            <span class="profile-player-artist">${escapeHTML(track.artist)}</span>
-                        </div>
-                    </div>
-                `;
+                this.playerContainer.innerHTML = ProfileRenderer.renderProfilePlayer(track);
                 setTimeout(() => this.initAudioVisualizer(track.id), 50);
             }
         } else {
@@ -328,7 +335,6 @@ export class ProfileController {
 
         const signal = this.abortController.signal;
         
-        // НОВОЕ: Автоматическое удаление слушателей аудио
         globalAudio.addEventListener('play', syncUI, { signal });
         globalAudio.addEventListener('pause', syncUI, { signal });
         syncUI();
@@ -387,58 +393,25 @@ export class ProfileController {
     renderModules() {
         this.modulesContainer.innerHTML = '';
         const m = this.currentUser.modules;
-        if (m.games) this.renderGamesModule();
-        if (m.socials) this.renderSocialsModule();
-    }
-
-    renderGamesModule() {
-        const showcaseGames = (this.currentUser.showcaseGames || []).map(id => this.dataManager.getGameById(id)).filter(Boolean); 
-        let contentHTML = '';
         
-        if (showcaseGames.length > 0) {
-            contentHTML = `<div class="showcase-carousel" id="gamesCarousel">${showcaseGames.map(g => `
-                <div class="showcase-item" title="${escapeHTML(g.title)}" data-id="${g.id}">
-                    <img src="${g.icon}" onerror="this.src='https://placehold.co/600x900/333333/ffffff?text=Game'">
-                </div>`).join('')}</div>`;
-        } else {
-            contentHTML = '<div style="color:var(--text-muted); font-size:14px; padding:10px;">Игры еще не выбраны (измените в Настройках)</div>';
+        if (m.games) {
+            const showcaseGames = (this.currentUser.showcaseGames || []).map(id => this.dataManager.getGameById(id)).filter(Boolean); 
+            this.modulesContainer.insertAdjacentHTML('beforeend', ProfileRenderer.renderGamesModule(showcaseGames));
+            
+            const carousel = document.getElementById('gamesCarousel');
+            if (carousel) {
+                carousel.addEventListener('wheel', (evt) => {
+                    if (evt.deltaY !== 0) {
+                        evt.preventDefault();
+                        carousel.scrollLeft += evt.deltaY;
+                    }
+                }, { passive: false });
+            }
         }
         
-        this.modulesContainer.insertAdjacentHTML('beforeend', `
-            <div class="module-card">
-                <div class="module-header">
-                    <i class="fa-solid fa-gamepad"></i> Витрина игр
-                </div>
-                ${contentHTML}
-            </div>
-        `);
-
-        const carousel = document.getElementById('gamesCarousel');
-        if (carousel) {
-            carousel.addEventListener('wheel', (evt) => {
-                if (evt.deltaY !== 0) {
-                    evt.preventDefault();
-                    carousel.scrollLeft += evt.deltaY;
-                }
-            }, { passive: false });
+        if (m.socials && (this.currentUser.socials.telegram || this.currentUser.socials.github)) {
+            this.modulesContainer.insertAdjacentHTML('beforeend', ProfileRenderer.renderSocialsModule(this.currentUser.socials));
         }
-    }
-
-    renderSocialsModule() {
-        const s = this.currentUser.socials;
-        if ((!s.telegram || s.telegram === '') && (!s.github || s.github === '')) return;
-        let linksHTML = '<div class="socials-row">';
-        if (s.telegram) linksHTML += `<a href="https://t.me/${s.telegram}" target="_blank" class="social-badge"><i class="fa-brands fa-telegram"></i> ${escapeHTML(s.telegram)}</a>`;
-        if (s.github) linksHTML += `<a href="https://github.com/${s.github}" target="_blank" class="social-badge"><i class="fa-brands fa-github"></i> ${escapeHTML(s.github)}</a>`;
-        linksHTML += '</div>';
-        this.modulesContainer.insertAdjacentHTML('beforeend', `
-            <div class="module-card">
-                <div class="module-header">
-                    <i class="fa-solid fa-link"></i> Контакты
-                </div>
-                ${linksHTML}
-            </div>
-        `);
     }
 
     renderPosts() {
@@ -505,13 +478,7 @@ export class ProfileController {
         if (this.tempMusicId) {
             const track = this.dataManager.getTrackById(this.tempMusicId);
             if (track) {
-                trackContainer.innerHTML = `
-                    <img src="${track.cover}" style="width:40px; height:40px; border-radius:6px; object-fit:cover;">
-                    <div style="flex:1; min-width:0;">
-                        <div style="font-size:14px; font-weight:bold; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${escapeHTML(track.title)}</div>
-                        <div style="font-size:12px; color:var(--text-muted);">${escapeHTML(track.artist)}</div>
-                    </div>
-                `;
+                trackContainer.innerHTML = ProfileRenderer.renderSettingsTrack(track);
                 trackContainer.style.display = 'flex';
                 return;
             }
@@ -535,13 +502,7 @@ export class ProfileController {
             const el = document.createElement('div');
             el.className = 'settings-list-item';
             el.draggable = true;
-            
-            el.innerHTML = `
-                <div class="drag-handle" title="Потяните для сортировки"><i class="fa-solid fa-grip-vertical"></i></div>
-                <img src="${game.icon}" class="settings-item-img" onerror="this.src='https://placehold.co/100x150/333333/ffffff?text=G'">
-                <span class="settings-item-title" title="${escapeHTML(game.title)}">${escapeHTML(game.title)}</span>
-                <button class="icon-btn-small remove-item-btn" title="Удалить из списка"><i class="fa-solid fa-xmark"></i></button>
-            `;
+            el.innerHTML = ProfileRenderer.renderSettingsGameItem(game);
             
             el.addEventListener('dragstart', (e) => {
                 e.dataTransfer.setData('text/plain', index);
@@ -628,11 +589,7 @@ export class ProfileController {
         items.forEach(item => {
             const el = document.createElement('div');
             el.className = 'select-item';
-            const img = type === 'game' ? item.icon : item.cover;
-            const title = item.title;
-            const sub = type === 'game' ? item.genre : item.artist;
-
-            el.innerHTML = `<img src="${img}"><div class="select-info"><span class="select-title">${escapeHTML(title)}</span><span class="select-subtitle">${escapeHTML(sub)}</span></div>`;
+            el.innerHTML = ProfileRenderer.renderSelectionItem(type, item);
             
             el.addEventListener('click', () => {
                 if (target === 'settingsMusic') {
@@ -752,28 +709,32 @@ export class ProfileController {
 
         if (this.publishBtn) {
             this.publishBtn.addEventListener('click', () => {
-                const text = this.postInput.value.trim();
+                // ИСПОЛЬЗУЕМ НОВЫЙ МЕТОД ГЕТТЕРА ТЕКСТА
+                const text = this.getFormattedContent();
                 if (text) {
                     this.dataManager.addPost(text);
-                    this.postInput.value = '';
-                    this.postInput.style.height = 'auto'; 
+                    this.postInput.innerHTML = ''; // Очищаем DIV
                     this.publishBtn.disabled = true;
                     this.renderPosts(); 
                 }
             });
+            
+            // СЛУШАТЕЛЬ ДЛЯ CONTENTEDITABLE (innerText, а не value)
             this.postInput.addEventListener('input', () => {
-                this.publishBtn.disabled = this.postInput.value.trim().length === 0;
-                this.postInput.style.height = 'auto';
-                this.postInput.style.height = (this.postInput.scrollHeight) + 'px';
+                this.checkPublishState();
             });
             
             this.postInput.addEventListener('contextmenu', (e) => {
-                if (this.postInput.selectionStart !== this.postInput.selectionEnd) {
-                    e.preventDefault();
-                    this.formatMenu.style.display = 'block';
-                    this.formatMenu.style.top = `${e.pageY}px`;
-                    this.formatMenu.style.left = `${e.pageX}px`;
+                e.preventDefault();
+                // Сохраняем выделение
+                const selection = window.getSelection();
+                if(selection.rangeCount > 0) {
+                    this.savedRange = selection.getRangeAt(0);
                 }
+                
+                this.formatMenu.style.display = 'block';
+                this.formatMenu.style.top = `${e.pageY}px`;
+                this.formatMenu.style.left = `${e.pageX}px`;
             });
         }
     }
