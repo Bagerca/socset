@@ -4,7 +4,6 @@
         "title": "Be Mine (Miside Song)",
         "artist": "OR3O ft. Royale5",
         "genre": "genre_pop",
-        "duration": "2:54",
         "cover": "img/or3o_be_mine.jpg",
         "url": "audio/or3o_be_mine.mp3"
     },
@@ -13,7 +12,6 @@
         "title": "IRIS OUT",
         "artist": "Kenshi Yonezu",
         "genre": "genre_jpop",
-        "duration": "2:33",
         "cover": "img/Kenshi_Yonezu_IRIS_OUT.jpg",
         "url": "audio/Kenshi_Yonezu_IRIS_OUT.m4a"
     },
@@ -22,7 +20,6 @@
         "title": "Epoch (The Living Tombstone's Remix)",
         "artist": "Savlonic",
         "genre": "genre_electronic",
-        "duration": "4:01",
         "cover": "img/Savlonic_Epoch_The_Living_Tombstone_Remix.jpg",
         "url": "audio/Savlonic_Epoch_The_Living_Tombstone_Remix.mp3"
     },
@@ -31,7 +28,6 @@
         "title": "Ma Meilleure Ennemie",
         "artist": "Stromae, Pomme",
         "genre": "genre_indie",
-        "duration": "3:12",
         "cover": "img/Stromae_Pomme_Ma_Meilleure_Ennemie.jpg",
         "url": "audio/Stromae_Pomme_Ma_Meilleure_Ennemie.mp3"
     },
@@ -40,7 +36,6 @@
         "title": "Rapture Rising",
         "artist": "JT Music",
         "genre": "genre_rap",
-        "duration": "3:45",
         "cover": "img/JT_Music_Rapture_Rising.jpg",
         "url": "audio/JT_Music_Rapture_Rising.mp3"
     },
@@ -49,7 +44,6 @@
         "title": "Call on the Undertaker",
         "artist": "JT Music",
         "genre": "genre_rock",
-        "duration": "3:20",
         "cover": "img/JT_Music_Call_on_the_Undertaker.jpg",
         "url": "audio/JT_Music_Call_on_the_Undertaker.mp3"
     },
@@ -58,7 +52,6 @@
         "title": "Make Me Pretty",
         "artist": "JT Music feat. Andrea Storm Kaden",
         "genre": "genre_alt",
-        "duration": "3:58",
         "cover": "img/JT_Music_feat_Andrea_Storm_Kaden_Make_Me_Pretty.jpg",
         "url": "audio/JT_Music_feat_Andrea_Storm_Kaden_Make_Me_Pretty.mp3"
     }

@@ -2,13 +2,16 @@
 
 import { generateId } from '../utils/utils.js';
 import { GAME_CONSTANTS } from '../config/GameConstants.js';
-import { MUSIC_CONSTANTS } from '../config/MusicConstants.js'; // ДОБАВИЛИ ИМПОРТ МУЗЫКАЛЬНЫХ КОНСТАНТ
+import { MUSIC_CONSTANTS } from '../config/MusicConstants.js';
 
 export class DataManager {
     constructor() {
         this.globalMusic = [];
         this.globalGames = [];
         
+        // НОВОЕ: Кэш для длительности треков (чтобы не грузить повторно)
+        this.durationCache = {}; 
+
         this.frames = [
             { id: 'frame_none', name: 'Без рамки', url: null }
         ];
@@ -25,15 +28,12 @@ export class DataManager {
             { id: 'title_pro', text: 'PRO Gamer', color: '#ffd700' }
         ];
 
-        // Эти массивы заполнятся в initStorage
         this.shopItems = [];
         this.profile = {};
         this.posts = [];
     }
 
-    // Асинхронная инициализация из IndexedDB
     async initStorage() {
-        // Настраиваем localForage (необязательно, но полезно для отладки)
         localforage.config({ name: 'CycleApp', storeName: 'cycle_data' });
 
         const defaultShopItems = [
@@ -52,9 +52,7 @@ export class DataManager {
             socials: { telegram: '', github: '' }
         };
 
-        // Читаем из IndexedDB напрямую (JSON.parse больше не нужен)
         this.shopItems = await localforage.getItem('glassnet_shop') || defaultShopItems;
-        
         const storedProfile = await localforage.getItem('glassnet_profile') || {};
         this.profile = { ...defaultProfile, ...storedProfile };
         
@@ -76,6 +74,15 @@ export class DataManager {
         }
     }
 
+    // НОВОЕ: Методы для работы с длительностью
+    getCachedDuration(trackId) {
+        return this.durationCache[trackId] || null;
+    }
+
+    setCachedDuration(trackId, duration) {
+        this.durationCache[trackId] = duration;
+    }
+
     getMusicCatalog() { return this.globalMusic; }
     getGamesCatalog() { return this.globalGames; }
     getBackgrounds() { return this.backgrounds; }
@@ -90,16 +97,11 @@ export class DataManager {
         return [...this.frames, ...purchased]; 
     }
 
-    // --- ЛОГИКА МАГАЗИНА ---
     getShopItems() { return this.shopItems; }
-    
-    // Асинхронное сохранение
     _saveShop() { localforage.setItem('glassnet_shop', this.shopItems); }
 
     createShopItem(name, price, css) {
-        const newItem = {
-            id: 'shop_' + generateId(), type: 'frame', name, price, css, author: this.profile.username
-        };
+        const newItem = { id: 'shop_' + generateId(), type: 'frame', name, price, css, author: this.profile.username };
         this.shopItems.unshift(newItem); 
         this._saveShop();
     }
@@ -117,10 +119,8 @@ export class DataManager {
     buyShopItem(itemId) {
         const item = this.shopItems.find(i => i.id === itemId);
         if (!item) return false;
-        
         if (!this.profile.purchasedFrames) this.profile.purchasedFrames = [];
         if (this.profile.purchasedFrames.includes(itemId)) return true; 
-
         if (this.profile.coins >= item.price) {
             this.profile.coins -= item.price;
             this.profile.purchasedFrames.push(itemId);
@@ -143,7 +143,6 @@ export class DataManager {
         return false;
     }
 
-    // --- ЛОГИКА ТЕГОВ ИГР ---
     getGameTier(tierId) { return GAME_CONSTANTS.tiers[tierId] || { label: 'Unknown', color: '#999' }; }
     getGameTags(tagIds) {
         if (!tagIds || !Array.isArray(tagIds)) return [];
@@ -153,14 +152,12 @@ export class DataManager {
     getAllGameTiers() { return GAME_CONSTANTS.tiers; }
     getGameCategories() { return GAME_CONSTANTS.categories; }
 
-    // --- ЛОГИКА ЖАНРОВ МУЗЫКИ ---
     getAllMusicGenres() { return MUSIC_CONSTANTS.genres; }
     getMusicGenreById(id) { return MUSIC_CONSTANTS.genres[id] || { id: 'unknown', label: 'Неизвестно', color: '#333' }; }
 
     getTrackById(id) { return this.globalMusic.find(t => t.id === id) || null; }
     getGameById(id) { return this.globalGames.find(g => g.id === id) || null; }
 
-    // --- ИЗБРАННОЕ И АЛЬБОМЫ ---
     toggleFavoriteTrack(trackId) {
         if (!this.profile.favoriteTracks) this.profile.favoriteTracks = [];
         const index = this.profile.favoriteTracks.indexOf(trackId);
@@ -169,7 +166,6 @@ export class DataManager {
         this._saveProfile();
         return index === -1; 
     }
-    
     getFavoriteTracks() { return this.profile.favoriteTracks || []; }
     getCustomAlbums() { return this.profile.customAlbums || []; }
     
@@ -207,11 +203,8 @@ export class DataManager {
         this._saveProfile();
         return index === -1; 
     }
-    
     getFavoriteGames() { return this.profile.favoriteGames || []; }
 
-    // --- СОЦИАЛКА (ПОСТЫ, КОММЕНТЫ) ---
-    // Асинхронное сохранение
     _savePosts() { localforage.setItem('glassnet_posts', this.posts); }
     
     addPost(content, pollData = null, attachment = null) {
@@ -222,7 +215,6 @@ export class DataManager {
                 totalVotes: 0, days: pollData.duration || 3, votedOptionId: null
             };
         }
-
         const newPost = { 
             id: generateId(), 
             author: { 
@@ -292,7 +284,6 @@ export class DataManager {
         this._savePosts();
     }
     
-    // Асинхронное сохранение
     _saveProfile() { localforage.setItem('glassnet_profile', this.profile); }
     getProfileData() { return this.profile; }
     saveProfileData(newProfileData) { this.profile = { ...this.profile, ...newProfileData }; this._saveProfile(); }

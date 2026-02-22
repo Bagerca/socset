@@ -1,150 +1,289 @@
 /* css/components/_music.css */
 
-.music-layout {
+.music-page-container {
+    width: 100%;
     display: flex;
-    height: calc(100vh - 120px);
-    overflow: hidden;
-    background: #000;
-    border-radius: 16px;
-    border: 1px solid rgba(255, 255, 255, 0.05);
+    flex-direction: column;
+    gap: 24px;
+    animation: fadeIn 0.4s ease;
+}
+
+/* --- ГОРИЗОНТАЛЬНЫЕ ТАБЫ --- */
+.music-top-nav {
+    display: flex;
+    align-items: center;
+    background: var(--surface);
+    padding: 12px 24px;
+    border-radius: var(--radius-large);
+    border: 1px solid var(--border-color);
+    box-shadow: 0 5px 20px rgba(0,0,0,0.2);
+    overflow-x: auto;
+    scrollbar-width: none;
+}
+.music-top-nav::-webkit-scrollbar { display: none; }
+
+.music-tabs { display: flex; gap: 8px; }
+.m-tab-btn {
+    background: transparent; border: 1px solid transparent; color: var(--text-muted);
+    padding: 10px 20px; border-radius: 100px; font-size: 15px; font-weight: 600;
+    cursor: pointer; transition: 0.2s; display: flex; align-items: center; gap: 8px;
+    white-space: nowrap;
+}
+.m-tab-btn:hover { color: var(--text-main); background: rgba(255,255,255,0.05); }
+.m-tab-btn.active { background: #fff; color: #000; }
+
+/* --- САБ-ХЕДЕР (ПОИСК, ЧИПСЫ) --- */
+.music-sub-header { width: 100%; }
+
+/* ИСПРАВЛЕНО: Убрано ограничение ширины, теперь на всю ширину как баннер */
+.m-search-wrapper {
+    position: relative; overflow: visible; 
+    display: flex; align-items: center; gap: 12px; background: #1a1a1c;
+    padding: 16px 24px; border-radius: 16px; border: 1px solid var(--border-color);
+    transition: 0.2s; width: 100%; /* На всю ширину */
+}
+.m-search-wrapper:focus-within { border-color: rgba(255,255,255,0.4); box-shadow: 0 0 15px rgba(255,255,255,0.05); background: #222; }
+.m-search-wrapper i { color: var(--text-muted); font-size: 18px; }
+.m-search-wrapper input { flex: 1; background: transparent; border: none; outline: none; color: #fff; font-size: 16px; }
+
+.m-chips-row { display: flex; gap: 10px; overflow-x: auto; scrollbar-width: none; padding-bottom: 4px; }
+.m-chips-row::-webkit-scrollbar { display: none; }
+.m-chip {
+    padding: 10px 20px; border-radius: 100px; background: rgba(255,255,255,0.05);
+    border: 1px solid transparent; color: var(--text-muted); font-size: 14px; font-weight: 600;
+    cursor: pointer; white-space: nowrap; transition: 0.2s;
+}
+.m-chip:hover { background: rgba(255,255,255,0.1); color: #fff; }
+.m-chip.active { background: var(--text-main); color: #000; }
+
+
+/* --- ОСНОВНОЙ КОНТЕНТ --- */
+.music-main-content {
+    display: flex; flex-direction: column; gap: 40px;
+    padding-bottom: 120px; 
+}
+
+/* ГЛАВНАЯ (HOME) */
+.m-hero-banner {
+    position: relative; width: 100%; height: 200px; border-radius: 24px; overflow: hidden;
+    display: flex; align-items: flex-end; padding: 32px; border: 1px solid rgba(255,255,255,0.05);
+}
+.m-hero-bg {
+    position: absolute; top: 0; left: 0; width: 100%; height: 100%; z-index: 0;
+    background: linear-gradient(135deg, #1e3264 0%, #0a0a0c 100%);
+}
+.m-hero-content { position: relative; z-index: 1; }
+.m-hero-title { font-size: 40px; font-weight: 900; color: #fff; line-height: 1; margin-bottom: 8px; letter-spacing: -1px; }
+.m-hero-subtitle { color: rgba(255,255,255,0.7); font-size: 16px; }
+
+.m-section-title { font-size: 24px; font-weight: 800; color: #fff; margin-bottom: 20px; }
+
+/* БЫСТРЫЙ ДОСТУП */
+.m-quick-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 16px; }
+.m-quick-card {
+    display: flex; align-items: center; gap: 16px; background: rgba(255,255,255,0.05);
+    border-radius: 8px; overflow: hidden; cursor: pointer; transition: 0.2s; position: relative; height: 64px;
+}
+.m-quick-card:hover { background: rgba(255,255,255,0.1); }
+.m-quick-card img { width: 64px; height: 64px; object-fit: cover; box-shadow: 2px 0 10px rgba(0,0,0,0.3); }
+.m-qc-info { flex: 1; min-width: 0; padding-right: 16px; }
+.m-qc-title { font-weight: 700; font-size: 15px; color: #fff; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-bottom: 2px; }
+.m-qc-artist { font-size: 13px; color: var(--text-muted); }
+.m-qc-play {
+    position: absolute; right: 16px; top: 50%; transform: translateY(-50%);
+    width: 40px; height: 40px; border-radius: 50%; background: #44bd32; color: #fff;
+    border: none; font-size: 16px; display: flex; align-items: center; justify-content: center;
+    opacity: 0; transition: all 0.2s ease; box-shadow: 0 4px 10px rgba(0,0,0,0.3);
+}
+.m-quick-card:hover .m-qc-play { opacity: 1; transform: translateY(-50%) scale(1.05); }
+
+/* ЖАНРЫ */
+.m-genres-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 20px; }
+.m-genre-card {
+    position: relative; height: 110px; border-radius: 12px; overflow: hidden; padding: 16px;
+    cursor: pointer; transition: transform 0.2s ease; box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+}
+.m-genre-card:hover { transform: scale(1.03); }
+.m-genre-card span { position: absolute; top: 16px; left: 16px; font-size: 20px; font-weight: 800; color: #fff; text-shadow: 0 2px 4px rgba(0,0,0,0.3); }
+.m-genre-card::after { content: ''; position: absolute; bottom: -10px; right: -10px; width: 70px; height: 70px; background: rgba(0,0,0,0.2); border-radius: 8px; transform: rotate(25deg); }
+
+
+/* --- ТАБЛИЦА ТРЕКОВ --- */
+.m-track-header {
+    display: grid; grid-template-columns: 40px minmax(200px, 1fr) 120px 80px 100px; gap: 16px; align-items: center;
+    padding: 0 16px 8px 16px; border-bottom: 1px solid rgba(255,255,255,0.1); margin-bottom: 12px;
+    font-size: 13px; text-transform: uppercase; color: var(--text-muted); font-weight: 600; letter-spacing: 1px;
+}
+
+.m-th-sortable { cursor: pointer; transition: color 0.2s; display: flex; align-items: center; gap: 6px; }
+.m-th-sortable:hover { color: #fff; }
+.m-th-sortable.active-sort { color: #44bd32; }
+.sort-icon { font-size: 12px; }
+
+.m-track-row {
+    display: grid; grid-template-columns: 40px minmax(200px, 1fr) 120px 80px 100px; gap: 16px; align-items: center;
+    padding: 10px 16px; border-radius: 8px; transition: background 0.2s; border: 1px solid transparent; cursor: default;
+}
+.m-track-row:hover { background: rgba(255,255,255,0.05); }
+.m-track-row.active { background: rgba(255,255,255,0.1); border-color: rgba(255,255,255,0.05); }
+
+.m-tr-num { display: flex; justify-content: center; align-items: center; color: var(--text-muted); font-size: 15px; font-weight: 500; }
+.play-icon { display: none; color: #fff; font-size: 14px; }
+.m-track-row:hover .num { display: none; }
+.m-track-row:hover .play-icon { display: block; }
+.m-track-row.active .num { display: none; }
+.m-track-row.active .play-icon { display: block; color: #44bd32; }
+
+.m-tr-info { display: flex; align-items: center; gap: 16px; min-width: 0; }
+.m-tr-cover { width: 48px; height: 48px; border-radius: 6px; object-fit: cover; box-shadow: 0 2px 5px rgba(0,0,0,0.5); }
+.m-tr-text { flex: 1; min-width: 0; display: flex; flex-direction: column; justify-content: center; }
+.m-tr-text .title { font-weight: 600; font-size: 16px; color: #fff; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-bottom: 2px;}
+.m-track-row.active .m-tr-text .title { color: #44bd32; } 
+.m-tr-text .artist { font-size: 14px; color: var(--text-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+.m-tr-genre { font-size: 14px; color: var(--text-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.m-tr-time { font-size: 14px; color: var(--text-muted); font-variant-numeric: tabular-nums; }
+.m-tr-actions { display: flex; align-items: center; justify-content: flex-end; gap: 12px; opacity: 0; transition: 0.2s; }
+.m-track-row:hover .m-tr-actions, .m-track-row.active .m-tr-actions { opacity: 1; }
+
+
+/* =========================================
+   ПЛЕЙЛИСТЫ В СТИЛЕ КВАДРАТНОЙ СТОПКИ
+========================================= */
+
+.m-playlists-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+    gap: 32px; 
+}
+
+.m-playlist-card {
+    display: flex; flex-direction: column;
+    cursor: pointer; position: relative;
+    background: transparent; border: none; padding: 0;
+    transition: transform 0.2s;
+}
+.m-playlist-card:hover { transform: translateY(-5px); }
+
+/* Визуальная часть (Стопка) */
+.m-pl-visual {
     position: relative;
+    width: 100%; aspect-ratio: 1 / 1; 
+    margin-bottom: 16px; z-index: 1; overflow: visible; 
 }
 
-/* --- САЙДБАР --- */
-.music-nav-sidebar {
-    width: 250px; background: #111; display: flex; flex-direction: column;
-    padding: 24px 16px; flex-shrink: 0; border-right: 1px solid rgba(255, 255, 255, 0.05);
+/* Слои */
+.layer {
+    position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+    border-radius: 10px; border: 1px solid rgba(255,255,255,0.08);
+    transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
+    background-color: #222; background-size: cover; background-position: center;
+    box-shadow: 0 4px 10px rgba(0,0,0,0.3);
 }
-.music-nav-section { display: flex; flex-direction: column; gap: 4px; }
-.music-nav-item { padding: 12px 16px; border-radius: 8px; color: var(--text-muted); font-weight: 600; font-size: 14px; cursor: pointer; transition: 0.2s; display: flex; align-items: center; gap: 14px; }
-.music-nav-item:hover { color: #fff; }
-.music-nav-item.active { background: rgba(255, 255, 255, 0.1); color: #fff; }
-.music-nav-divider { height: 1px; background: rgba(255, 255, 255, 0.05); margin: 20px 0; }
-.music-nav-header { display: flex; justify-content: space-between; align-items: center; color: var(--text-muted); font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 12px; padding: 0 8px; }
-.music-nav-header .icon-btn-small:hover { color: #fff; transform: scale(1.1); }
 
-.music-playlists-list { flex: 1; overflow-y: auto; display: flex; flex-direction: column; gap: 2px; }
-.music-playlists-list::-webkit-scrollbar { width: 4px; }
-.music-playlists-list::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.1); border-radius: 4px; }
-.sidebar-playlist-item { padding: 10px 16px; border-radius: 6px; color: var(--text-muted); font-size: 14px; cursor: pointer; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; transition: 0.2s; }
-.sidebar-playlist-item:hover { color: #fff; }
-.sidebar-playlist-item.active { background: rgba(255,255,255,0.05); color: #44bd32; }
+.layer-top {
+    z-index: 10; overflow: hidden; background-color: #1a1a1c;
+    box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+}
 
-/* --- ОСНОВНАЯ ЗОНА --- */
-.music-main-area { flex: 1; display: flex; flex-direction: column; min-width: 0; position: relative; background: linear-gradient(to bottom, #1f1f22 0%, #111111 300px); }
-.music-top-bar { position: absolute; top: 0; left: 0; width: 100%; height: 64px; display: flex; align-items: center; padding: 0 32px; z-index: 10; transition: background 0.3s; }
-.music-search-container { display: flex; align-items: center; gap: 10px; background: #2a2a2e; padding: 10px 16px; border-radius: 100px; width: 350px; border: 1px solid transparent; transition: 0.2s; }
-.music-search-container:focus-within { border-color: rgba(255,255,255,0.3); background: #333; box-shadow: 0 0 0 2px rgba(255,255,255,0.1); }
-.search-icon { color: var(--text-muted); font-size: 14px; }
-.music-main-search { flex: 1; background: transparent; border: none; outline: none; color: #fff; font-size: 14px; }
+.layer-back-1 { z-index: 5; opacity: 0; filter: brightness(0.6); }
+.layer-back-2 { z-index: 1; opacity: 0; filter: brightness(0.4); }
 
-.music-content-scroll { flex: 1; overflow-y: auto; padding: 80px 32px 100px 32px; }
-.music-content-scroll::-webkit-scrollbar { width: 8px; }
-.music-content-scroll::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.2); }
+/* Состояния стопки */
+.stack-1 .layer-back-1 { opacity: 1; transform: translateY(-12px) scale(0.92); }
+.stack-2 .layer-back-1 { opacity: 1; transform: translateY(-12px) scale(0.92); }
+.stack-2 .layer-back-2 { opacity: 1; transform: translateY(-24px) scale(0.84); }
 
-/* --- ОСТАЛЬНЫЕ СТИЛИ (Home, Search, Lists) --- */
-.music-hero-banner { margin-bottom: 40px; }
-.m-greeting { font-size: 48px; font-weight: 900; color: #fff; letter-spacing: -1.5px; line-height: 1; margin-bottom: 8px; }
-.m-sub-greeting { color: var(--text-muted); font-size: 16px; }
-.music-section { margin-bottom: 40px; }
-.music-section-title { font-size: 24px; font-weight: 800; color: #fff; margin-bottom: 20px; }
+/* Hover эффект */
+.m-playlist-card:hover .stack-1 .layer-back-1 { transform: translateY(-18px) scale(0.92); }
+.m-playlist-card:hover .stack-2 .layer-back-1 { transform: translateY(-18px) scale(0.92); }
+.m-playlist-card:hover .stack-2 .layer-back-2 { transform: translateY(-36px) scale(0.84); }
 
-.quick-picks-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 12px; }
-.quick-pick-card { display: flex; align-items: center; gap: 12px; background: rgba(255,255,255,0.08); border-radius: 6px; overflow: hidden; cursor: pointer; transition: 0.2s; position: relative; height: 56px; }
-.quick-pick-card:hover { background: rgba(255,255,255,0.15); }
-.quick-pick-card img { width: 56px; height: 56px; object-fit: cover; box-shadow: 2px 0 10px rgba(0,0,0,0.3); }
-.qp-info { flex: 1; min-width: 0; padding-right: 12px; }
-.qp-title { font-weight: 700; font-size: 14px; color: #fff; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-bottom: 2px; }
-.qp-artist { font-size: 12px; color: var(--text-muted); }
-.qp-play-btn { position: absolute; right: 12px; top: 50%; transform: translateY(-50%); width: 36px; height: 36px; border-radius: 50%; background: #44bd32; color: #fff; border: none; font-size: 14px; display: flex; align-items: center; justify-content: center; opacity: 0; transition: all 0.2s ease; box-shadow: 0 4px 10px rgba(0,0,0,0.3); }
-.quick-pick-card:hover .qp-play-btn { opacity: 1; transform: translateY(-50%) scale(1.05); }
+.m-pl-img { width: 100%; height: 100%; object-fit: cover; transition: transform 0.4s ease; }
+.m-playlist-card:hover .m-pl-img { transform: scale(1.05); }
 
-.genres-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 20px; }
-.genre-card { position: relative; height: 100px; border-radius: 12px; overflow: hidden; padding: 16px; cursor: pointer; transition: transform 0.2s ease; box-shadow: 0 4px 15px rgba(0,0,0,0.2); }
-.genre-card:hover { transform: scale(1.03); }
-.genre-card span { position: absolute; top: 16px; left: 16px; font-size: 20px; font-weight: 800; color: #fff; text-shadow: 0 2px 4px rgba(0,0,0,0.3); }
-.genre-card::after { content: ''; position: absolute; bottom: -10px; right: -10px; width: 60px; height: 60px; background: rgba(0,0,0,0.2); border-radius: 8px; transform: rotate(25deg); }
+.m-pl-overlay {
+    position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+    background: rgba(0,0,0,0.4); opacity: 0;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 32px; color: #fff; transition: opacity 0.2s; backdrop-filter: blur(2px);
+}
+.m-playlist-card:hover .m-pl-overlay { opacity: 1; }
 
-.search-results-layout { display: flex; gap: 30px; margin-top: 20px; }
-.search-top-result { flex: 0 0 350px; }
-.search-tracks-list { flex: 1; min-width: 0; }
-.top-result-card { background: #1a1a1c; padding: 20px; border-radius: 12px; display: flex; flex-direction: column; align-items: flex-start; gap: 12px; position: relative; transition: 0.2s; cursor: pointer;}
-.top-result-card:hover { background: #222; }
-.tr-cover { width: 92px; height: 92px; border-radius: 8px; object-fit: cover; box-shadow: 0 10px 20px rgba(0,0,0,0.4); }
-.tr-title { font-size: 32px; font-weight: 900; color: #fff; line-height: 1; margin-top: 8px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; width: 100%;}
-.tr-artist { font-size: 15px; color: var(--text-muted); }
-.tr-badge { background: #111; padding: 4px 10px; border-radius: 100px; font-size: 12px; font-weight: 700; color: #fff; text-transform: uppercase; margin-top: auto;}
-.tr-play-btn { position: absolute; right: 20px; bottom: 20px; width: 48px; height: 48px; border-radius: 50%; background: #44bd32; color: #fff; border: none; font-size: 20px; display: flex; align-items: center; justify-content: center; opacity: 0; transform: translateY(10px); transition: 0.3s ease; }
-.top-result-card:hover .tr-play-btn { opacity: 1; transform: translateY(0); }
+.m-pl-badge {
+    position: absolute; bottom: 8px; right: 8px;
+    background: rgba(0,0,0,0.8); backdrop-filter: blur(4px);
+    color: #fff; font-size: 12px; font-weight: 700;
+    padding: 4px 8px; border-radius: 6px;
+    display: flex; align-items: center; gap: 5px; box-shadow: 0 2px 5px rgba(0,0,0,0.5); z-index: 15;
+}
 
-.section-title-large { font-size: 32px; font-weight: 900; color: #fff; margin-bottom: 24px; letter-spacing: -1px; }
+.m-pl-info { position: relative; padding: 0 4px; }
+.m-pl-title { font-weight: 700; font-size: 16px; color: #fff; margin-bottom: 4px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.m-pl-desc { font-size: 13px; color: var(--text-muted); }
 
-.track-list-header { display: grid; grid-template-columns: 40px minmax(200px, 1fr) 120px 80px 100px; gap: 16px; align-items: center; padding: 0 16px 8px 16px; border-bottom: 1px solid rgba(255,255,255,0.1); margin-bottom: 12px; font-size: 12px; text-transform: uppercase; color: var(--text-muted); font-weight: 600; letter-spacing: 1px; }
-.track-row-pro { display: grid; grid-template-columns: 40px minmax(200px, 1fr) 120px 80px 100px; gap: 16px; align-items: center; padding: 10px 16px; border-radius: 8px; transition: background 0.2s; border: 1px solid transparent; cursor: default; }
-.track-row-pro:hover { background: rgba(255,255,255,0.05); }
-.track-row-pro.active { background: rgba(255,255,255,0.1); border-color: rgba(255,255,255,0.05); }
+.del-pl-btn {
+    position: absolute; right: 0; top: 0; background: transparent; color: var(--text-muted);
+    border: none; cursor: pointer; transition: 0.2s; opacity: 0; transform: translateX(-10px);
+}
+.del-pl-btn:hover { color: var(--danger); }
+.m-playlist-card:hover .del-pl-btn { opacity: 1; transform: translateX(0); }
 
-.t-index { display: flex; justify-content: center; align-items: center; color: var(--text-muted); font-size: 14px; font-weight: 500; }
-.t-play-icon { display: none; color: #fff; font-size: 12px; }
-.track-row-pro:hover .t-num { display: none; }
-.track-row-pro:hover .t-play-icon { display: block; }
-.track-row-pro.active .t-num { display: none; }
-.track-row-pro.active .t-play-icon { display: block; color: #44bd32; }
+/* Карточка создания плейлиста */
+.create-pl-card .m-pl-visual {
+    border-radius: 12px; border: 2px dashed rgba(255,255,255,0.2);
+    display: flex; align-items: center; justify-content: center;
+    background: rgba(255,255,255,0.03); transition: 0.2s;
+}
+.create-pl-card:hover .m-pl-visual { border-color: #fff; background: rgba(255,255,255,0.08); }
+.create-icon { font-size: 32px; color: var(--text-muted); transition: 0.2s; }
+.create-pl-card:hover .create-icon { color: #fff; transform: scale(1.1); }
 
-.t-main-info { display: flex; align-items: center; gap: 16px; min-width: 0; }
-.t-cover { width: 44px; height: 44px; border-radius: 4px; object-fit: cover; box-shadow: 0 2px 5px rgba(0,0,0,0.5); }
-.t-text { flex: 1; min-width: 0; display: flex; flex-direction: column; justify-content: center; }
-.t-title { font-weight: 600; font-size: 15px; color: #fff; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-bottom: 4px;}
-.track-row-pro.active .t-title { color: #44bd32; } 
-.t-artist { font-size: 13px; color: var(--text-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.t-genre { font-size: 13px; color: var(--text-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.t-duration { font-size: 13px; color: var(--text-muted); font-variant-numeric: tabular-nums; }
-.t-actions { display: flex; align-items: center; justify-content: flex-end; gap: 8px; opacity: 0; transition: 0.2s; }
-.track-row-pro:hover .t-actions, .track-row-pro.active .t-actions { opacity: 1; }
 
-.album-hero { display: flex; align-items: flex-end; padding: 60px 32px 30px 32px; margin: -80px -32px 24px -32px; background-size: cover; background-position: center; position: relative; }
-.album-hero-overlay { position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: linear-gradient(to bottom, rgba(17,17,17,0.5) 0%, rgba(17,17,17,1) 100%); backdrop-filter: blur(20px); z-index: 1; }
-.album-hero-content { position: relative; z-index: 2; display: flex; align-items: flex-end; gap: 24px; width: 100%; }
-.album-hero-cover { width: 220px; height: 220px; border-radius: 12px; box-shadow: 0 10px 40px rgba(0,0,0,0.6); object-fit: cover; }
-.album-hero-info { flex: 1; display: flex; flex-direction: column; gap: 8px; }
-.ah-type { font-size: 12px; font-weight: 700; text-transform: uppercase; color: #fff; }
-.ah-title { font-size: 72px; font-weight: 900; color: #fff; line-height: 1.1; letter-spacing: -2px; text-shadow: 0 4px 10px rgba(0,0,0,0.3); }
-.ah-meta { font-size: 14px; color: rgba(255,255,255,0.8); font-weight: 600; margin-bottom: 16px; }
-.ah-actions { display: flex; align-items: center; gap: 16px; }
-.btn-play-all { background: #44bd32; color: #fff; border: none; padding: 12px 24px; border-radius: 100px; font-weight: 700; font-size: 15px; cursor: pointer; transition: 0.2s; display: flex; align-items: center; gap: 8px; box-shadow: 0 4px 15px rgba(68, 189, 50, 0.4); }
-.btn-play-all:hover { transform: scale(1.05); background: #4cd137; }
+/* --- ИСПРАВЛЕНО: СТРАНИЦА ПЛЕЙЛИСТА (HERO) ТЕПЕРЬ КАК HOME --- */
+.m-playlist-hero { 
+    position: relative; width: 100%; height: 220px; border-radius: 24px; overflow: hidden;
+    display: flex; align-items: flex-end; padding: 32px; border: 1px solid rgba(255,255,255,0.05);
+    margin-bottom: 30px;
+    background: #111;
+}
+.m-ph-cover { 
+    /* Обложка внутри баннера */
+    width: 160px; height: 160px; border-radius: 12px; 
+    box-shadow: 0 10px 40px rgba(0,0,0,0.5); object-fit: cover; 
+    z-index: 2; margin-right: 24px;
+}
+.m-ph-info { 
+    flex: 1; display: flex; flex-direction: column; gap: 8px; z-index: 2; min-width: 0;
+}
+.m-ph-type { font-size: 13px; font-weight: 700; text-transform: uppercase; color: var(--text-muted); }
+.m-ph-title { 
+    font-size: 48px; font-weight: 900; color: #fff; line-height: 1.1; 
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis; width: 100%;
+}
+.m-ph-meta { font-size: 15px; color: var(--text-muted); font-weight: 600; margin-bottom: 12px; }
+.m-ph-playbtn { background: #44bd32; color: #fff; font-size: 16px; padding: 12px 32px; border-radius: 100px; display: inline-flex; align-items: center; gap: 10px; box-shadow: 0 4px 15px rgba(68, 189, 50, 0.4); width: fit-content; }
+.m-ph-playbtn:hover { background: #4cd137; transform: scale(1.05); }
 
-.music-empty-state { display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 80px 20px; color: var(--text-muted); text-align: center; gap: 20px; }
-.music-empty-state i { font-size: 64px; opacity: 0.3; }
+/* ПУСТЫЕ СОСТОЯНИЯ */
+.m-empty-state { display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 80px 20px; color: var(--text-muted); text-align: center; gap: 20px; }
+.m-empty-state i { font-size: 64px; opacity: 0.3; }
+.m-empty-state p { font-size: 18px; font-weight: 600; }
 
-/* Адаптив */
-@media (max-width: 900px) {
-    .music-layout { flex-direction: column; overflow: visible; height: auto; border: none; background: transparent; }
-    .music-nav-sidebar { width: 100%; border-right: none; padding: 16px; flex-direction: row; overflow-x: auto; gap: 12px; }
-    .music-nav-section { flex-direction: row; gap: 8px; }
-    .music-nav-item { white-space: nowrap; }
-    .music-nav-divider, .music-nav-header, .music-playlists-list { display: none; }
+/* АДАПТИВ */
+@media (max-width: 768px) {
+    .music-top-nav { padding: 12px 16px; border-radius: 12px; }
+    .m-hero-banner { height: 160px; padding: 20px; }
+    .m-hero-title { font-size: 32px; }
+    .m-quick-grid { grid-template-columns: repeat(2, 1fr); gap: 10px; }
+    .m-quick-card { height: 50px; } .m-quick-card img { width: 50px; height: 50px; }
+    .m-qc-title { font-size: 13px; } .m-qc-artist { display: none; } .m-qc-play { display: none; }
     
-    .music-top-bar { position: relative; padding: 16px; height: auto; }
-    .music-search-container { width: 100%; }
-    .music-content-scroll { padding: 0 16px 120px 16px; overflow: visible; }
-
-    .search-results-layout { flex-direction: column; gap: 24px; }
-    .search-top-result { flex: auto; }
+    .m-track-header { display: none; }
+    .m-track-row { grid-template-columns: 30px minmax(150px, 1fr) auto; padding: 10px; gap: 12px; }
+    .m-tr-genre, .m-tr-time { display: none; }
     
-    .quick-picks-grid { grid-template-columns: repeat(2, 1fr); gap: 8px; }
-    .quick-pick-card { height: 50px; } 
-    .quick-pick-card img { width: 50px; height: 50px; }
-    .qp-title { font-size: 12px; } .qp-artist { display: none; } .qp-play-btn { display: none; }
-    .genres-grid { grid-template-columns: repeat(2, 1fr); gap: 12px; }
-
-    .track-list-header { display: none; }
-    .track-row-pro { grid-template-columns: 30px minmax(150px, 1fr) auto; padding: 8px 10px; }
-    .t-genre, .t-duration { display: none; }
-
-    .album-hero { flex-direction: column; align-items: center; text-align: center; padding: 40px 16px 20px 16px; margin: 0 -16px 24px -16px; }
-    .album-hero-content { flex-direction: column; align-items: center; }
-    .album-hero-cover { width: 180px; height: 180px; }
-    .ah-title { font-size: 40px; }
-    .ah-actions { justify-content: center; }
+    .m-playlist-hero { flex-direction: column; align-items: center; text-align: center; height: auto; padding: 32px; }
+    .m-ph-cover { margin-right: 0; margin-bottom: 16px; }
+    .m-ph-title { font-size: 32px; white-space: normal; }
 }

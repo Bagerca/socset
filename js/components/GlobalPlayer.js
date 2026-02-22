@@ -3,10 +3,8 @@
 export class GlobalPlayer {
     constructor(dataManager) {
         this.dataManager = dataManager;
-        
         this.audio = document.getElementById('globalAudioPlayer');
         
-        // UI Элементы ПАРЯЩЕГО ПЛЕЕРА
         this.widget = document.getElementById('floatingMiniPlayer');
         this.bg = document.getElementById('fmpBg');
         this.elCover = document.getElementById('fmpCover');
@@ -27,7 +25,6 @@ export class GlobalPlayer {
         this.volumeBar = document.getElementById('fmpVolumeBar');
         this.volumeIcon = document.getElementById('fmpVolumeIcon');
 
-        // Свернутый режим (Docked)
         this.dockedOverlay = document.getElementById('fmpDockedOverlay');
         this.dockedCover = document.getElementById('fmpDockedCover');
         this.dockedPlayBtn = document.getElementById('fmpDockedPlayBtn');
@@ -47,11 +44,12 @@ export class GlobalPlayer {
         this.updateSliderBg(this.volumeBar);
         this.initDraggablePlayer();
 
-        // Аудио события
         this.audio.addEventListener('timeupdate', () => this.updateProgress());
+        
+        // ОБНОВЛЕНО: Берем реальную длительность из метаданных
         this.audio.addEventListener('loadedmetadata', () => {
-            this.timeDuration.textContent = this.formatTime(this.audio.duration);
             this.progressBar.max = this.audio.duration;
+            this.timeDuration.textContent = this.formatTime(this.audio.duration);
             this.updateSliderBg(this.progressBar);
         });
         
@@ -74,7 +72,6 @@ export class GlobalPlayer {
             this.updateSliderBg(this.volumeBar);
         });
 
-        // Контролы
         this.btnPlay.addEventListener('click', () => this.togglePlay());
         this.btnNext.addEventListener('click', () => this.next());
         this.btnPrev.addEventListener('click', () => this.prev());
@@ -90,19 +87,16 @@ export class GlobalPlayer {
             this.btnRepeat.innerHTML = this.repeatMode === 2 ? '<i class="fa-solid fa-repeat"></i><span>1</span>' : '<i class="fa-solid fa-repeat"></i>';
         });
 
-        // Избранное
         this.btnFav.addEventListener('click', () => {
             const currentTrack = this.playlist[this.currentIndex];
             if (currentTrack) {
                 const isFav = this.dataManager.toggleFavoriteTrack(currentTrack.id);
                 this.btnFav.innerHTML = `<i class="fa-${isFav ? 'solid' : 'regular'} fa-heart"></i>`;
                 this.btnFav.classList.toggle('active', isFav);
-                // Отправляем эвент, чтобы обновить списки во вкладке Музыка
                 document.dispatchEvent(new CustomEvent('cycle:fav-changed')); 
             }
         });
 
-        // Прогресс
         this.progressBar.addEventListener('input', () => {
             this.isDragging = true;
             this.timeCurrent.textContent = this.formatTime(this.progressBar.value);
@@ -113,12 +107,10 @@ export class GlobalPlayer {
             this.audio.currentTime = this.progressBar.value;
         });
 
-        // Громкость
         this.volumeBar.addEventListener('input', (e) => { this.audio.volume = e.target.value / 100; });
         this.volumeIcon.addEventListener('click', () => { this.audio.muted = !this.audio.muted; });
     }
 
-    // --- ФИЗИКА ПЛАВУЧЕГО ПЛЕЕРА ---
     initDraggablePlayer() {
         const widget = this.widget;
         let isDraggingPlayer = false;
@@ -139,18 +131,8 @@ export class GlobalPlayer {
             const screenW = window.innerWidth;
             const screenH = window.innerHeight;
 
-            if (currentX < -w / 3) { 
-                widget.classList.add('docked-left');
-                currentX = -w + 64; 
-                widget.style.left = `${currentX}px`;
-                return;
-            }
-            if (currentX > screenW - (w * 0.66)) { 
-                widget.classList.add('docked-right');
-                currentX = screenW - 64; 
-                widget.style.left = `${currentX}px`;
-                return;
-            }
+            if (currentX < -w / 3) { widget.classList.add('docked-left'); currentX = -w + 64; widget.style.left = `${currentX}px`; return; }
+            if (currentX > screenW - (w * 0.66)) { widget.classList.add('docked-right'); currentX = screenW - 64; widget.style.left = `${currentX}px`; return; }
 
             widget.classList.remove('docked-left', 'docked-right');
 
@@ -166,7 +148,6 @@ export class GlobalPlayer {
 
             currentX = distLeft < distRight ? snapLeft : snapRight;
             currentY = distTop < distBottom ? snapTop : snapBottom;
-
             currentY = clamp(currentY, snapTop, snapBottom);
 
             widget.style.left = `${currentX}px`;
@@ -189,14 +170,8 @@ export class GlobalPlayer {
             if (!isDraggingPlayer) return;
             currentX = e.clientX - startX;
             currentY = e.clientY - startY;
-            
-            if (widget.classList.contains('docked-left') && currentX > -widget.offsetWidth / 2) {
-                widget.classList.remove('docked-left');
-            }
-            if (widget.classList.contains('docked-right') && currentX < window.innerWidth - widget.offsetWidth / 2) {
-                widget.classList.remove('docked-right');
-            }
-
+            if (widget.classList.contains('docked-left') && currentX > -widget.offsetWidth / 2) widget.classList.remove('docked-left');
+            if (widget.classList.contains('docked-right') && currentX < window.innerWidth - widget.offsetWidth / 2) widget.classList.remove('docked-right');
             widget.style.left = `${currentX}px`;
             widget.style.top = `${currentY}px`;
         });
@@ -211,10 +186,7 @@ export class GlobalPlayer {
         });
 
         this.dockedOverlay.addEventListener('click', (e) => {
-            if (e.target.closest('#fmpDockedPlayBtn')) {
-                this.togglePlay();
-                return;
-            }
+            if (e.target.closest('#fmpDockedPlayBtn')) { this.togglePlay(); return; }
             widget.classList.remove('docked-left', 'docked-right');
             widget.style.transition = 'left 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275), top 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275)';
             if (currentX < 0) currentX = 24;
@@ -251,6 +223,9 @@ export class GlobalPlayer {
             this.elTitle.textContent = track.title;
             this.elTitle.title = track.title;
             this.elArtist.textContent = track.artist;
+            
+            // Если трек новый, длительность сбрасываем в 0:00 (пока не загрузится)
+            this.timeDuration.textContent = "0:00"; 
             
             const isFav = this.dataManager.getFavoriteTracks().includes(track.id);
             this.btnFav.innerHTML = `<i class="fa-${isFav ? 'solid' : 'regular'} fa-heart"></i>`;

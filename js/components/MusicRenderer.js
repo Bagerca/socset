@@ -4,7 +4,9 @@ import { escapeHTML } from '../utils/utils.js';
 
 export class MusicRenderer {
     
-    // --- ГЛАВНАЯ СТРАНИЦА ---
+    // ... (Методы renderHomeHero, renderQuickPicks, renderGenresGrid, renderSearchBar, renderGenreChips, renderTrackListHeader, renderTrackRow - ОСТАВЛЯЕМ БЕЗ ИЗМЕНЕНИЙ) ...
+    // Я вставлю их сокращенно, чтобы не раздувать ответ, так как меняем только ПЛЕЙЛИСТЫ.
+    
     static renderHomeHero() {
         const hours = new Date().getHours();
         let greeting = 'Доброй ночи';
@@ -13,10 +15,11 @@ export class MusicRenderer {
         else if (hours >= 18 && hours < 23) greeting = 'Добрый вечер';
 
         return `
-            <div class="music-hero-banner">
+            <div class="m-hero-banner">
+                <div class="m-hero-bg"></div>
                 <div class="m-hero-content">
-                    <h1 class="m-greeting">${greeting}</h1>
-                    <p class="m-sub-greeting">Музыка, подобранная специально для вас</p>
+                    <h1 class="m-hero-title">${greeting}</h1>
+                    <p class="m-hero-subtitle">Слушайте новинки и ваши любимые треки в высоком качестве.</p>
                 </div>
             </div>
         `;
@@ -25,119 +28,110 @@ export class MusicRenderer {
     static renderQuickPicks(tracks) {
         if (!tracks || tracks.length === 0) return '';
         const cardsHTML = tracks.map(t => `
-            <div class="quick-pick-card" data-id="${t.id}">
+            <div class="m-quick-card" data-id="${t.id}">
                 <img src="${t.cover}" alt="Cover">
-                <div class="qp-info">
-                    <div class="qp-title">${escapeHTML(t.title)}</div>
-                    <div class="qp-artist">${escapeHTML(t.artist)}</div>
+                <div class="m-qc-info">
+                    <div class="m-qc-title">${escapeHTML(t.title)}</div>
+                    <div class="m-qc-artist">${escapeHTML(t.artist)}</div>
                 </div>
-                <button class="qp-play-btn"><i class="fa-solid fa-play"></i></button>
+                <button class="m-qc-play"><i class="fa-solid fa-play"></i></button>
             </div>
         `).join('');
 
         return `
-            <div class="music-section">
-                <h2 class="music-section-title">Быстрый доступ</h2>
-                <div class="quick-picks-grid">${cardsHTML}</div>
+            <div class="m-section">
+                <h2 class="m-section-title">Быстрый доступ</h2>
+                <div class="m-quick-grid">${cardsHTML}</div>
             </div>
         `;
     }
 
-    static renderGenres(genresList) {
+    static renderGenresGrid(genresList) {
         const cardsHTML = genresList.map(genre => `
-            <div class="genre-card" data-genre="${escapeHTML(genre.id)}" style="background-color: ${genre.color};">
+            <div class="m-genre-card" data-genre="${escapeHTML(genre.id)}" style="background-color: ${genre.color};">
                 <span>${escapeHTML(genre.label)}</span>
             </div>
         `).join('');
 
         return `
-            <div class="music-section">
-                <h2 class="music-section-title">Жанры и Настроения</h2>
-                <div class="genres-grid">${cardsHTML}</div>
+            <div class="m-section">
+                <h2 class="m-section-title">Жанры и Настроения</h2>
+                <div class="m-genres-grid">${cardsHTML}</div>
             </div>
         `;
     }
 
-    // --- РЕЗУЛЬТАТЫ ПОИСКА (НОВЫЙ UX) ---
-    static renderSearchResults(query, topResult, tracks, favs) {
-        let topResultHTML = '';
-        if (topResult) {
-            topResultHTML = `
-                <div class="search-top-result">
-                    <h2 class="music-section-title">Лучшее совпадение</h2>
-                    <div class="top-result-card track-row-pro" data-id="${topResult.id}">
-                        <img src="${topResult.cover}" class="tr-cover">
-                        <div class="tr-title">${escapeHTML(topResult.title)}</div>
-                        <div class="tr-artist">${escapeHTML(topResult.artist)}</div>
-                        <div class="tr-badge">Трек</div>
-                        <button class="tr-play-btn"><i class="fa-solid fa-play"></i></button>
+    static renderSearchBar() {
+        return `
+            <div class="m-search-wrapper" id="musicSearchWrapper">
+                <i class="fa-solid fa-magnifying-glass"></i>
+                <input type="text" id="musicSearchInput" placeholder="Искать треки, артистов или жанры..." autocomplete="off">
+                <div id="musicSearchDropdown" class="search-dropdown-menu" style="display: none;"></div>
+            </div>
+        `;
+    }
+
+    static renderGenreChips(genres, activeGenreId) {
+        let html = `<div class="m-chips-row">`;
+        html += `<button class="m-chip ${!activeGenreId ? 'active' : ''}" data-genre="all">Все треки</button>`;
+        genres.forEach(g => {
+            html += `<button class="m-chip ${activeGenreId === g.id ? 'active' : ''}" data-genre="${g.id}">${escapeHTML(g.label)}</button>`;
+        });
+        html += `</div>`;
+        return html;
+    }
+
+    static renderPlaylistsToolbar() {
+        // Убираем кнопку отсюда, она теперь в сетке
+        return '';
+    }
+
+    static renderTrackListHeader(sortState) {
+        const getIcon = (key) => {
+            if (sortState && sortState.key === key) {
+                return sortState.order === 'asc' 
+                    ? '<i class="fa-solid fa-caret-up sort-icon"></i>' 
+                    : '<i class="fa-solid fa-caret-down sort-icon"></i>';
+            }
+            return '';
+        };
+        const activeClass = (key) => sortState && sortState.key === key ? 'active-sort' : '';
+
+        return `
+            <div class="m-track-header">
+                <div class="m-th-num">#</div>
+                <div class="m-th-title m-th-sortable ${activeClass('title')}" data-sort="title">Название ${getIcon('title')}</div>
+                <div class="m-th-genre m-th-sortable ${activeClass('genre')}" data-sort="genre">Жанр ${getIcon('genre')}</div>
+                <div class="m-th-time m-th-sortable ${activeClass('duration')}" data-sort="duration"><i class="fa-regular fa-clock"></i> ${getIcon('duration')}</div>
+                <div class="m-th-actions"></div>
+            </div>
+        `;
+    }
+
+    static renderTrackRow(track, index, isFav, genreInfo, durationCacheVal) {
+        const genreLabel = genreInfo ? genreInfo.label : '—';
+        const duration = durationCacheVal || '--:--'; 
+
+        return `
+            <div class="m-track-row" data-id="${track.id}" data-url="${track.url}">
+                <div class="m-tr-num">
+                    <span class="num">${index + 1}</span>
+                    <i class="fa-solid fa-play play-icon"></i>
+                </div>
+                <div class="m-tr-info">
+                    <img src="${track.cover}" class="m-tr-cover">
+                    <div class="m-tr-text">
+                        <div class="title">${escapeHTML(track.title)}</div>
+                        <div class="artist">${escapeHTML(track.artist)}</div>
                     </div>
                 </div>
-            `;
-        }
-
-        const tracksListHTML = tracks.slice(0, 4).map((t, i) => this.renderTrackRow(t, i, favs.includes(t.id), null)).join('');
-        
-        return `
-            <div class="search-results-layout">
-                ${topResultHTML}
-                <div class="search-tracks-list">
-                    <h2 class="music-section-title">Треки</h2>
-                    <div class="tracks-container">${tracksListHTML}</div>
-                </div>
-            </div>
-        `;
-    }
-
-    // --- САЙДБАР ПЛЕЙЛИСТОВ ---
-    static renderSidebarPlaylist(album, isActive) {
-        return `
-            <div class="sidebar-playlist-item ${isActive ? 'active' : ''}" data-id="${album.id}">
-                <div class="spi-title">${escapeHTML(album.name)}</div>
-            </div>
-        `;
-    }
-
-    // --- СПИСКИ ТРЕКОВ ---
-    static renderTrackListHeader() {
-        return `
-            <div class="track-list-header">
-                <div class="tl-index">#</div>
-                <div class="tl-title">Название</div>
-                <div class="tl-genre">Жанр</div>
-                <div class="tl-duration"><i class="fa-regular fa-clock"></i></div>
-                <div class="tl-actions"></div>
-            </div>
-        `;
-    }
-
-    static renderTrackRow(track, index, isFav, genreInfo) {
-        const genreLabel = genreInfo ? genreInfo.label : (track.genre ? track.genre : '—');
-        const duration = track.duration || '—';
-
-        return `
-            <div class="track-row-pro" data-id="${track.id}">
-                <div class="t-index">
-                    <span class="t-num">${index + 1}</span>
-                    <i class="fa-solid fa-play t-play-icon"></i>
-                </div>
-                
-                <div class="t-main-info">
-                    <img src="${track.cover}" class="t-cover">
-                    <div class="t-text">
-                        <div class="t-title">${escapeHTML(track.title)}</div>
-                        <div class="t-artist">${escapeHTML(track.artist)}</div>
-                    </div>
-                </div>
-
-                <div class="t-genre">${escapeHTML(genreLabel)}</div>
-                <div class="t-duration">${escapeHTML(duration)}</div>
-
-                <div class="t-actions">
-                    <button class="t-btn fav ${isFav ? 'active' : ''}" data-id="${track.id}">
+                <div class="m-tr-genre">${escapeHTML(genreLabel)}</div>
+                <div class="m-tr-time" id="dur-${track.id}">${escapeHTML(duration)}</div>
+                <div class="m-tr-actions">
+                    <button class="icon-btn-small fav-btn ${isFav ? 'active' : ''}" data-id="${track.id}">
                         <i class="fa-${isFav ? 'solid' : 'regular'} fa-heart"></i>
                     </button>
-                    <button class="t-btn add" data-id="${track.id}" title="В плейлист">
+                    <button class="icon-btn-small add-btn" data-id="${track.id}" title="В плейлист">
                         <i class="fa-solid fa-plus"></i>
                     </button>
                 </div>
@@ -145,32 +139,106 @@ export class MusicRenderer {
         `;
     }
 
-    // --- АЛЬБОМЫ ---
-    static renderAlbumHeader(albumName, tracksCount, coverUrl) {
-        return `
-            <div class="album-hero" style="background-image: url('${coverUrl}');">
-                <div class="album-hero-overlay"></div>
-                <div class="album-hero-content">
-                    <img src="${coverUrl}" class="album-hero-cover">
-                    <div class="album-hero-info">
-                        <div class="ah-type">Плейлист</div>
-                        <div class="ah-title">${escapeHTML(albumName)}</div>
-                        <div class="ah-meta">Треков: ${tracksCount}</div>
-                        <div class="ah-actions">
-                            <button class="btn-play-all"><i class="fa-solid fa-play"></i> Слушать всё</button>
-                            <button class="icon-btn album-hero-del"><i class="fa-solid fa-trash"></i></button>
-                        </div>
+    // --- ПОЛНОСТЬЮ ОБНОВЛЕННАЯ СЕТКА ПЛЕЙЛИСТОВ ---
+    static renderPlaylistsGrid(albums) {
+        // Карточка создания плейлиста (всегда первая)
+        const createCard = `
+            <div class="m-playlist-card create-pl-card" id="btnCreatePlaylistCard">
+                <div class="m-pl-visual create-visual">
+                    <div class="create-icon"><i class="fa-solid fa-plus"></i></div>
+                </div>
+                <div class="m-pl-info">
+                    <div class="m-pl-title">Создать плейлист</div>
+                    <div class="m-pl-desc">Новая коллекция</div>
+                </div>
+            </div>
+        `;
+
+        const renderCard = (album) => {
+            const count = album.tracks.length;
+            
+            // Определяем класс стопки
+            let stackClass = 'stack-0'; 
+            if (count >= 1 && count < 3) stackClass = 'stack-1'; 
+            if (count >= 3) stackClass = 'stack-2'; 
+
+            const coverSrc = count > 0 ? album.cover : 'https://placehold.co/300x300/1a1a1c/333333?text=Music';
+            
+            // Генерируем слои. ВАЖНО: Задние слои теперь тоже имеют картинку!
+            let layersHTML = '';
+            
+            // Слой 3 (самый дальний)
+            if (count >= 3) {
+                layersHTML += `<div class="layer layer-back-2" style="background-image: url('${coverSrc}');"></div>`;
+            }
+            // Слой 2 (средний)
+            if (count >= 1) {
+                layersHTML += `<div class="layer layer-back-1" style="background-image: url('${coverSrc}');"></div>`;
+            }
+            // Слой 1 (верхний)
+            layersHTML += `
+                <div class="layer layer-top">
+                    <img src="${coverSrc}" class="m-pl-img">
+                    <div class="m-pl-overlay"><i class="fa-solid fa-play"></i></div>
+                    <div class="m-pl-badge"><i class="fa-solid fa-music"></i> ${count}</div>
+                </div>
+            `;
+
+            return `
+                <div class="m-playlist-card ${stackClass}" data-id="${album.id}">
+                    <div class="m-pl-visual">
+                        ${layersHTML}
                     </div>
+
+                    <div class="m-pl-info">
+                        <div class="m-pl-title">${escapeHTML(album.name)}</div>
+                        <div class="m-pl-desc">Ваш плейлист</div>
+                        <button class="del-pl-btn" data-id="${album.id}" title="Удалить"><i class="fa-solid fa-trash"></i></button>
+                    </div>
+                </div>
+            `;
+        };
+
+        return `
+            <div class="m-playlists-grid">
+                ${createCard}
+                ${albums.map(a => renderCard(a)).join('')}
+            </div>
+        `;
+    }
+
+    static renderPlaylistView(album, tracksCount) {
+        return `
+            <button id="btnBackToPlaylists" class="icon-btn" style="margin-bottom: 20px;"><i class="fa-solid fa-arrow-left"></i></button>
+            <div class="m-playlist-hero">
+                <img src="${album.cover}" class="m-ph-cover">
+                <div class="m-ph-info">
+                    <span class="m-ph-type">Плейлист</span>
+                    <h1 class="m-ph-title">${escapeHTML(album.name)}</h1>
+                    <span class="m-ph-meta">${tracksCount} треков</span>
+                    <button id="btnPlayAllAlbum" class="btn-post m-ph-playbtn" data-id="${album.id}"><i class="fa-solid fa-play"></i> Слушать всё</button>
                 </div>
             </div>
         `;
     }
 
-    static renderEmptyState(icon, message) {
+    static renderDropdownItem(item) {
         return `
-            <div class="music-empty-state">
+            <div class="search-dropdown-item" data-id="${item.id}">
+                <img src="${item.cover}" style="width:36px;height:36px;border-radius:4px;object-fit:cover;">
+                <div style="flex:1; min-width:0; text-align:left;">
+                    <div style="font-size:14px; font-weight:700; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; color:#fff;">${escapeHTML(item.title)}</div>
+                    <div style="font-size:12px; color:var(--text-muted); white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${escapeHTML(item.artist)}</div>
+                </div>
+            </div>
+        `;
+    }
+
+    static renderEmptyState(icon, text) {
+        return `
+            <div class="m-empty-state">
                 <i class="${icon}"></i>
-                <div class="empty-text">${message}</div>
+                <p>${text}</p>
             </div>
         `;
     }
