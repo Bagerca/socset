@@ -3,8 +3,9 @@
         "id": "game_val",
         "title": "Valorant",
         "tier": "tier_aaa",
-        "tags": ["tag_shooter", "tag_multi", "tag_pvp", "tag_scifi", "tag_free"],
+        "tags": ["tag_shooter", "tag_multi", "tag_pvp", "tag_scifi"],
         "icon": "img/games/valorant.jpg",
+        "banner": "img/games/valorant_banner.jpg",
         "description": "Многопользовательский тактический шутер от первого лица, разработанный Riot Games.",
         "trailer": "https://www.youtube.com/embed/e_E9W2vsRbQ?autoplay=1&mute=1"
     },
@@ -41,6 +42,7 @@
         "tier": "tier_aaa",
         "tags": ["tag_rpg", "tag_openworld", "tag_cyberpunk", "tag_action", "tag_story", "tag_scifi"],
         "icon": "img/games/cyberpunk.jpg",
+        "banner": "img/games/cyberpunk_banner.jpg",
         "description": "Приключенческая ролевая игра с открытым миром в мегаполисе Найт-Сити.",
         "trailer": "https://www.youtube.com/embed/qIcTM8WXFjk?autoplay=1&mute=1"
     },
@@ -48,7 +50,7 @@
         "id": "game_ht",
         "title": "Helltaker",
         "tier": "tier_indie",
-        "tags": ["tag_puzzle", "tag_anime", "tag_single", "tag_free", "tag_relax"],
+        "tags": ["tag_puzzle", "tag_anime", "tag_single", "tag_relax"],
         "icon": "img/games/helltaker.jpg",
         "description": "Короткая игра-головоломка про сбор гарема из демонесс.",
         "trailer": "https://www.youtube.com/embed/q6oKxH3t-hU?autoplay=1&mute=1"
@@ -59,7 +61,72 @@
         "tier": "tier_indie",
         "tags": ["tag_survival", "tag_openworld", "tag_scifi", "tag_space", "tag_single"],
         "icon": "img/games/subnautica.jpg",
+        "banner": "img/games/subnautica_banner.jpg",
         "description": "Игра про выживание в открытом океане на чужой планете.",
         "trailer": "https://www.youtube.com/embed/Rj2QdbF4vsM?autoplay=1&mute=1"
+    },
+    {
+        "id": "game_atomic",
+        "title": "Atomic Heart",
+        "tier": "tier_aaa",
+        "tags": ["tag_shooter", "tag_action", "tag_scifi", "tag_story", "tag_postapoc", "tag_single"],
+        "icon": "img/games/atomic_heart.jpg",
+        "description": "Приключенческий шутер от первого лица в альтернативном ретрофутуристическом СССР.",
+        "trailer": "https://www.youtube.com/embed/mXIfT2wP1fA?autoplay=1&mute=1"
+    },
+    {
+        "id": "game_awaria",
+        "title": "Awaria",
+        "tier": "tier_indie",
+        "tags": ["tag_adventure", "tag_puzzle", "tag_single", "tag_story"],
+        "icon": "img/games/awaria.png",
+        "description": "Увлекательное инди-приключение с уникальным стилем и головоломками.",
+        "trailer": ""
+    },
+    {
+        "id": "game_bio2",
+        "title": "BioShock 2",
+        "tier": "tier_aaa",
+        "tags": ["tag_shooter", "tag_action", "tag_story", "tag_scifi", "tag_single"],
+        "icon": "img/games/bioshock_2.png",
+        "description": "Вернитесь в подводный город Восторг в роли Большого Папочки в прямом продолжении культовой игры.",
+        "trailer": "https://www.youtube.com/embed/nFWpDEXd1cE?autoplay=1&mute=1"
+    },
+    {
+        "id": "game_bio_inf",
+        "title": "BioShock Infinite",
+        "tier": "tier_aaa",
+        "tags": ["tag_shooter", "tag_action", "tag_story", "tag_scifi", "tag_single"],
+        "icon": "img/games/bioshock_infinite.png",
+        "description": "Отправляйтесь в парящий небесный город Колумбия, чтобы спасти девушку с необычными способностями Элизабет.",
+        "trailer": "https://www.youtube.com/embed/bLHW78X1XeE?autoplay=1&mute=1"
+    },
+    {
+        "id": "game_choo",
+        "title": "Choo-Choo Charles",
+        "tier": "tier_indie",
+        "tags": ["tag_horror", "tag_survival", "tag_action", "tag_openworld", "tag_single"],
+        "icon": "img/games/choo_choo_charles.png",
+        "description": "Путешествуйте по острову на старом поезде, улучшайте его и сражайтесь с жутким пауком-паровозом Чарльзом.",
+        "trailer": "https://www.youtube.com/embed/F74LLDz2zvw?autoplay=1&mute=1"
+    },
+    {
+        "id": "game_marvel_rivals",
+        "title": "Marvel Rivals",
+        "tier": "tier_aaa",
+        "tags": ["tag_shooter", "tag_action", "tag_multi", "tag_pvp", "tag_scifi"],
+        "icon": "img/games/marvel_rivals.jpg",
+        "banner": "img/games/marvel_rivals_banner.jpg",
+        "description": "Динамичный командный PvP-шутер, где вы играете за культовых супергероев и злодеев из мультивселенной Marvel.",
+        "trailer": "https://www.youtube.com/embed/1C1rOtc32-E?autoplay=1&mute=1"
+    },
+    {
+        "id": "game_tiny_bunny",
+        "title": "Tiny Bunny (Зайчик)",
+        "tier": "tier_indie",
+        "tags": ["tag_horror", "tag_adventure", "tag_story", "tag_single", "tag_retro"],
+        "icon": "img/games/tiny_bunny.jpg",
+        "description": "Нелинейная визуальная новелла в жанре хоррор. Действие происходит в тихом поселке посреди сибирского леса в 90-х годах.",
+        "trailer": "https://www.youtube.com/embed/hO2k-m6mJkM?autoplay=1&mute=1"
     }
 ]

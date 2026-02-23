@@ -1,40 +1,44 @@
+// js/views/GamesView.js
+
 import { GamesController } from '../controllers/GamesController.js';
 
 export const GamesView = {
     html: `
         <div class="games-page-container">
             
-            <!-- 1. HERO SECTION (Заполняется из JS) -->
-            <!-- Сюда контроллер вставит большую карточку с игрой -->
+            <!-- 1. HERO SECTION -->
             <div id="heroSection" class="hero-section"></div>
 
             <!-- 2. ПАНЕЛЬ УПРАВЛЕНИЯ -->
             <div class="games-controls">
+                
+                <!-- Верхний ряд: Поиск + Фильтры -->
                 <div class="games-top-row">
-                    <!-- Поиск -->
-                    <div class="games-search-box" id="gamesSearchWrapper" style="position: relative; overflow: visible;">
-                        <i class="fa-solid fa-magnifying-glass"></i>
-                        <input type="text" id="gamesSearchInput" placeholder="Поиск игр...">
+                    <div class="games-search-wrapper" id="gamesSearchWrapper">
+                        <i class="fa-solid fa-magnifying-glass" id="gamesSearchBtn" title="Найти"></i>
+                        <input type="text" id="gamesSearchInput" placeholder="Поиск игр..." autocomplete="off">
                         <div id="gamesSearchDropdown" class="search-dropdown-menu" style="display: none;"></div>
                     </div>
-                    
-                    <!-- Кнопка Фильтров (Открывает шторку) -->
+
                     <button id="openFiltersBtn" class="filter-toggle-btn">
                         <i class="fa-solid fa-filter"></i> Фильтры
                     </button>
                 </div>
 
-                <!-- Быстрые теги (Chips) -->
-                <div id="quickChipsContainer" class="quick-chips-row">
-                    <button class="filter-chip active" data-filter="all">Все</button>
-                    <button class="filter-chip" data-filter="fav"><i class="fa-solid fa-heart"></i> Избранное</button>
-                    <button class="filter-chip" data-tier="tier_aaa">AAA</button>
-                    <button class="filter-chip" data-tier="tier_indie">Indie</button>
-                    <button class="filter-chip" data-tag="tag_shooter">Шутеры</button>
-                    <button class="filter-chip" data-tag="tag_rpg">RPG</button>
-                    <button class="filter-chip" data-tag="tag_horror">Хоррор</button>
-                    <button class="filter-chip" data-tag="tag_cyberpunk">Киберпанк</button>
+                <!-- Нижний ряд: Быстрые теги (С градиентной оберткой) -->
+                <div class="games-chips-wrapper">
+                    <div class="games-chips-row" id="quickChipsContainer">
+                        <button class="g-chip active" data-filter="all">Все игры</button>
+                        <button class="g-chip" data-filter="fav"><i class="fa-solid fa-heart"></i> Избранное</button>
+                        <button class="g-chip" data-tier="tier_aaa">AAA</button>
+                        <button class="g-chip" data-tier="tier_indie">Indie</button>
+                        <button class="g-chip" data-tag="tag_shooter">Шутеры</button>
+                        <button class="g-chip" data-tag="tag_rpg">RPG</button>
+                        <button class="g-chip" data-tag="tag_horror">Хоррор</button>
+                        <button class="g-chip" data-tag="tag_cyberpunk">Киберпанк</button>
+                    </div>
                 </div>
+
             </div>
             
             <!-- 3. КОНТЕНТ (Лента или Сетка) -->

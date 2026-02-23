@@ -5,9 +5,12 @@ import { escapeHTML } from '../utils/utils.js';
 export class GamesRenderer {
     
     // 1. Главный баннер (Hero Section)
+    // ИЗМЕНЕНО: Использование баннера, если он есть
     static renderHero(game, tierInfo, tagsText) {
+        const heroImage = game.banner || game.icon;
+        
         return `
-            <img src="${game.icon}" class="hero-bg" alt="${escapeHTML(game.title)}">
+            <img src="${heroImage}" class="hero-bg" alt="${escapeHTML(game.title)}">
             <div class="hero-overlay"></div>
             <div class="hero-content">
                 <div class="hero-badge" style="background:${tierInfo.color}">${tierInfo.label}</div>
@@ -20,7 +23,7 @@ export class GamesRenderer {
         `;
     }
 
-    // 2. Группа чекбоксов (Обновлено)
+    // 2. Группа чекбоксов
     static renderFilterGroup(title, checkboxesHTML, marginTop = false) {
         return `
             <div class="filter-group" ${marginTop ? 'style="margin-top:8px;"' : ''}>
@@ -32,7 +35,7 @@ export class GamesRenderer {
         `;
     }
 
-    // 3. Кастомный Чекбокс (ОБНОВЛЕНО: Спрятанный инпут + красивый UI)
+    // 3. Кастомный Чекбокс
     static renderFilterCheckbox(value, type, label) {
         return `
             <label class="custom-filter-checkbox">
@@ -47,7 +50,7 @@ export class GamesRenderer {
     static renderSearchDropdownItem(game) {
         return `
             <div class="search-dropdown-item" data-id="${game.id}">
-                <img src="${game.icon}" style="width:24px;height:32px;object-fit:cover;border-radius:4px;">
+                <img src="${game.icon}" loading="lazy" style="width:24px;height:32px;object-fit:cover;border-radius:4px;">
                 <span style="font-size:14px; color:#fff;">${escapeHTML(game.title)}</span>
             </div>
         `;
@@ -68,8 +71,10 @@ export class GamesRenderer {
         return `
             <div class="games-row-section">
                 <div class="games-row-header">${title}</div>
-                <div class="games-horizontal-scroll">
-                    ${cardsHTML}
+                <div class="games-scroll-mask">
+                    <div class="games-horizontal-scroll">
+                        ${cardsHTML}
+                    </div>
                 </div>
             </div>
         `;
@@ -82,8 +87,7 @@ export class GamesRenderer {
         return `
             <div class="game-card" data-id="${game.id}">
                 <div class="game-cover-wrapper">
-                    <img src="${game.icon}" class="game-cover" onerror="this.src='https://placehold.co/600x800/1a1a1c/ffffff?text=Game'">
-                    <div class="game-overlay"></div>
+                    <img src="${game.icon}" loading="lazy" class="game-cover" onerror="this.src='https://placehold.co/600x800/1a1a1c/ffffff?text=Game'">
                     <div class="game-tier-badge" style="background:${tierInfo.color}">${tierInfo.label}</div>
                     <button class="game-fav-btn ${isFav ? 'active' : ''}" data-id="${game.id}">
                         <i class="fa-${isFav ? 'solid' : 'regular'} fa-heart"></i>

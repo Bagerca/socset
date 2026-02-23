@@ -1,3 +1,5 @@
+/* css/components/_modals.css */
+
 /* Модальное окно (фон) */
 .modal-overlay {
     display: none; /* Скрыто по умолчанию */
@@ -95,6 +97,8 @@
     margin-top: 12px;
     background: #1a1a1c;
     border: 1px solid var(--border-color);
+    /* НОВОЕ: Зеленая полоска слева */
+    border-left: 3px solid var(--accent-music);
     border-radius: 12px;
     padding: 12px;
     display: flex;
@@ -113,7 +117,8 @@
     margin-top: 12px;
     background: linear-gradient(145deg, rgba(30, 30, 35, 0.4) 0%, rgba(20, 20, 24, 0.6) 100%);
     border: 1px solid rgba(255, 255, 255, 0.05);
-    border-left: 3px solid #5dade2; /* Голубой акцент сбоку */
+    /* ИЗМЕНЕНО: Фиолетовая полоска слева (вместо голубой) */
+    border-left: 3px solid var(--accent-games); 
     border-radius: 12px;
     padding: 12px;
     display: flex;

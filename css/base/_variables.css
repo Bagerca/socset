@@ -1,3 +1,5 @@
+/* css/base/_variables.css */
+
 :root {
     --bg-base: #0a0a0c; 
     --surface: #141416; 
@@ -12,9 +14,9 @@
     --danger: #ff453a;
     
     /* --- ЦВЕТОВЫЕ АКЦЕНТЫ РАЗДЕЛОВ --- */
-    --accent-music: #44bd32; /* Зеленый */
-    --accent-games: #9b59b6; /* Фиолетовый (Cyber Violet) */
-    --accent-shop: #ffd700;  /* Золотой */
+    --accent-music: #44bd32; 
+    --accent-games: #7c3aed; /* ИЗМЕНЕНО: Более глубокий, насыщенный неоново-фиолетовый */
+    --accent-shop: #ffd700;  
 
     --radius-pill: 100px;
     --radius-large: 20px;

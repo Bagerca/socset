@@ -8,7 +8,7 @@ export class GamesController {
     constructor(dataManager) {
         this.dataManager = dataManager;
         this.searchEngine = new SearchEngine();
-        this.abortController = new AbortController(); // МЕНЕДЖМЕНТ ПАМЯТИ
+        this.abortController = new AbortController(); 
 
         this.state = {
             searchQuery: '',
@@ -25,7 +25,7 @@ export class GamesController {
         this.searchDropdown = document.getElementById('gamesSearchDropdown');
         
         this.openFiltersBtn = document.getElementById('openFiltersBtn');
-        this.quickChips = document.querySelectorAll('.filter-chip');
+        this.quickChips = document.querySelectorAll('.g-chip');
         
         this.drawer = document.getElementById('filterDrawer');
         this.drawerOverlay = document.getElementById('filterDrawerOverlay');
@@ -47,15 +47,21 @@ export class GamesController {
     }
 
     destroy() {
-        // Убиваем все локальные слушатели событий
         this.abortController.abort();
     }
 
     // --- 1. HERO SECTION (БАННЕР) ---
     renderHero() {
         const games = this.dataManager.getGamesCatalog();
+        
+        // 1. Приоритет: игры с специальным баннером
+        const bannerGames = games.filter(g => g.banner);
+        
+        // 2. Фолбек: игры ААА класса
         const aaaGames = games.filter(g => g.tier === 'tier_aaa');
-        const pool = aaaGames.length > 0 ? aaaGames : games;
+        
+        // Выбираем пул: если есть игры с баннерами - берем их, иначе ААА, иначе все
+        let pool = bannerGames.length > 0 ? bannerGames : (aaaGames.length > 0 ? aaaGames : games);
         
         if (pool.length === 0) { 
             this.heroSection.style.display = 'none'; 
@@ -66,10 +72,8 @@ export class GamesController {
         const tierInfo = this.dataManager.getGameTier(heroGame.tier);
         const tagsString = this.dataManager.getGameTags(heroGame.tags).slice(0, 3).map(t => t.label).join(' • ');
 
-        // ИСПОЛЬЗУЕМ RENDERER
         this.heroSection.innerHTML = GamesRenderer.renderHero(heroGame, tierInfo, tagsString);
 
-        // Вешаем слушатель (сработает локально для элемента)
         this.heroSection.querySelector('.hero-btn').addEventListener('click', () => this.openGameDetails(heroGame));
     }
 
@@ -81,13 +85,11 @@ export class GamesController {
 
         let html = '';
 
-        // Собираем чекбоксы масштаба
         let tiersHTML = Object.entries(tiers).map(([key, val]) => 
             GamesRenderer.renderFilterCheckbox(key, 'tier', val.label)
         ).join('');
         html += GamesRenderer.renderFilterGroup('Масштаб', tiersHTML);
 
-        // Собираем чекбоксы категорий
         for (const [catKey, catLabel] of Object.entries(categories)) {
             const catTags = Object.values(tags).filter(t => t.category === catKey);
             if (catTags.length > 0) {
@@ -104,6 +106,16 @@ export class GamesController {
     // --- 3. EVENTS ---
     bindEvents() {
         const signal = this.abortController.signal;
+
+        const chipsContainer = document.getElementById('quickChipsContainer');
+        if (chipsContainer) {
+            chipsContainer.addEventListener('wheel', (evt) => {
+                if (evt.deltaY !== 0) {
+                    evt.preventDefault();
+                    chipsContainer.scrollLeft += evt.deltaY;
+                }
+            }, { signal, passive: false });
+        }
 
         this.quickChips.forEach(btn => {
             btn.addEventListener('click', () => {
@@ -141,6 +153,15 @@ export class GamesController {
             }
         }, { signal });
 
+        const searchBtn = document.getElementById('gamesSearchBtn');
+        if (searchBtn) {
+            searchBtn.addEventListener('click', () => {
+                this.searchDropdown.style.display = 'none';
+                this.state.searchQuery = this.searchInput.value.trim();
+                this.renderContent();
+            }, { signal });
+        }
+
         this.openFiltersBtn.addEventListener('click', () => this.toggleDrawer(true), { signal });
         this.closeDrawerBtn.addEventListener('click', () => this.toggleDrawer(false), { signal });
         this.drawerOverlay.addEventListener('click', () => this.toggleDrawer(false), { signal });
@@ -161,13 +182,12 @@ export class GamesController {
             this.drawerContent.querySelectorAll('input').forEach(cb => cb.checked = false);
             this.state.activeTags = []; this.state.activeTiers = []; this.state.quickFilter = 'all';
             this.quickChips.forEach(b => b.classList.remove('active'));
-            this.quickChips[0].classList.add('active');
+            if(this.quickChips[0]) this.quickChips[0].classList.add('active');
             this.openFiltersBtn.classList.remove('active');
             this.toggleDrawer(false);
             this.renderContent();
         }, { signal });
 
-        // Глобальный клик привязан к AbortController
         document.addEventListener('click', (e) => {
             const dropItem = e.target.closest('.search-dropdown-item');
             if (dropItem) {
@@ -262,29 +282,44 @@ export class GamesController {
         this.contentArea.innerHTML = games.map(g => this.createGameCardHTML(g)).join('');
     }
 
-    // РЕНДЕР ЛЕНТЫ
     renderFeed() {
         this.contentArea.innerHTML = '';
         const allGames = this.dataManager.getGamesCatalog();
         if (allGames.length === 0) return;
 
-        const recommended = this.getRecommendations(allGames);
+        const maxPerLine = 15;
+
+        // 1. Рекомендации
+        const recommended = this.getRecommendations(allGames).slice(0, maxPerLine);
         if (recommended.length > 0) {
             this.renderRow('Рекомендовано вам', recommended);
         }
 
+        // 2. Блокбастеры
+        const aaaGames = allGames.filter(g => g.tier === 'tier_aaa').slice(0, maxPerLine);
+        if (aaaGames.length > 0) {
+            this.renderRow('Блокбастеры', aaaGames);
+        }
+
+        // 3. Инди-хиты
+        const indieGames = allGames.filter(g => g.tier === 'tier_indie').slice(0, maxPerLine);
+        if (indieGames.length > 0) {
+            this.renderRow('Инди-хиты', indieGames);
+        }
+
+        // 4. Динамические ряды
         const allTags = this.dataManager.getAllGameTags();
         const tagKeys = Object.keys(allTags);
-        const randomKeys = tagKeys.sort(() => 0.5 - Math.random()).slice(0, 3);
+        const randomKeys = tagKeys.sort(() => 0.5 - Math.random()).slice(0, 2);
 
         randomKeys.forEach(tagKey => {
-            const gamesInTag = allGames.filter(g => g.tags && g.tags.includes(tagKey));
+            const gamesInTag = allGames.filter(g => g.tags && g.tags.includes(tagKey)).slice(0, maxPerLine);
             if (gamesInTag.length >= 3) {
                 this.renderRow(allTags[tagKey].label, gamesInTag);
             }
         });
 
-        // ИСПРАВЛЕНИЕ СКРОЛЛА привязано к AbortController
+        // Скролл колесиком
         const scrollContainers = this.contentArea.querySelectorAll('.games-horizontal-scroll');
         scrollContainers.forEach(container => {
             container.addEventListener('wheel', (evt) => {
@@ -299,7 +334,7 @@ export class GamesController {
     getRecommendations(allGames) {
         const favIds = this.dataManager.getFavoriteGames();
         if (favIds.length === 0) {
-            return allGames.filter(g => g.tier === 'tier_aaa').slice(0, 8);
+            return allGames.filter(g => g.tier === 'tier_aaa');
         }
 
         const favTags = [];
@@ -317,8 +352,7 @@ export class GamesController {
             })
             .filter(item => item.score > 0)
             .sort((a, b) => b.score - a.score)
-            .map(item => item.game)
-            .slice(0, 8);
+            .map(item => item.game);
     }
 
     renderRow(title, games) {
@@ -353,7 +387,7 @@ export class GamesController {
         const tags = this.dataManager.getGameTags(game.tags);
         
         document.getElementById('gdGenre').innerHTML = `<span style="color:${tier.color}; font-weight:800; margin-right:8px;">${tier.label}</span>`;
-        document.getElementById('gdTagsList').innerHTML = tags.map(t => `<span class="gd-tag-chip">${t.label}</span>`).join('');
+        document.getElementById('gdTagsList').innerHTML = tags.map(t => `<span class="game-tag-chip">${t.label}</span>`).join('');
         document.getElementById('gdDescription').textContent = game.description || 'Описание отсутствует.';
         
         modal.classList.add('active');
