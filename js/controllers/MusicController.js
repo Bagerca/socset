@@ -76,6 +76,7 @@ export class MusicController {
 
     getSortedTracks(tracks) {
         if (!this.sortState.key) return tracks;
+        
         return [...tracks].sort((a, b) => {
             let valA, valB;
             if (this.sortState.key === 'duration') {
@@ -120,12 +121,9 @@ export class MusicController {
             const sortHeader = e.target.closest('.m-th-sortable');
             if (sortHeader) {
                 const key = sortHeader.dataset.sort;
-                if (this.sortState.key === key) {
-                    this.sortState.order = this.sortState.order === 'asc' ? 'desc' : 'asc';
-                } else {
-                    this.sortState.key = key;
-                    this.sortState.order = 'asc';
-                }
+                if (key === 'reset') { this.sortState.key = null; this.sortState.order = 'asc'; } 
+                else if (this.sortState.key === key) { this.sortState.order = this.sortState.order === 'asc' ? 'desc' : 'asc'; } 
+                else { this.sortState.key = key; this.sortState.order = 'asc'; }
                 this.renderContent(); 
                 return;
             }
@@ -146,18 +144,59 @@ export class MusicController {
                 return;
             }
 
-            const playlistCard = e.target.closest('.m-playlist-card');
+            // Обработка кнопки Троеточия (Опции)
+            const plOptsBtn = e.target.closest('.pl-opts-btn');
+            if (plOptsBtn) {
+                e.stopPropagation(); 
+                const menu = plOptsBtn.nextElementSibling;
+                
+                document.querySelectorAll('.pl-options-menu.active').forEach(m => {
+                    if (m !== menu) { m.classList.remove('active'); m.previousElementSibling.classList.remove('active'); }
+                });
+
+                menu.classList.toggle('active');
+                plOptsBtn.classList.toggle('active');
+                return;
+            }
+
+            // Переименовать плейлист
+            const editPlBtn = e.target.closest('.edit-pl-btn');
+            if (editPlBtn) {
+                e.stopPropagation();
+                const albumId = editPlBtn.dataset.id;
+                const currentName = editPlBtn.dataset.name;
+                const newName = prompt('Введите новое название плейлиста:', currentName);
+                
+                if (newName && newName.trim() !== '' && newName.trim() !== currentName) {
+                    const album = this.dataManager.profile.customAlbums.find(a => a.id === albumId);
+                    if (album) {
+                        album.name = newName.trim();
+                        this.dataManager._saveProfile();
+                        this.renderContent();
+                    }
+                }
+                return;
+            }
+
+            // Удалить плейлист
             const delPlBtn = e.target.closest('.del-pl-btn');
-            
             if (delPlBtn) {
                 e.stopPropagation();
-                if (confirm('Удалить этот плейлист?')) {
-                    this.dataManager.deleteCustomAlbum(delPlBtn.dataset.id);
+                if (confirm('Вы уверены, что хотите удалить этот плейлист?')) {
+                    const idToDelete = delPlBtn.dataset.id;
+                    this.dataManager.deleteCustomAlbum(idToDelete);
+                    // ИСПРАВЛЕНИЕ: Если удаляем плейлист, находясь внутри него, выходим наружу
+                    if (this.currentAlbumId === idToDelete) {
+                        this.currentAlbumId = null;
+                    }
                     this.renderContent();
                 }
                 return;
             }
-            if (playlistCard) {
+
+            // Открытие плейлиста
+            const playlistCard = e.target.closest('.m-playlist-card');
+            if (playlistCard && !e.target.closest('.m-pl-options-wrapper')) {
                 this.currentAlbumId = playlistCard.dataset.id;
                 this.renderContent();
                 return;
@@ -170,7 +209,8 @@ export class MusicController {
                 return;
             }
 
-            if (e.target.closest('#btnBackToPlaylists')) {
+            const backBtn = e.target.closest('#btnBackToPlaylists');
+            if (backBtn) {
                 this.currentAlbumId = null;
                 this.renderContent();
                 return;
@@ -178,6 +218,16 @@ export class MusicController {
         }, { signal });
 
         this.subHeader.addEventListener('click', (e) => {
+            const toggleBtn = e.target.closest('#toggleChipsBtn');
+            if (toggleBtn) {
+                const row = document.getElementById('musicChipsRow');
+                if (row) {
+                    row.classList.toggle('expanded');
+                    toggleBtn.classList.toggle('expanded');
+                }
+                return;
+            }
+
             const chip = e.target.closest('.m-chip');
             if (chip) {
                 this.currentGenreId = chip.dataset.genre;
@@ -189,6 +239,13 @@ export class MusicController {
         }, { signal });
 
         document.addEventListener('click', (e) => {
+            if (!e.target.closest('.m-pl-options-wrapper')) {
+                document.querySelectorAll('.pl-options-menu.active').forEach(m => {
+                    m.classList.remove('active');
+                    if (m.previousElementSibling) m.previousElementSibling.classList.remove('active');
+                });
+            }
+
             const dropItem = e.target.closest('.search-dropdown-item');
             if (dropItem && dropItem.closest('#musicSearchDropdown')) {
                 const track = this.dataManager.getTrackById(dropItem.dataset.id);
@@ -196,6 +253,7 @@ export class MusicController {
                     const input = document.getElementById('musicSearchInput');
                     if (input) input.value = track.title;
                     this.searchQuery = track.title;
+                    this.sortState.key = null; 
                     document.getElementById('musicSearchDropdown').style.display = 'none';
                     this.renderContent();
                 }
@@ -242,6 +300,7 @@ export class MusicController {
             setTimeout(() => {
                 const searchInput = document.getElementById('musicSearchInput');
                 const dropdown = document.getElementById('musicSearchDropdown');
+                const searchBtn = document.getElementById('musicSearchBtn');
                 
                 if (searchInput && dropdown) {
                     searchInput.focus();
@@ -268,13 +327,24 @@ export class MusicController {
                         }
                     }, 200);
                     searchInput.addEventListener('input', (e) => handleDropdownSearch(e.target.value.trim()));
+                    
                     searchInput.addEventListener('keydown', (e) => {
                         if (e.key === 'Enter') {
                             dropdown.style.display = 'none';
                             this.searchQuery = searchInput.value.trim();
+                            this.sortState.key = null; 
                             this.renderContent(); 
                         }
                     });
+
+                    if (searchBtn) {
+                        searchBtn.addEventListener('click', () => {
+                            dropdown.style.display = 'none';
+                            this.searchQuery = searchInput.value.trim();
+                            this.sortState.key = null; 
+                            this.renderContent(); 
+                        });
+                    }
                 }
             }, 50);
         }
@@ -317,7 +387,6 @@ export class MusicController {
         const allGenres = this.dataManager.getAllMusicGenres();
         const genresList = Array.from(genresSet).map(id => allGenres[id]).filter(Boolean).slice(0, 8);
         
-        // На главной странице панели не нужны, здесь большие баннеры
         this.mainContent.innerHTML = MusicRenderer.renderHomeHero() + MusicRenderer.renderQuickPicks(quickPicks) + MusicRenderer.renderGenresGrid(genresList);
     }
 
@@ -329,6 +398,7 @@ export class MusicController {
 
         let tracks = this.dataManager.getMusicCatalog();
         const itemsWithGenres = tracks.map(t => ({ ...t, genreLabel: this.dataManager.getMusicGenreById(t.genre).label }));
+        
         const results = this.searchEngine.search(itemsWithGenres, this.searchQuery, [{ field: 'title', weight: 4 }, { field: 'artist', weight: 2 }, { field: 'genreLabel', weight: 1 }]);
         
         if (results.length === 0) { 
@@ -339,7 +409,6 @@ export class MusicController {
         const sortedResults = this.getSortedTracks(results);
         const favs = this.dataManager.getFavoriteTracks();
         
-        // ОБОРАЧИВАЕМ В ПАНЕЛЬ!
         let html = `<div class="music-content-panel">`;
         html += `<h2 class="m-section-title" style="margin-bottom: 20px;">Результаты поиска</h2>`;
         html += MusicRenderer.renderTrackListHeader(this.sortState);
@@ -367,7 +436,6 @@ export class MusicController {
         const favs = this.dataManager.getFavoriteTracks();
         const title = this.currentGenreId === 'all' ? 'Все треки' : this.dataManager.getMusicGenreById(this.currentGenreId).label;
         
-        // ОБОРАЧИВАЕМ В ПАНЕЛЬ!
         let html = `<div class="music-content-panel">`; 
         html += `<h2 class="m-section-title" style="margin-bottom: 20px;">${escapeHTML(title)}</h2>`;
         html += MusicRenderer.renderTrackListHeader(this.sortState);
@@ -393,7 +461,6 @@ export class MusicController {
 
         const sortedTracks = this.getSortedTracks(tracks);
 
-        // ОБОРАЧИВАЕМ В ПАНЕЛЬ!
         let html = `<div class="music-content-panel">`;
         html += `<h2 class="m-section-title" style="margin-bottom: 20px;">Любимые треки</h2>`;
         html += MusicRenderer.renderTrackListHeader(this.sortState);
@@ -411,10 +478,19 @@ export class MusicController {
     renderPlaylists() {
         const albums = this.dataManager.getCustomAlbums();
         
-        // ОБОРАЧИВАЕМ В ПАНЕЛЬ!
+        const enrichedAlbums = albums.map(a => {
+            const covers = a.tracks.slice(0, 3).map(id => {
+                const t = this.dataManager.getTrackById(id);
+                return t ? t.cover : null;
+            }).filter(Boolean);
+            return { ...a, covers };
+        });
+
+        const currentUser = this.dataManager.getProfileData();
+        
         let html = `<div class="music-content-panel">`;
         html += `<h2 class="m-section-title" style="margin-bottom: 20px;">Ваши плейлисты</h2>`;
-        html += MusicRenderer.renderPlaylistsGrid(albums);
+        html += MusicRenderer.renderPlaylistsGrid(enrichedAlbums, currentUser);
         html += `</div>`;
         this.mainContent.innerHTML = html;
     }
@@ -427,9 +503,14 @@ export class MusicController {
         let tracks = album.tracks.map(id => this.dataManager.getTrackById(id)).filter(Boolean);
         const favs = this.dataManager.getFavoriteTracks();
         
-        let html = MusicRenderer.renderPlaylistView(album, tracks.length);
+        // Обогащаем обложками, чтобы получить картинку для шапки альбома
+        const covers = tracks.slice(0, 3).map(t => t.cover);
+        const enrichedAlbum = { ...album, covers };
         
-        // ОБОРАЧИВАЕМ В ПАНЕЛЬ!
+        const currentUser = this.dataManager.getProfileData();
+        
+        let html = MusicRenderer.renderPlaylistView(enrichedAlbum, tracks.length, currentUser);
+        
         html += `<div class="music-content-panel" style="margin-top: 24px;">`;
         if (tracks.length === 0) {
             html += MusicRenderer.renderEmptyState('fa-solid fa-headphones', 'Добавьте треки в этот плейлист');

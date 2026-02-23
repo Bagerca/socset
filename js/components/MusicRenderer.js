@@ -4,9 +4,6 @@ import { escapeHTML } from '../utils/utils.js';
 
 export class MusicRenderer {
     
-    // ... (Методы renderHomeHero, renderQuickPicks, renderGenresGrid, renderSearchBar, renderGenreChips, renderTrackListHeader, renderTrackRow - ОСТАВЛЯЕМ БЕЗ ИЗМЕНЕНИЙ) ...
-    // Я вставлю их сокращенно, чтобы не раздувать ответ, так как меняем только ПЛЕЙЛИСТЫ.
-    
     static renderHomeHero() {
         const hours = new Date().getHours();
         let greeting = 'Доброй ночи';
@@ -64,7 +61,7 @@ export class MusicRenderer {
     static renderSearchBar() {
         return `
             <div class="m-search-wrapper" id="musicSearchWrapper">
-                <i class="fa-solid fa-magnifying-glass"></i>
+                <i class="fa-solid fa-magnifying-glass" id="musicSearchBtn" title="Найти"></i>
                 <input type="text" id="musicSearchInput" placeholder="Искать треки, артистов или жанры..." autocomplete="off">
                 <div id="musicSearchDropdown" class="search-dropdown-menu" style="display: none;"></div>
             </div>
@@ -72,18 +69,16 @@ export class MusicRenderer {
     }
 
     static renderGenreChips(genres, activeGenreId) {
-        let html = `<div class="m-chips-row">`;
+        let html = `<div class="m-chips-container">`;
+        html += `<div class="m-chips-row" id="musicChipsRow">`;
         html += `<button class="m-chip ${!activeGenreId ? 'active' : ''}" data-genre="all">Все треки</button>`;
         genres.forEach(g => {
             html += `<button class="m-chip ${activeGenreId === g.id ? 'active' : ''}" data-genre="${g.id}">${escapeHTML(g.label)}</button>`;
         });
         html += `</div>`;
+        html += `<button class="m-expand-chips-btn" id="toggleChipsBtn" title="Показать все жанры"><i class="fa-solid fa-chevron-down"></i></button>`;
+        html += `</div>`;
         return html;
-    }
-
-    static renderPlaylistsToolbar() {
-        // Убираем кнопку отсюда, она теперь в сетке
-        return '';
     }
 
     static renderTrackListHeader(sortState) {
@@ -96,10 +91,11 @@ export class MusicRenderer {
             return '';
         };
         const activeClass = (key) => sortState && sortState.key === key ? 'active-sort' : '';
+        const resetClass = (!sortState || !sortState.key) ? 'active-sort' : '';
 
         return `
             <div class="m-track-header">
-                <div class="m-th-num">#</div>
+                <div class="m-th-num m-th-sortable ${resetClass}" data-sort="reset" title="По умолчанию (сбросить сортировку)">#</div>
                 <div class="m-th-title m-th-sortable ${activeClass('title')}" data-sort="title">Название ${getIcon('title')}</div>
                 <div class="m-th-genre m-th-sortable ${activeClass('genre')}" data-sort="genre">Жанр ${getIcon('genre')}</div>
                 <div class="m-th-time m-th-sortable ${activeClass('duration')}" data-sort="duration"><i class="fa-regular fa-clock"></i> ${getIcon('duration')}</div>
@@ -139,46 +135,42 @@ export class MusicRenderer {
         `;
     }
 
-    // --- ПОЛНОСТЬЮ ОБНОВЛЕННАЯ СЕТКА ПЛЕЙЛИСТОВ ---
-    static renderPlaylistsGrid(albums) {
-        // Карточка создания плейлиста (всегда первая)
+    static renderPlaylistsGrid(albums, currentUser) {
         const createCard = `
             <div class="m-playlist-card create-pl-card" id="btnCreatePlaylistCard">
                 <div class="m-pl-visual create-visual">
                     <div class="create-icon"><i class="fa-solid fa-plus"></i></div>
                 </div>
                 <div class="m-pl-info">
-                    <div class="m-pl-title">Создать плейлист</div>
-                    <div class="m-pl-desc">Новая коллекция</div>
+                    <div class="m-pl-title-row">
+                        <div class="m-pl-title">Создать плейлист</div>
+                    </div>
+                    <div class="m-pl-author">
+                        <span style="color: var(--text-muted);">Новая коллекция</span>
+                    </div>
                 </div>
             </div>
         `;
 
         const renderCard = (album) => {
             const count = album.tracks.length;
+            const covers = album.covers || [album.cover]; 
             
-            // Определяем класс стопки
             let stackClass = 'stack-0'; 
-            if (count >= 1 && count < 3) stackClass = 'stack-1'; 
+            if (count === 2) stackClass = 'stack-1'; 
             if (count >= 3) stackClass = 'stack-2'; 
 
-            const coverSrc = count > 0 ? album.cover : 'https://placehold.co/300x300/1a1a1c/333333?text=Music';
+            const topCover = covers[0] || 'https://placehold.co/300x300/1a1a1c/333333?text=Music';
+            const backCover1 = covers[1] || topCover;
+            const backCover2 = covers[2] || backCover1;
             
-            // Генерируем слои. ВАЖНО: Задние слои теперь тоже имеют картинку!
             let layersHTML = '';
             
-            // Слой 3 (самый дальний)
-            if (count >= 3) {
-                layersHTML += `<div class="layer layer-back-2" style="background-image: url('${coverSrc}');"></div>`;
-            }
-            // Слой 2 (средний)
-            if (count >= 1) {
-                layersHTML += `<div class="layer layer-back-1" style="background-image: url('${coverSrc}');"></div>`;
-            }
-            // Слой 1 (верхний)
+            if (count >= 3) { layersHTML += `<div class="layer layer-back-2" style="background-image: url('${backCover2}');"></div>`; }
+            if (count >= 2) { layersHTML += `<div class="layer layer-back-1" style="background-image: url('${backCover1}');"></div>`; }
             layersHTML += `
                 <div class="layer layer-top">
-                    <img src="${coverSrc}" class="m-pl-img">
+                    <img src="${topCover}" class="m-pl-img">
                     <div class="m-pl-overlay"><i class="fa-solid fa-play"></i></div>
                     <div class="m-pl-badge"><i class="fa-solid fa-music"></i> ${count}</div>
                 </div>
@@ -191,9 +183,24 @@ export class MusicRenderer {
                     </div>
 
                     <div class="m-pl-info">
-                        <div class="m-pl-title">${escapeHTML(album.name)}</div>
-                        <div class="m-pl-desc">Ваш плейлист</div>
-                        <button class="del-pl-btn" data-id="${album.id}" title="Удалить"><i class="fa-solid fa-trash"></i></button>
+                        <div class="m-pl-title-row">
+                            <div class="m-pl-title">${escapeHTML(album.name)}</div>
+                            <div class="m-pl-options-wrapper">
+                                <button class="icon-btn-small pl-opts-btn" data-id="${album.id}"><i class="fa-solid fa-ellipsis-vertical"></i></button>
+                                <div class="pl-options-menu" id="pl-menu-${album.id}">
+                                    <div class="pl-menu-item edit-pl-btn" data-id="${album.id}" data-name="${escapeHTML(album.name)}">
+                                        <i class="fa-solid fa-pen"></i> Переименовать
+                                    </div>
+                                    <div class="pl-menu-item danger del-pl-btn" data-id="${album.id}">
+                                        <i class="fa-solid fa-trash"></i> Удалить
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="m-pl-author">
+                            <img src="${currentUser.avatar}" onerror="this.src='https://placehold.co/24x24/333/fff?text=U'">
+                            <span>${escapeHTML(currentUser.name)}</span>
+                        </div>
                     </div>
                 </div>
             `;
@@ -207,16 +214,46 @@ export class MusicRenderer {
         `;
     }
 
-    static renderPlaylistView(album, tracksCount) {
+    // ИЗМЕНЕНО: Новый дизайн шапки плейлиста
+    static renderPlaylistView(album, tracksCount, currentUser) {
+        const topCover = (album.covers && album.covers.length > 0) ? album.covers[0] : 'https://placehold.co/300x300/1a1a1c/333333?text=Music';
+
         return `
-            <button id="btnBackToPlaylists" class="icon-btn" style="margin-bottom: 20px;"><i class="fa-solid fa-arrow-left"></i></button>
             <div class="m-playlist-hero">
-                <img src="${album.cover}" class="m-ph-cover">
-                <div class="m-ph-info">
-                    <span class="m-ph-type">Плейлист</span>
-                    <h1 class="m-ph-title">${escapeHTML(album.name)}</h1>
-                    <span class="m-ph-meta">${tracksCount} треков</span>
-                    <button id="btnPlayAllAlbum" class="btn-post m-ph-playbtn" data-id="${album.id}"><i class="fa-solid fa-play"></i> Слушать всё</button>
+                
+                <div class="m-ph-top-bar">
+                    <button id="btnBackToPlaylists"><i class="fa-solid fa-arrow-left"></i> Назад</button>
+                    
+                    <div class="m-pl-options-wrapper">
+                        <button class="icon-btn pl-opts-btn" data-id="${album.id}"><i class="fa-solid fa-ellipsis-vertical"></i></button>
+                        <div class="pl-options-menu" id="pl-menu-inner-${album.id}">
+                            <div class="pl-menu-item edit-pl-btn" data-id="${album.id}" data-name="${escapeHTML(album.name)}">
+                                <i class="fa-solid fa-pen"></i> Переименовать
+                            </div>
+                            <div class="pl-menu-item danger del-pl-btn" data-id="${album.id}">
+                                <i class="fa-solid fa-trash"></i> Удалить
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="m-ph-content">
+                    <img src="${topCover}" class="m-ph-cover">
+                    <div class="m-ph-info">
+                        <span class="m-ph-type">Плейлист</span>
+                        <h1 class="m-ph-title">${escapeHTML(album.name)}</h1>
+                        
+                        <div class="m-ph-author">
+                            <img src="${currentUser.avatar}" onerror="this.src='https://placehold.co/24x24/333/fff?text=U'">
+                            <span>${escapeHTML(currentUser.name)}</span>
+                            <span class="m-ph-dot">•</span>
+                            <span class="m-ph-meta-text">${tracksCount} треков</span>
+                        </div>
+
+                        <button id="btnPlayAllAlbum" class="btn-post m-ph-playbtn" data-id="${album.id}">
+                            <i class="fa-solid fa-play"></i> Слушать всё
+                        </button>
+                    </div>
                 </div>
             </div>
         `;
