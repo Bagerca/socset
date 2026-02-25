@@ -13,12 +13,27 @@ export class PostRenderer {
         return `<i class="fa-solid fa-circle-check post-badge badge-1" title="Подтвержденный"></i>`;
     }
 
+    // ИЗМЕНЕНО ДЛЯ РЕШЕНИЯ ПРОБЛЕМЫ АНИМАЦИИ
     _createFrameHTML(frameId) {
         if (!frameId || frameId === 'frame_none') return '';
         const frame = this.stores.shop.getAvailableFrames().find(f => f.id === frameId);
         if (!frame) return '';
-        if (frame.url) return `<div class="post-avatar-frame" style="background-image: url('${frame.url}');"></div>`;
-        if (frame.css) return `<div class="post-avatar-frame" style="${frame.css}"></div>`;
+        
+        // Внешний div (.post-avatar-frame) держит scale
+        // Внутренний div (.post-frame-content) крутится
+        if (frame.url) {
+            return `
+            <div class="post-avatar-frame">
+                <div class="post-frame-content" style="background-image: url('${frame.url}');"></div>
+            </div>`;
+        }
+        
+        if (frame.css) {
+            return `
+            <div class="post-avatar-frame">
+                <div class="post-frame-content" style="${frame.css}"></div>
+            </div>`;
+        }
         return '';
     }
 
@@ -32,19 +47,16 @@ export class PostRenderer {
 
         const isPrivate = post.visibility === 'private';
         const isAuthor = authorData.username === currentUser.username;
-        const isAdmin = currentUser.isAdmin; // Проверяем админа
+        const isAdmin = currentUser.isAdmin;
 
-        // Меню опций доступно автору ИЛИ админу
         let optionsMenuHTML = '';
         if (isAuthor || isAdmin) {
             let menuItems = '';
             
-            // Скрыть/показать только для автора
             if (isAuthor) {
                 menuItems += `<div class="menu-item toggle-visibility-btn" data-id="${post.id}"><i class="fa-solid ${isPrivate ? 'fa-eye' : 'fa-eye-slash'}"></i><span>${isPrivate ? 'Сделать публичным' : 'Скрыть'}</span></div>`;
             }
             
-            // Удалить может и автор, и админ
             menuItems += `<div class="menu-item menu-item-danger delete-post-btn" data-id="${post.id}"><i class="fa-solid fa-trash-can"></i><span>Удалить</span></div>`;
 
             optionsMenuHTML = `

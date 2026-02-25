@@ -1,8 +1,6 @@
 /* css/base/_base.css */
 
 :root {
-    /* ГЛАВНЫЙ ФИКС: Сообщаем браузеру, что сайт темный. 
-       Это заставляет системные выпадающие списки (select) и скроллбары стать темными. */
     color-scheme: dark; 
 }
 
@@ -15,7 +13,6 @@
 html {
     overflow-y: scroll; 
     scrollbar-gutter: stable;
-    /* Стандарт для Firefox */
     scrollbar-color: rgba(255, 255, 255, 0.15) transparent;
     scrollbar-width: thin;
 }
@@ -140,4 +137,12 @@ a {
 @keyframes itemSlideIn {
     0% { opacity: 0; transform: translateX(-15px); }
     100% { opacity: 1; transform: translateX(0); }
+}
+
+/* =========================================
+   ГЛОБАЛЬНЫЕ АНИМАЦИИ (Для магазина и рамок)
+========================================= */
+@keyframes spin {
+    from { transform: rotate(0deg); }
+    to { transform: rotate(360deg); }
 }

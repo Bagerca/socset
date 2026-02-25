@@ -3,13 +3,13 @@
 .post { 
     background: var(--surface); 
     border-radius: var(--radius-large); 
-    /* Верх: 20px, Бока: 24px, Низ: 10px (компактнее) */
+    /* Компактные отступы */
     padding: 20px 24px 10px 24px; 
     border: 1px solid var(--border-color); 
     box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
     display: flex; 
     flex-direction: column; 
-    gap: 8px; /* Уменьшили расстояние между элементами внутри */
+    gap: 8px; 
     animation: slideDownPost 0.4s ease; 
     position: relative; 
     transition: opacity 0.3s;
@@ -50,17 +50,26 @@
     width: 100%; height: 100%; object-fit: cover; border-radius: 50%; 
 }
 
+/* ВНЕШНИЙ БЛОК: Только масштаб и позиционирование */
 .post-avatar-frame {
     position: absolute;
     width: 200%; height: 200%;
     top: -50%; left: -50%;
     transform: scale(0.55);
-    z-index: 2; pointer-events: none;
-    background-size: contain;
-    background-repeat: no-repeat;
-    background-position: center;
-    box-sizing: border-box;
+    z-index: 2; 
+    pointer-events: none;
+    display: block;
+}
+
+/* ВНУТРЕННИЙ БЛОК: Сюда применяется CSS из магазина */
+.post-frame-content {
+    width: 100%;
+    height: 100%;
     border-radius: 50%;
+    box-sizing: border-box;
+    background-size: cover;
+    background-position: center;
+    background-repeat: no-repeat;
 }
 
 .post-content { flex: 1; min-width: 0; }

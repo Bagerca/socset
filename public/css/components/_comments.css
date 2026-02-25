@@ -107,13 +107,18 @@
     transform: scale(0.55);
     z-index: 10; 
     pointer-events: none;
+    display: block;
+}
+
+.comment-avatar-frame .post-frame-content {
+    width: 100%;
+    height: 100%;
+    border-radius: 50%;
+    box-sizing: border-box;
     background-size: contain;
     background-repeat: no-repeat;
     background-position: center;
-    box-sizing: border-box; 
-    border-radius: 50%;
 }
-
 
 /* --- КОНТЕНТ КОММЕНТАРИЯ --- */
 .comment-content-wrapper { 
@@ -161,7 +166,7 @@
 .comment-action-btn.active-like { color: #ff453a; }
 .comment-action-btn.active-dislike { color: #5dade2; }
 
-/* Кнопка "Ответить" (ИСПРАВЛЕНО) */
+/* Кнопка "Ответить" */
 .comment-reply-btn {
     background: transparent;
     border: none;
@@ -181,7 +186,6 @@
     background: rgba(255, 255, 255, 0.05);
 }
 .comment-reply-btn i { font-size: 11px; }
-
 
 /* --- СТРОКА ВВОДА --- */
 .comment-input-area {
