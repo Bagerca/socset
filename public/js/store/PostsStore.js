@@ -68,10 +68,8 @@ export class PostsStore {
         await PostsAPI.createPost({ content, poll, attachment });
     }
 
-    // === Вызов репоста ===
     async repostPost(postId) {
         await PostsAPI.repost(postId);
-        // Socket.io сам добавит его в ленту
     }
 
     async toggleLike(postId) {
@@ -85,6 +83,19 @@ export class PostsStore {
             post.isLiked = post.likedBy.includes(this.authStore.user.username);
         }
         return post;
+    }
+
+    // --- НОВЫЙ МЕТОД ---
+    async togglePostVisibility(postId) {
+        const post = this.posts.find(p => p.id === postId);
+        if (!post) return null;
+
+        const data = await PostsAPI.togglePostVisibility(postId);
+        if (data.success) {
+            post.visibility = data.visibility;
+            return post;
+        }
+        return null;
     }
 
     async votePoll(postId, optionId) {

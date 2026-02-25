@@ -9,10 +9,12 @@ module.exports = (io) => {
     router.get('/', PostsController.getFeed);
     router.post('/', authenticateToken, (req, res) => PostsController.create(req, res, io));
     
-    // === НОВЫЙ МАРШРУТ ДЛЯ РЕПОСТОВ ===
     router.post('/repost', authenticateToken, (req, res) => PostsController.repost(req, res, io));
 
     router.post('/delete', authenticateToken, PostsController.delete);
+    // Добавлен новый маршрут
+    router.post('/visibility', authenticateToken, PostsController.toggleVisibility);
+    
     router.post('/like', authenticateToken, PostsController.toggleLike);
     router.post('/vote', authenticateToken, PostsController.votePoll);
     

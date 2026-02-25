@@ -16,7 +16,12 @@ export class AuthStore {
             try {
                 this.user = await ProfileAPI.getProfile(this.username);
                 return true;
-            } catch (e) { this.logout(); }
+            } catch (e) { 
+                // Если ошибка (например, 404 - юзера удалили или переименовали)
+                console.warn("Session invalid, logging out...");
+                this.logout(); 
+                return false; // Явно возвращаем false
+            }
         }
         return false;
     }
@@ -36,6 +41,7 @@ export class AuthStore {
         localStorage.removeItem('cycle_username');
         localStorage.removeItem('cycle_jwt');
         this.user = null;
+        // Перезагрузка страницы, чтобы сбросить все состояния
         window.location.reload();
     }
 
@@ -45,6 +51,7 @@ export class AuthStore {
     }
 
     toggleFavoriteTrack(trackId) {
+        if (!this.user) return false; // Защита
         const idx = this.user.favoriteTracks.indexOf(trackId);
         if (idx > -1) this.user.favoriteTracks.splice(idx, 1);
         else this.user.favoriteTracks.push(trackId);
@@ -53,11 +60,13 @@ export class AuthStore {
     }
 
     createCustomAlbum(name) {
+        if (!this.user) return;
         this.user.customAlbums.push({ id: generateId(), name, cover: 'https://placehold.co/300x300/1a1a1c/ffffff?text=Album', tracks: [] });
         this.updateProfile({});
     }
 
     addTrackToAlbum(albumId, trackId, coverUrl) {
+        if (!this.user) return;
         const album = this.user.customAlbums.find(a => a.id === albumId);
         if (album && !album.tracks.includes(trackId)) {
             album.tracks.push(trackId);
@@ -67,11 +76,13 @@ export class AuthStore {
     }
 
     deleteCustomAlbum(albumId) {
+        if (!this.user) return;
         this.user.customAlbums = this.user.customAlbums.filter(a => a.id !== albumId);
         this.updateProfile({});
     }
 
     toggleFavoriteGame(gameId) {
+        if (!this.user) return false;
         const idx = this.user.favoriteGames.indexOf(gameId);
         if (idx > -1) this.user.favoriteGames.splice(idx, 1);
         else this.user.favoriteGames.push(gameId);

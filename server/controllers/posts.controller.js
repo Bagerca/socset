@@ -1,6 +1,8 @@
 // server/controllers/posts.controller.js
 const { v4: uuidv4 } = require('uuid');
 const db = require('../database');
+const jwt = require('jsonwebtoken'); // Нужно для проверки токена
+const { SECRET_KEY } = require('../middlewares/auth.middleware'); // Ключ для расшифровки
 
 class PostsController {
     getFeed(req, res) {
@@ -9,6 +11,42 @@ class PostsController {
         const offset = (page - 1) * limit;
 
         const posts = db.prepare(`SELECT * FROM posts ORDER BY timestamp DESC LIMIT ? OFFSET ?`).all(limit, offset);
+
+        // --- ЛОГИКА УНИКАЛЬНЫХ ПРОСМОТРОВ ---
+        // 1. Пытаемся узнать, кто смотрит ленту
+        let currentViewer = null;
+        const authHeader = req.headers['authorization'];
+        if (authHeader) {
+            const token = authHeader.split(' ')[1];
+            try {
+                const decoded = jwt.verify(token, SECRET_KEY);
+                currentViewer = decoded.username;
+            } catch (e) {
+                // Токен невалиден или протух, считаем гостем
+            }
+        }
+
+        // 2. Если это не гость, фиксируем просмотры
+        if (currentViewer && posts.length > 0) {
+            const insertView = db.prepare('INSERT OR IGNORE INTO post_views (post_id, username) VALUES (?, ?)');
+            const incView = db.prepare('UPDATE posts SET views = views + 1 WHERE id = ?');
+
+            const transaction = db.transaction((postsList) => {
+                for (const post of postsList) {
+                    // Пытаемся вставить запись "Юзер Х видел Пост Y"
+                    const info = insertView.run(post.id, currentViewer);
+                    
+                    // info.changes будет 1, если вставка прошла успешно (просмотр новый)
+                    // info.changes будет 0, если запись уже была (INSERT OR IGNORE сработал)
+                    if (info.changes > 0) {
+                        incView.run(post.id); // Увеличиваем счетчик в самой записи поста
+                        post.views += 1;      // Увеличиваем локально для отдачи клиенту
+                    }
+                }
+            });
+            transaction(posts);
+        }
+        // --------------------------------------
 
         const enrichedPosts = posts.map(post => {
             const author = db.prepare('SELECT username, name, avatar, frameId, isVerified, verifiedBadgeType FROM users WHERE username = ?').get(post.author_username);
@@ -75,7 +113,6 @@ class PostsController {
         res.json({ success: true, post: fullPost });
     }
 
-    // === НОВАЯ ФУНКЦИЯ: РЕПОСТ ===
     repost(req, res, io) {
         const { postId } = req.body;
         const originalPost = db.prepare('SELECT * FROM posts WHERE id = ?').get(postId);
@@ -86,7 +123,6 @@ class PostsController {
         let rootContent = originalPost.content;
         let rootAttachment = originalPost.attachment_data ? JSON.parse(originalPost.attachment_data) : null;
 
-        // Защита от бесконечной вложенности: если репостим репост, берем исходник
         if (originalPost.attachment_type === 'repost') {
             const parsed = JSON.parse(originalPost.attachment_data);
             rootAuthor = parsed.author;
@@ -104,7 +140,7 @@ class PostsController {
         const newPost = {
             id: uuidv4(), 
             author_username: req.user.username, 
-            content: '', // Текст репостера пустой
+            content: '', 
             attachment_type: 'repost',
             attachment_data: JSON.stringify(attachmentData),
             poll_data: null, 
@@ -123,17 +159,38 @@ class PostsController {
         res.json({ success: true, post: fullPost });
     }
 
+    toggleVisibility(req, res) {
+        const { postId } = req.body;
+        const post = db.prepare('SELECT author_username, visibility FROM posts WHERE id = ?').get(postId);
+        
+        if (!post) return res.status(404).json({ error: 'Post not found' });
+        
+        if (post.author_username !== req.user.username && !req.user.isAdmin) {
+            return res.status(403).json({ error: 'Forbidden' });
+        }
+
+        const newVisibility = post.visibility === 'public' ? 'private' : 'public';
+        db.prepare('UPDATE posts SET visibility = ? WHERE id = ?').run(newVisibility, postId);
+
+        res.json({ success: true, visibility: newVisibility });
+    }
+
     delete(req, res) {
         const { postId } = req.body;
         const post = db.prepare('SELECT author_username FROM posts WHERE id = ?').get(postId);
         
         if (!post) return res.status(404).json({ error: 'Post not found' });
-        if (post.author_username !== req.user.username) return res.status(403).json({ error: 'Forbidden' });
+        
+        if (post.author_username !== req.user.username && !req.user.isAdmin) {
+            return res.status(403).json({ error: 'Forbidden' });
+        }
 
         const transaction = db.transaction(() => {
             db.prepare('DELETE FROM posts WHERE id = ?').run(postId);
             db.prepare('DELETE FROM comments WHERE post_id = ?').run(postId);
             db.prepare('DELETE FROM likes WHERE post_id = ?').run(postId);
+            // Удаляем также историю просмотров этого поста
+            db.prepare('DELETE FROM post_views WHERE post_id = ?').run(postId);
         });
         transaction();
 
@@ -190,7 +247,7 @@ class PostsController {
         const { commentId } = req.body;
         const comment = db.prepare('SELECT author_username FROM comments WHERE id = ?').get(commentId);
         
-        if (comment && comment.author_username === req.user.username) {
+        if (comment && (comment.author_username === req.user.username || req.user.isAdmin)) {
             db.prepare('DELETE FROM comments WHERE id = ?').run(commentId);
             res.json({ success: true });
         } else {

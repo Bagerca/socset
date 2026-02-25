@@ -16,11 +16,26 @@ export class PostEventHandler {
 
     handleEvent(e) {
         const target = e.target;
+        
+        // 1. ЛОГИКА ЗАКРЫТИЯ МЕНЮ (НОВОЕ)
+        // Если кликнули НЕ на кнопку опций, закрываем все открытые меню
+        if (!target.closest('.post-options-btn')) {
+            document.querySelectorAll('.options-menu.active').forEach(m => m.classList.remove('active'));
+        }
+
         const postElement = target.closest('.post');
 
+        // 2. ОТКРЫТИЕ МЕНЮ (ОБНОВЛЕНО)
         if (target.closest('.post-options-btn')) {
-            const menu = target.closest('.post-options-btn').nextElementSibling;
-            document.querySelectorAll('.options-menu.active').forEach(m => { if(m !== menu) m.classList.remove('active'); });
+            const btn = target.closest('.post-options-btn');
+            const menu = btn.nextElementSibling;
+            
+            // Закрываем другие меню, если были открыты
+            document.querySelectorAll('.options-menu.active').forEach(m => {
+                if(m !== menu) m.classList.remove('active'); 
+            });
+            
+            // Переключаем текущее (чтобы можно было закрыть повторным кликом)
             menu.classList.toggle('active');
             return;
         }
@@ -78,7 +93,6 @@ export class PostEventHandler {
             return;
         }
 
-        // === НАСТОЯЩИЙ РЕПОСТ (Забрать себе на стену) ===
         const repostBtn = target.closest('.repost-btn');
         if (repostBtn) {
             if(confirm('Сделать репост этой записи к себе в ленту?')) {
@@ -87,7 +101,6 @@ export class PostEventHandler {
             return;
         }
 
-        // === СКОПИРОВАТЬ ССЫЛКУ ===
         const shareBtn = target.closest('.share-btn');
         if (shareBtn) {
             const postLink = `${window.location.origin}/#/?post=${shareBtn.dataset.id}`;
@@ -96,10 +109,7 @@ export class PostEventHandler {
                 const originalClass = icon.className;
                 icon.className = 'fa-solid fa-check';
                 icon.style.color = '#44bd32';
-                setTimeout(() => {
-                    icon.className = originalClass;
-                    icon.style.color = '';
-                }, 2000);
+                setTimeout(() => { icon.className = originalClass; icon.style.color = ''; }, 2000);
             }).catch(() => alert('Не удалось скопировать ссылку.'));
             return;
         }
@@ -122,6 +132,29 @@ export class PostEventHandler {
             this.stores.posts.toggleCommentReaction(reactionBtn.dataset.postId, reactionBtn.dataset.id, reactionBtn.dataset.type).then(() => {
                 this._rerenderComments(reactionBtn.dataset.postId);
             });
+            return;
+        }
+
+        const replyBtn = target.closest('.comment-reply-btn');
+        if (replyBtn) {
+            const postId = replyBtn.dataset.postId;
+            const username = replyBtn.dataset.username;
+            const input = document.getElementById(`comment-input-${postId}`);
+            
+            if (input) {
+                const commentsSection = document.getElementById(`comments-${postId}`);
+                if (commentsSection && !commentsSection.classList.contains('active')) {
+                    commentsSection.classList.add('active');
+                }
+
+                const mention = `@${username}, `;
+                if (input.value.length > 0 && !input.value.endsWith(' ')) {
+                    input.value += ' ';
+                }
+                
+                input.value += mention;
+                input.focus();
+            }
             return;
         }
 
@@ -159,7 +192,6 @@ export class PostEventHandler {
         }
     }
 
-    // ... остальной код (запись аудио) остается без изменений
     async _startRecordingUI(postId) {
         if (this.activeRecording) return;
         const container = document.querySelector(`#comments-${postId} .comment-input-area`);

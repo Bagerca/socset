@@ -71,10 +71,8 @@
     background-size: contain;
     background-repeat: no-repeat;
     background-position: center;
-    
-    /* ВАЖНО: Включаем рамку внутрь размеров блока */
     box-sizing: border-box; 
-    border-radius: 50%; /* Принудительно скругляем контейнер */
+    border-radius: 50%; 
 }
 
 .btn-edit-profile {
@@ -88,6 +86,15 @@
     display: flex; align-items: center; gap: 8px;
 }
 .btn-edit-profile:hover { background: rgba(255,255,255,0.1); }
+
+/* --- КНОПКИ ДЛЯ ГОСТЕЙ --- */
+.visitor-actions {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 12px;
+    z-index: 10;
+}
 
 /* --- ДИНАМИЧЕСКИЙ ПЛЕЕР --- */
 .profile-audio-player-container {
@@ -186,7 +193,13 @@
 
 
 /* --- ИНФОБЛОК ПРОФИЛЯ --- */
-.profile-info { padding: 16px 24px; display: flex; flex-direction: column; gap: 8px; }
+.profile-info { 
+    padding: 16px 24px 20px 24px; 
+    display: flex; 
+    flex-direction: column; 
+    gap: 10px; 
+    border-bottom: 1px solid var(--border-color); 
+}
 
 .profile-name-row { 
     display: flex; 
@@ -195,7 +208,7 @@
 }
 
 .profile-name { 
-    font-size: 24px; 
+    font-size: 26px; 
     font-weight: 800; 
     color: var(--text-main); 
     line-height: 1; 
@@ -222,7 +235,6 @@
 }
 .badge-8 i { transform: skewX(10deg); }
 
-
 /* Звание */
 .user-title-badge {
     padding: 3px 8px;
@@ -235,8 +247,52 @@
     margin-top: 2px;
 }
 
-.profile-username { color: var(--text-muted); font-size: 15px; }
-.profile-bio { font-size: 15px; line-height: 1.5; margin-top: 8px; color: #e0e0e0; }
+/* Строка с никнеймом и статистикой */
+.profile-meta-row {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 12px;
+    margin-top: -4px;
+}
+
+.profile-username { 
+    color: var(--text-muted); 
+    font-size: 15px; 
+    font-weight: 500; 
+}
+
+.meta-divider { 
+    color: rgba(255, 255, 255, 0.2); 
+    font-size: 12px; 
+}
+
+/* Иконки статистики (Инлайн) */
+.profile-stats-inline {
+    display: flex;
+    gap: 16px;
+    align-items: center;
+}
+
+.stat-inline-item {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 14px;
+    color: var(--text-muted);
+    cursor: pointer;
+    transition: 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+}
+
+.stat-inline-item:hover { 
+    color: var(--text-main); 
+    transform: translateY(-2px); 
+}
+
+.stat-inline-item i { font-size: 14px; opacity: 0.8; }
+.stat-inline-item b { font-size: 15px; color: var(--text-main); font-weight: 700; }
+
+.profile-bio { font-size: 15px; line-height: 1.5; margin-top: 4px; color: #e0e0e0; }
 
 /* --- МОДУЛИ И ВИТРИНЫ --- */
 .profile-modules {
@@ -244,10 +300,7 @@
     padding: 24px; border-top: 1px solid var(--border-color);
 }
 
-/* ИСПРАВЛЕНИЕ: Скрываем блок с модулями, если он пуст */
-.profile-modules:empty {
-    display: none;
-}
+.profile-modules:empty { display: none; }
 
 .module-card { background: transparent; }
 .module-header {
@@ -288,6 +341,173 @@
 .social-badge:hover { background: rgba(255,255,255,0.1); }
 
 
+/* --- ТАБЫ ПРОФИЛЯ (Посты / Стена) --- */
+.profile-tabs-container {
+    padding: 0; 
+    margin: 0 0 16px 0;
+    display: flex;
+    width: 100%;
+    position: relative;
+    border-bottom: 1px solid var(--border-color);
+}
+
+.profile-tab {
+    flex: 1; /* Растягиваем на 50% каждую */
+    text-align: center;
+    padding: 16px 0;
+    font-size: 15px;
+    font-weight: 600;
+    color: var(--text-muted);
+    cursor: pointer;
+    position: relative;
+    transition: color 0.3s ease, background-color 0.3s ease;
+    border-bottom: none; 
+}
+
+.profile-tab:hover {
+    color: #fff;
+    background-color: rgba(255, 255, 255, 0.03);
+}
+
+.profile-tab.active {
+    color: #fff;
+    background-color: rgba(255, 255, 255, 0.05);
+}
+
+/* Анимированная полоска */
+.profile-tab::after {
+    content: '';
+    position: absolute;
+    bottom: -1px;
+    left: 0;
+    width: 100%;
+    height: 3px;
+    background: var(--accent-games);
+    transform: scaleX(0);
+    opacity: 0;
+    transform-origin: center;
+    transition: transform 0.3s cubic-bezier(0.25, 1, 0.5, 1), opacity 0.2s ease;
+    border-radius: 3px 3px 0 0;
+    box-shadow: 0 -2px 10px rgba(124, 58, 237, 0.5);
+}
+
+.profile-tab.active::after {
+    transform: scaleX(1);
+    opacity: 1;
+}
+
+
+/* --- СТЕНА --- */
+.wall-input-container {
+    padding: 0 24px 20px 24px;
+    border-bottom: 1px solid var(--border-color);
+    margin-bottom: 16px;
+    display: flex;
+    gap: 12px;
+}
+
+.wall-avatar {
+    width: 40px; height: 40px; border-radius: 50%; object-fit: cover;
+}
+
+.wall-input-wrapper {
+    flex: 1;
+    display: flex;
+    gap: 10px;
+}
+
+.wall-input {
+    flex: 1;
+    background: #1a1a1c;
+    border: 1px solid var(--border-color);
+    border-radius: 20px;
+    padding: 10px 16px;
+    color: #fff;
+    outline: none;
+    font-size: 14px;
+    transition: 0.2s;
+}
+.wall-input:focus { border-color: rgba(255,255,255,0.3); }
+
+.wall-send-btn {
+    width: 40px; height: 40px; border-radius: 50%;
+    background: var(--text-main); color: #000; border: none;
+    display: flex; align-items: center; justify-content: center;
+    cursor: pointer; transition: 0.2s;
+}
+.wall-send-btn:hover { transform: scale(1.1); }
+
+/* Записи на стене */
+.wall-posts-list {
+    padding: 0 24px 24px 24px;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.wall-post {
+    display: flex;
+    gap: 12px;
+    padding: 12px;
+    background: rgba(255,255,255,0.03);
+    border-radius: 12px;
+    border: 1px solid transparent;
+    position: relative;
+}
+.wall-post:hover { border-color: rgba(255,255,255,0.05); }
+
+.wall-post-header {
+    display: flex; align-items: center; gap: 8px; margin-bottom: 4px;
+}
+.wall-post-name { font-weight: 700; font-size: 14px; color: #fff; text-decoration: none; }
+.wall-post-date { font-size: 12px; color: var(--text-muted); }
+.wall-post-content { font-size: 14px; color: #e0e0e0; line-height: 1.4; white-space: pre-wrap; }
+
+/* Действия на стене (НОВОЕ) */
+.wall-post-actions {
+    margin-top: 8px;
+    display: flex;
+    gap: 12px;
+}
+
+.wall-action-btn {
+    background: transparent;
+    border: none;
+    color: var(--text-muted);
+    font-size: 12px;
+    font-weight: 600;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    transition: 0.2s;
+    padding: 0;
+}
+
+.wall-action-btn:hover {
+    color: var(--text-main);
+}
+
+/* Кнопка удаления */
+.wall-delete-btn {
+    position: absolute; top: 10px; right: 10px;
+    color: var(--text-muted); cursor: pointer; opacity: 0; transition: 0.2s;
+}
+.wall-post:hover .wall-delete-btn { opacity: 1; }
+.wall-delete-btn:hover { color: var(--danger); }
+
+
+/* --- АНИМАЦИЯ ПЕРЕКЛЮЧЕНИЯ КОНТЕНТА --- */
+@keyframes fadeInUpContent {
+    from { opacity: 0; transform: translateY(15px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+.tab-content-animate {
+    animation: fadeInUpContent 0.3s cubic-bezier(0.2, 0.8, 0.2, 1) forwards;
+}
+
+
 /* --- ЭЛЕМЕНТЫ ВНУТРИ ОКНА НАСТРОЕК --- */
 .settings-section {
     background: rgba(255, 255, 255, 0.02);
@@ -306,7 +526,6 @@
 
 .settings-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
 
-/* Кнопки загрузки файлов */
 .file-upload-btn {
     display: flex; align-items: center; justify-content: center; gap: 8px;
     background: #1a1a1c; border: 1px dashed rgba(255,255,255,0.3);
@@ -350,4 +569,6 @@
     .profile-audio-player-container { padding-left: 0; padding-right: 0; margin-top: 16px; margin-bottom: 0; width: 100%; }
     .profile-dynamic-player { max-width: 100%; }
     .settings-grid { grid-template-columns: 1fr; }
+    
+    .visitor-actions { position: absolute; top: 60px; right: 24px; }
 }

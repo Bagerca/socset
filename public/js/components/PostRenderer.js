@@ -8,9 +8,9 @@ export class PostRenderer {
 
     _createBadgeHTML(isVerified, badgeType) {
         if (!isVerified) return '';
-        if (badgeType === 'badge-3') return `<span class="fa-stack post-badge badge-3" title="Подтвержденный аккаунт"><i class="fa-solid fa-shield fa-stack-2x bg"></i><i class="fa-solid fa-check fa-stack-1x fg"></i></span>`;
-        if (badgeType === 'badge-8') return `<div class="post-badge badge-8" title="Подтвержденный аккаунт"><i class="fa-solid fa-check"></i></div>`;
-        return `<i class="fa-solid fa-circle-check post-badge badge-1" title="Подтвержденный аккаунт"></i>`;
+        if (badgeType === 'badge-3') return `<span class="fa-stack post-badge badge-3" title="VIP"><i class="fa-solid fa-shield fa-stack-2x bg"></i><i class="fa-solid fa-check fa-stack-1x fg"></i></span>`;
+        if (badgeType === 'badge-8') return `<div class="post-badge badge-8" title="Staff"><i class="fa-solid fa-check"></i></div>`;
+        return `<i class="fa-solid fa-circle-check post-badge badge-1" title="Подтвержденный"></i>`;
     }
 
     _createFrameHTML(frameId) {
@@ -32,14 +32,25 @@ export class PostRenderer {
 
         const isPrivate = post.visibility === 'private';
         const isAuthor = authorData.username === currentUser.username;
+        const isAdmin = currentUser.isAdmin; // Проверяем админа
 
+        // Меню опций доступно автору ИЛИ админу
         let optionsMenuHTML = '';
-        if (isAuthor) {
+        if (isAuthor || isAdmin) {
+            let menuItems = '';
+            
+            // Скрыть/показать только для автора
+            if (isAuthor) {
+                menuItems += `<div class="menu-item toggle-visibility-btn" data-id="${post.id}"><i class="fa-solid ${isPrivate ? 'fa-eye' : 'fa-eye-slash'}"></i><span>${isPrivate ? 'Сделать публичным' : 'Скрыть'}</span></div>`;
+            }
+            
+            // Удалить может и автор, и админ
+            menuItems += `<div class="menu-item menu-item-danger delete-post-btn" data-id="${post.id}"><i class="fa-solid fa-trash-can"></i><span>Удалить</span></div>`;
+
             optionsMenuHTML = `
                 <button class="icon-btn post-options-btn"><i class="fa-solid fa-ellipsis"></i></button>
                 <div class="options-menu">
-                    <div class="menu-item toggle-visibility-btn" data-id="${post.id}"><i class="fa-solid ${isPrivate ? 'fa-eye' : 'fa-eye-slash'}"></i><span>${isPrivate ? 'Сделать публичным' : 'Скрыть'}</span></div>
-                    <div class="menu-item menu-item-danger delete-post-btn" data-id="${post.id}"><i class="fa-solid fa-trash-can"></i><span>Удалить</span></div>
+                    ${menuItems}
                 </div>`;
         }
 
@@ -50,8 +61,6 @@ export class PostRenderer {
         const badgeHTML = this._createBadgeHTML(authorData.isVerified, authorData.verifiedBadgeType);
         const frameHTML = this._createFrameHTML(authorData.frameId);
         const formattedTime = formatTime(post.timestamp);
-        
-        // Ссылка на профиль
         const profileLink = `#/profile/${encodeURIComponent(authorData.username)}`;
 
         return `
@@ -127,7 +136,9 @@ export class PostRenderer {
                     </div>
                 </div>`;
         } else {
-            contentHTML = `<div class="comment-text">${parseFormatting(comment.content)}</div>`;
+            let text = parseFormatting(comment.content);
+            text = text.replace(/@(\w+)/g, '<a href="#/profile/$1" class="comment-mention">@$1</a>');
+            contentHTML = `<div class="comment-text">${text}</div>`;
         }
 
         const badgeHTML = this._createBadgeHTML(authorData.isVerified, authorData.verifiedBadgeType);
@@ -136,13 +147,12 @@ export class PostRenderer {
         const dislikedClass = comment.userReaction === 'dislike' ? 'active-dislike' : '';
         const formattedTime = formatTime(comment.timestamp);
         
-        // Ссылка на профиль
         const profileLink = `#/profile/${encodeURIComponent(authorData.username)}`;
 
         return `
             <div class="comment-item" data-id="${comment.id}" data-post-id="${postId}" data-author="${authorData.username}">
                 <a href="${profileLink}" class="comment-avatar-wrapper">
-                    <img src="${authorData.avatar}" class="comment-avatar" onerror="this.src='https://placehold.co/36x36/333333/ffffff?text=U'">
+                    <img src="${authorData.avatar}" class="comment-avatar" onerror="this.src='https://placehold.co/36x36/333/fff?text=U'">
                     ${frameHTML}
                 </a>
                 <div class="comment-content-wrapper">
@@ -154,7 +164,10 @@ export class PostRenderer {
                     ${contentHTML}
                     <div class="comment-actions">
                         <button class="comment-action-btn ${likedClass}" data-type="like" data-id="${comment.id}" data-post-id="${postId}"><i class="fa-solid fa-thumbs-up"></i> ${comment.likes || ''}</button>
-                        <button class="comment-action-btn ${dislikedClass}" data-type="dislike" data-id="${comment.id}" data-post-id="${postId}"><i class="fa-solid fa-thumbs-down"></i> ${comment.dislikes || ''}</button>
+                        <button class="comment-action-btn ${dislikedClass}" data-type="dislike" data-id="${comment.id}" data-post-id="${postId}"><i class="fa-solid fa-thumbs-down"></i></button>
+                        <button class="comment-reply-btn" data-username="${authorData.username}" data-post-id="${postId}">
+                            <i class="fa-solid fa-reply"></i> Ответить
+                        </button>
                     </div>
                 </div>
             </div>
@@ -163,8 +176,6 @@ export class PostRenderer {
 
     _createAttachmentHTML(attachment) {
         if (!attachment) return '';
-        
-        // ЕСЛИ ЭТО РЕПОСТ
         if (attachment.type === 'repost') {
             let origAttHTML = this._createAttachmentHTML(attachment.originalAttachment);
             return `

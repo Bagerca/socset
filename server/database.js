@@ -2,6 +2,7 @@
 const Database = require('better-sqlite3');
 const path = require('path');
 const fs = require('fs');
+const { v4: uuidv4 } = require('uuid');
 
 // Путь к папке БД внутри server
 const DB_DIR = path.join(__dirname, 'db');
@@ -14,9 +15,8 @@ if (!fs.existsSync(DB_DIR)){
 const dbPath = path.join(DB_DIR, 'cycle.db');
 const db = new Database(dbPath); 
 
-// === ВОТ ЭТА ВАЖНАЯ СТРОЧКА ===
+// Включаем режим WAL для производительности
 db.pragma('journal_mode = WAL');
-// ==============================
 
 // Инициализация таблиц
 db.exec(`
@@ -31,12 +31,14 @@ db.exec(`
         coins INTEGER DEFAULT 100,
         isVerified INTEGER DEFAULT 0,
         verifiedBadgeType TEXT DEFAULT 'badge-1',
+        isAdmin INTEGER DEFAULT 0,
         frameId TEXT DEFAULT 'frame_none',
         backgroundId TEXT DEFAULT 'bg_default',
         titleId TEXT DEFAULT 'title_none',
         socials TEXT DEFAULT '{}',
         showcaseGames TEXT DEFAULT '[]',
         musicId TEXT DEFAULT NULL,
+        enableWall INTEGER DEFAULT 1,
         created_at INTEGER
     );
 
@@ -83,6 +85,93 @@ db.exec(`
         item_id TEXT,
         PRIMARY KEY (username, item_id)
     );
+
+    CREATE TABLE IF NOT EXISTS follows (
+        follower_username TEXT,
+        following_username TEXT,
+        PRIMARY KEY (follower_username, following_username)
+    );
+
+    CREATE TABLE IF NOT EXISTS coin_transactions (
+        id TEXT PRIMARY KEY,
+        sender_username TEXT,
+        receiver_username TEXT,
+        amount INTEGER,
+        timestamp INTEGER
+    );
+
+    CREATE TABLE IF NOT EXISTS profile_wall (
+        id TEXT PRIMARY KEY,
+        profile_username TEXT,
+        author_username TEXT,
+        content TEXT,
+        timestamp INTEGER
+    );
+
+    -- ТАБЛИЦА ДЛЯ УНИКАЛЬНЫХ ПРОСМОТРОВ
+    CREATE TABLE IF NOT EXISTS post_views (
+        post_id TEXT,
+        username TEXT,
+        PRIMARY KEY (post_id, username)
+    );
 `);
+
+// --- МИГРАЦИИ И ОБНОВЛЕНИЕ АККАУНТОВ ---
+
+try {
+    // 1. Добавляем колонку isAdmin, если её нет (для старых баз)
+    try { db.prepare('ALTER TABLE users ADD COLUMN isAdmin INTEGER DEFAULT 0').run(); } catch (e) {}
+    // 2. Добавляем колонку enableWall, если её нет (для старых баз)
+    try { db.prepare('ALTER TABLE users ADD COLUMN enableWall INTEGER DEFAULT 1').run(); } catch (e) {}
+
+    // 3. ПЕРЕИМЕНОВАНИЕ BARECA -> BAGERca и выдача прав
+    const bareca = db.prepare('SELECT * FROM users WHERE username = ?').get('BARECA');
+    if (bareca) {
+        try {
+            // Пытаемся переименовать и обновить
+            db.prepare(`
+                UPDATE users 
+                SET username = 'BAGERca', name = 'BAGERca', isAdmin = 1, coins = 999999, verifiedBadgeType = 'badge-3', isVerified = 1
+                WHERE username = 'BARECA'
+            `).run();
+            console.log('✅ BARECA эволюционировал в BAGERca (Admin).');
+        } catch (e) {
+            console.log('⚠️ Ошибка переименования (возможно BAGERca уже существует).');
+        }
+    }
+    
+    // На случай, если BAGERca уже был создан отдельно, просто даем ему права
+    db.prepare(`
+        UPDATE users 
+        SET isAdmin = 1, coins = 999999, verifiedBadgeType = 'badge-3', isVerified = 1 
+        WHERE username = 'BAGERca'
+    `).run();
+
+    // 4. СОЗДАНИЕ TetlaBot
+    const bot = db.prepare('SELECT 1 FROM users WHERE username = ?').get('TetlaBot');
+    if (!bot) {
+        db.prepare(`
+            INSERT INTO users (id, username, password, name, bio, avatar, banner, coins, isVerified, verifiedBadgeType, isAdmin, created_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        `).run(
+            uuidv4(),
+            'TetlaBot',
+            'bot', // Пароль
+            'TetlaBot',
+            'System Bot. I am watching you.',
+            'https://placehold.co/150x150/000/0f0?text=BOT',
+            'https://placehold.co/800x250/000/000?text=SYSTEM',
+            0,
+            1, // Verified
+            'badge-8', // Staff badge
+            0, // Not admin
+            Date.now()
+        );
+        console.log('🤖 TetlaBot создан.');
+    }
+
+} catch (e) {
+    console.error('Migration error:', e);
+}
 
 module.exports = db;

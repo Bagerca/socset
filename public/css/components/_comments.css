@@ -2,20 +2,15 @@
 
 /* --- СЕКЦИЯ КОММЕНТАРИЕВ (ОБЩАЯ) --- */
 .comments-section {
-    /* Растягиваем секцию на всю ширину поста */
     width: calc(100% + 48px); 
     margin-left: -24px;
-    
-    /* Магия для плавной анимации высоты */
     display: grid;
     grid-template-rows: 0fr;
     opacity: 0;
-    visibility: hidden; /* Чтобы нельзя было кликнуть/сфокусироваться, когда закрыто */
-    
+    visibility: hidden;
     margin-top: 0; 
     padding-top: 0; 
     border-top: 1px solid transparent;
-    
     transition: grid-template-rows 0.4s cubic-bezier(0.25, 1, 0.5, 1),
                 opacity 0.3s ease,
                 visibility 0.4s,
@@ -33,14 +28,13 @@
     border-top-color: var(--border-color);
 }
 
-/* Внутренний контейнер для плавного раскрытия */
 .comments-section-inner {
-    min-height: 0; /* Обязательно для анимации Grid */
+    min-height: 0;
     overflow: hidden;
     display: flex;
     flex-direction: column;
     gap: 16px;
-    padding: 0 24px; /* Возвращаем контент в рамки поста */
+    padding: 0 24px;
 }
 
 /* Список комментариев */
@@ -149,12 +143,44 @@
     margin-bottom: 2px; 
 }
 
+.comment-text b { font-weight: 800; color: var(--text-main); }
+
+.comment-mention {
+    color: #5dade2;
+    text-decoration: none;
+    font-weight: 600;
+}
+.comment-mention:hover {
+    text-decoration: underline;
+}
+
 /* Действия */
 .comment-actions { display: flex; gap: 16px; margin-top: 4px; align-items: center; }
 .comment-action-btn { background: transparent; border: none; color: var(--text-muted); font-size: 13px; cursor: pointer; display: flex; align-items: center; gap: 6px; transition: 0.2s; }
 .comment-action-btn:hover { color: var(--text-main); }
 .comment-action-btn.active-like { color: #ff453a; }
 .comment-action-btn.active-dislike { color: #5dade2; }
+
+/* Кнопка "Ответить" (ИСПРАВЛЕНО) */
+.comment-reply-btn {
+    background: transparent;
+    border: none;
+    color: var(--text-muted);
+    font-size: 12px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: 0.2s;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 4px 8px;
+    border-radius: 4px;
+}
+.comment-reply-btn:hover { 
+    color: var(--text-main); 
+    background: rgba(255, 255, 255, 0.05);
+}
+.comment-reply-btn i { font-size: 11px; }
 
 
 /* --- СТРОКА ВВОДА --- */
@@ -184,143 +210,43 @@
 
 /* --- ИНТЕРФЕЙС ЗАПИСИ (WIDGET) --- */
 .recording-widget {
-    display: flex;
-    align-items: center;
-    gap: 12px;
-    background: rgba(34, 34, 36, 0.95);
-    backdrop-filter: blur(10px);
-    padding: 0 12px;
-    border-radius: 24px;
-    border: 1px solid var(--danger);
-    width: 100%;
-    animation: slideInRight 0.3s ease;
-    height: 100%;
-    position: absolute;
-    top: 0; left: 0;
-    z-index: 10;
+    display: flex; align-items: center; gap: 12px; background: rgba(34, 34, 36, 0.95); backdrop-filter: blur(10px);
+    padding: 0 12px; border-radius: 24px; border: 1px solid var(--danger); width: 100%;
+    animation: slideInRight 0.3s ease; height: 100%; position: absolute; top: 0; left: 0; z-index: 10;
 }
 
-@keyframes slideInRight {
-    from { opacity: 0; transform: translateX(20px); }
-    to { opacity: 1; transform: translateX(0); }
-}
+@keyframes slideInRight { from { opacity: 0; transform: translateX(20px); } to { opacity: 1; transform: translateX(0); } }
 
-.rec-indicator {
-    width: 10px; height: 10px;
-    border-radius: 50%;
-    background: var(--danger);
-    box-shadow: 0 0 10px var(--danger);
-    animation: pulseRed 1s infinite;
-    flex-shrink: 0;
-}
+.rec-indicator { width: 10px; height: 10px; border-radius: 50%; background: var(--danger); box-shadow: 0 0 10px var(--danger); animation: pulseRed 1s infinite; flex-shrink: 0; }
+@keyframes pulseRed { 0% { transform: scale(1); opacity: 1; } 50% { transform: scale(1.2); opacity: 0.7; } 100% { transform: scale(1); opacity: 1; } }
 
-@keyframes pulseRed {
-    0% { transform: scale(1); opacity: 1; }
-    50% { transform: scale(1.2); opacity: 0.7; }
-    100% { transform: scale(1); opacity: 1; }
-}
+.rec-timer { font-family: monospace; font-size: 14px; color: var(--danger); font-weight: 700; min-width: 40px; }
 
-.rec-timer {
-    font-family: monospace;
-    font-size: 14px;
-    color: var(--danger);
-    font-weight: 700;
-    min-width: 40px;
-}
+.rec-visualizer { flex: 1; display: flex; align-items: center; justify-content: center; gap: 3px; height: 100%; padding: 6px 0; overflow: hidden; }
+.rec-bar { width: 4px; background: var(--text-muted); border-radius: 10px; height: 4px; min-height: 4px; transition: height 0.1s linear, background-color 0.2s; }
 
-/* Визуализатор */
-.rec-visualizer {
-    flex: 1;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    gap: 3px;
-    height: 100%;
-    padding: 6px 0;
-    overflow: hidden;
-}
-
-.rec-bar {
-    width: 4px;
-    background: var(--text-muted);
-    border-radius: 10px;
-    height: 4px;
-    min-height: 4px;
-    /* Плавность изменения высоты для Real-time эффекта */
-    transition: height 0.1s linear, background-color 0.2s; 
-}
-
-/* Кнопки виджета */
 .rec-controls { display: flex; align-items: center; gap: 8px; }
-
-.rec-btn {
-    width: 32px; height: 32px; border-radius: 50%; border: none;
-    display: flex; align-items: center; justify-content: center;
-    cursor: pointer; transition: 0.2s; font-size: 14px;
-}
-
+.rec-btn { width: 32px; height: 32px; border-radius: 50%; border: none; display: flex; align-items: center; justify-content: center; cursor: pointer; transition: 0.2s; font-size: 14px; }
 .rec-btn.stop { background: rgba(255, 69, 58, 0.2); color: var(--danger); }
 .rec-btn.stop:hover { background: var(--danger); color: #fff; }
-
 .rec-btn.cancel { background: rgba(255, 255, 255, 0.1); color: var(--text-muted); }
 .rec-btn.cancel:hover { background: rgba(255, 255, 255, 0.2); color: #fff; }
-
 .rec-btn.send { background: #44bd32; color: #fff; }
 .rec-btn.send:hover { background: #4cd137; transform: scale(1.1); }
-
 .rec-btn.play-preview { background: var(--text-main); color: var(--bg-base); }
 
-
-/* --- ГОЛОСОВЫЕ СООБЩЕНИЯ (ОТПРАВЛЕННЫЕ) --- */
-.audio-message {
-    margin-top: 6px;
-    display: flex;
-    align-items: center;
-    gap: 12px;
-    background: linear-gradient(90deg, #1f1f22 0%, #252528 100%);
-    border: 1px solid var(--border-color);
-    padding: 8px 16px 8px 8px;
-    border-radius: 12px;
-    width: fit-content;
-    min-width: 200px;
-}
-
-.audio-control-btn {
-    width: 36px; height: 36px; background: var(--text-main); color: #000;
-    border-radius: 50%; display: flex; align-items: center; justify-content: center;
-    cursor: pointer; transition: 0.2s; border: none; flex-shrink: 0; font-size: 14px;
-}
+/* --- ГОЛОСОВЫЕ СООБЩЕНИЯ --- */
+.audio-message { margin-top: 6px; display: flex; align-items: center; gap: 12px; background: linear-gradient(90deg, #1f1f22 0%, #252528 100%); border: 1px solid var(--border-color); padding: 8px 16px 8px 8px; border-radius: 12px; width: fit-content; min-width: 200px; }
+.audio-control-btn { width: 36px; height: 36px; background: var(--text-main); color: #000; border-radius: 50%; display: flex; align-items: center; justify-content: center; cursor: pointer; transition: 0.2s; border: none; flex-shrink: 0; font-size: 14px; }
 .audio-control-btn:hover { transform: scale(1.05); box-shadow: 0 0 10px rgba(255,255,255,0.3); }
-
-.audio-waveform-new {
-    position: relative; width: 140px; height: 28px; display: flex; align-items: center;
-}
-
-.wave-bg, .wave-progress-inner {
-    display: flex; align-items: center; gap: 2px; width: 140px; height: 100%;
-}
-
-.wave-progress {
-    position: absolute; left: 0; top: 0; height: 100%; width: 0%;
-    overflow: hidden; transition: width 0.1s linear;
-}
-
-.wave-bar {
-    flex: 1; border-radius: 2px; background: rgba(255, 255, 255, 0.2); min-width: 3px;
-}
+.audio-waveform-new { position: relative; width: 140px; height: 28px; display: flex; align-items: center; }
+.wave-bg, .wave-progress-inner { display: flex; align-items: center; gap: 2px; width: 140px; height: 100%; }
+.wave-progress { position: absolute; left: 0; top: 0; height: 100%; width: 0%; overflow: hidden; transition: width 0.1s linear; }
+.wave-bar { flex: 1; border-radius: 2px; background: rgba(255, 255, 255, 0.2); min-width: 3px; }
 .wave-progress-inner .wave-bar { background: var(--text-main); }
 
-/* Статичная волна в превью виджета */
-.audio-waveform-static {
-    height: 24px; display: flex; align-items: center; gap: 2px; opacity: 0.6;
-}
-
-
 /* КОНТЕКСТНОЕ МЕНЮ */
-#customContextMenu {
-    position: absolute; background: #222224; border: 1px solid var(--border-color); border-radius: 8px;
-    padding: 6px 0; min-width: 180px; box-shadow: 0 10px 40px rgba(0,0,0,0.8); z-index: 999999; display: none; 
-}
+#customContextMenu { position: absolute; background: #222224; border: 1px solid var(--border-color); border-radius: 8px; padding: 6px 0; min-width: 180px; box-shadow: 0 10px 40px rgba(0,0,0,0.8); z-index: 999999; display: none; }
 .context-menu-item { padding: 10px 16px; font-size: 14px; color: var(--text-main); cursor: pointer; display: flex; align-items: center; gap: 10px; transition: background-color 0.2s; }
 .context-menu-item:hover { background: rgba(255,255,255,0.05); }
 .context-menu-item.danger { color: var(--danger); }
