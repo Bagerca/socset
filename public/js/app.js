@@ -1,9 +1,8 @@
-// js/app.js
-
 import { AuthStore } from './store/AuthStore.js';
 import { CatalogStore } from './store/CatalogStore.js';
 import { PostsStore } from './store/PostsStore.js';
 import { ShopStore } from './store/ShopStore.js';
+import { CommunitiesStore } from './store/CommunitiesStore.js';
 
 import { Router } from './Router.js';
 import { GlobalPlayer } from './components/GlobalPlayer.js';
@@ -11,10 +10,11 @@ import { GlobalPlayer } from './components/GlobalPlayer.js';
 import { LoginView } from './views/LoginView.js';
 import { FeedView } from './views/FeedView.js';
 import { ProfileView } from './views/ProfileView.js';
+import { CommunityView } from './views/CommunityView.js';
 import { MusicView } from './views/MusicView.js';
 import { GamesView } from './views/GamesView.js';
 import { ShopView } from './views/ShopView.js';
-import { AdminView } from './views/AdminView.js'; // <-- НОВОЕ
+import { AdminView } from './views/AdminView.js';
 
 document.addEventListener('DOMContentLoaded', async () => {
     
@@ -22,8 +22,9 @@ document.addEventListener('DOMContentLoaded', async () => {
     const catalogStore = new CatalogStore();
     const postsStore = new PostsStore(authStore);
     const shopStore = new ShopStore(authStore);
+    const communitiesStore = new CommunitiesStore();
 
-    const stores = { auth: authStore, catalogs: catalogStore, posts: postsStore, shop: shopStore };
+    const stores = { auth: authStore, catalogs: catalogStore, posts: postsStore, shop: shopStore, communities: communitiesStore };
 
     const appContent = document.getElementById('app-content');
     const sidebarWrapper = document.querySelector('.sidebar-wrapper');
@@ -37,7 +38,6 @@ document.addEventListener('DOMContentLoaded', async () => {
         return; 
     }
 
-    // Если админ - показываем кнопку в меню
     if (authStore.user && authStore.user.isAdmin) {
         const navLinks = document.querySelector('.nav-links');
         const adminLink = document.createElement('a');
@@ -46,8 +46,6 @@ document.addEventListener('DOMContentLoaded', async () => {
         adminLink.dataset.route = '/admin';
         adminLink.title = 'Панель Администратора';
         adminLink.innerHTML = '<i class="fa-solid fa-crown" style="color:gold;"></i>';
-        
-        // Вставляем перед профилем (последним элементом)
         navLinks.insertBefore(adminLink, navLinks.lastElementChild);
     }
 
@@ -62,10 +60,11 @@ document.addEventListener('DOMContentLoaded', async () => {
     const routes = {
         '/': FeedView,
         '/profile': ProfileView,
+        '/community': CommunityView,
         '/music': MusicView,
         '/games': GamesView,
         '/shop': ShopView,
-        '/admin': AdminView // <-- НОВОЕ
+        '/admin': AdminView
     };
 
     const router = new Router(routes, stores);

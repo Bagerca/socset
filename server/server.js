@@ -29,7 +29,8 @@ const authRoutes = require('./routes/auth.routes');
 const profileRoutes = require('./routes/profile.routes');
 const shopRoutes = require('./routes/shop.routes');
 const postsRoutes = require('./routes/posts.routes')(io);
-const adminRoutes = require('./routes/admin.routes'); // <-- НОВОЕ
+const adminRoutes = require('./routes/admin.routes');
+const communitiesRoutes = require('./routes/communities.routes');
 
 io.on('connection', (socket) => {
     console.log('🔌 Client connected:', socket.id);
@@ -44,7 +45,8 @@ app.use('/api', authRoutes);
 app.use('/api/profile', profileRoutes);
 app.use('/api/shop', shopRoutes);
 app.use('/api/posts', postsRoutes);
-app.use('/api/admin', adminRoutes); // <-- НОВОЕ
+app.use('/api/admin', adminRoutes);
+app.use('/api/communities', communitiesRoutes);
 
 app.get(/.*/, (req, res) => {
     res.sendFile(path.join(PUBLIC_DIR, 'index.html'));

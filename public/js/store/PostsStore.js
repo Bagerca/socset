@@ -1,11 +1,10 @@
-// public/js/store/PostsStore.js
 import { PostsAPI } from '../api/PostsAPI.js';
 import { generateId } from '../utils/utils.js';
 
 export class PostsStore {
     constructor(authStore) {
         this.authStore = authStore;
-        this.posts = [];
+        this.posts =[];
         this.initSocket();
     }
 
@@ -21,23 +20,23 @@ export class PostsStore {
         }
     }
 
-    async loadPosts(page = 1) {
+    async loadPosts(page = 1, communityId = null, feedType = 'main') {
         try {
-            const newPosts = await PostsAPI.getPosts(page, 10);
+            const newPosts = await PostsAPI.getPosts(page, 10, communityId, feedType);
             const processed = newPosts.map(p => this._personalize(p));
             if (page === 1) { this.posts = processed; } 
             else {
                 const existingIds = new Set(this.posts.map(p => p.id));
                 const uniqueNew = processed.filter(p => !existingIds.has(p.id));
-                this.posts = [...this.posts, ...uniqueNew];
+                this.posts =[...this.posts, ...uniqueNew];
             }
             return processed;
-        } catch (e) { return []; }
+        } catch (e) { return[]; }
     }
 
     _personalize(post) {
         const me = this.authStore.user?.username;
-        if (!post.likedBy) post.likedBy = [];
+        if (!post.likedBy) post.likedBy =[];
         post.isLiked = post.likedBy.includes(me);
         post.likes = post.likedBy.length;
 
@@ -60,17 +59,15 @@ export class PostsStore {
         return post;
     }
 
-    async addPost(content, pollData = null, attachment = null) {
+    async addPost(content, pollData = null, attachment = null, communityId = null) {
         let poll = null;
         if (pollData && pollData.options.length >= 2) {
             poll = { options: pollData.options.map(opt => ({ id: 'opt_' + generateId(), text: opt, votes: 0 })), totalVotes: 0, days: pollData.duration || 3, votedBy: {} };
         }
-        await PostsAPI.createPost({ content, poll, attachment });
+        await PostsAPI.createPost({ content, poll, attachment, communityId });
     }
 
-    async repostPost(postId) {
-        await PostsAPI.repost(postId);
-    }
+    async repostPost(postId) { await PostsAPI.repost(postId); }
 
     async toggleLike(postId) {
         const post = this.posts.find(p => p.id === postId);
@@ -78,23 +75,16 @@ export class PostsStore {
         post.isLiked ? (post.likes--, post.isLiked = false) : (post.likes++, post.isLiked = true);
         const data = await PostsAPI.likePost(postId);
         if(data.success) {
-            post.likes = data.likes;
-            post.likedBy = data.likedBy;
-            post.isLiked = post.likedBy.includes(this.authStore.user.username);
+            post.likes = data.likes; post.likedBy = data.likedBy; post.isLiked = post.likedBy.includes(this.authStore.user.username);
         }
         return post;
     }
 
-    // --- НОВЫЙ МЕТОД ---
     async togglePostVisibility(postId) {
         const post = this.posts.find(p => p.id === postId);
         if (!post) return null;
-
         const data = await PostsAPI.togglePostVisibility(postId);
-        if (data.success) {
-            post.visibility = data.visibility;
-            return post;
-        }
+        if (data.success) { post.visibility = data.visibility; return post; }
         return null;
     }
 
@@ -102,11 +92,7 @@ export class PostsStore {
         const post = this.posts.find(p => p.id === postId);
         if (!post || !post.poll || post.poll.votedOptionId) return false;
         const data = await PostsAPI.votePoll(postId, optionId);
-        if (data.success) {
-            post.poll = data.poll;
-            this._personalize(post);
-            return true;
-        }
+        if (data.success) { post.poll = data.poll; this._personalize(post); return true; }
         return false;
     }
 
@@ -114,19 +100,12 @@ export class PostsStore {
         const post = this.posts.find(p => p.id === postId);
         if (!post) return;
         const data = await PostsAPI.addComment(postId, { content, type, waveform });
-        if(data.success) {
-            post.comments.push(data.comment);
-            this._personalize(post);
-            return data.comment;
-        }
+        if(data.success) { post.comments.push(data.comment); this._personalize(post); return data.comment; }
     }
 
     async deleteComment(postId, commentId) {
         const post = this.posts.find(p => p.id === postId);
-        if (post) {
-            post.comments = post.comments.filter(c => c.id !== commentId);
-            await PostsAPI.deleteComment(postId, commentId);
-        }
+        if (post) { post.comments = post.comments.filter(c => c.id !== commentId); await PostsAPI.deleteComment(postId, commentId); }
     }
 
     async toggleCommentReaction(postId, commentId, type) {
@@ -141,10 +120,7 @@ export class PostsStore {
         this._personalize(post);
 
         const data = await PostsAPI.reactComment(postId, commentId, type);
-        if (data.success) {
-            comment.reactionsMap = data.reactionsMap;
-            this._personalize(post);
-        }
+        if (data.success) { comment.reactionsMap = data.reactionsMap; this._personalize(post); }
     }
 
     async deletePost(postId) {

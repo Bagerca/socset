@@ -1,4 +1,3 @@
-// public/js/components/PostRenderer.js
 import { escapeHTML, formatTime, parseFormatting } from '../utils/utils.js';
 
 export class PostRenderer {
@@ -13,14 +12,11 @@ export class PostRenderer {
         return `<i class="fa-solid fa-circle-check post-badge badge-1" title="Подтвержденный"></i>`;
     }
 
-    // ИЗМЕНЕНО ДЛЯ РЕШЕНИЯ ПРОБЛЕМЫ АНИМАЦИИ
     _createFrameHTML(frameId) {
         if (!frameId || frameId === 'frame_none') return '';
         const frame = this.stores.shop.getAvailableFrames().find(f => f.id === frameId);
         if (!frame) return '';
         
-        // Внешний div (.post-avatar-frame) держит scale
-        // Внутренний div (.post-frame-content) крутится
         if (frame.url) {
             return `
             <div class="post-avatar-frame">
@@ -52,11 +48,9 @@ export class PostRenderer {
         let optionsMenuHTML = '';
         if (isAuthor || isAdmin) {
             let menuItems = '';
-            
             if (isAuthor) {
                 menuItems += `<div class="menu-item toggle-visibility-btn" data-id="${post.id}"><i class="fa-solid ${isPrivate ? 'fa-eye' : 'fa-eye-slash'}"></i><span>${isPrivate ? 'Сделать публичным' : 'Скрыть'}</span></div>`;
             }
-            
             menuItems += `<div class="menu-item menu-item-danger delete-post-btn" data-id="${post.id}"><i class="fa-solid fa-trash-can"></i><span>Удалить</span></div>`;
 
             optionsMenuHTML = `
@@ -75,6 +69,18 @@ export class PostRenderer {
         const formattedTime = formatTime(post.timestamp);
         const profileLink = `#/profile/${encodeURIComponent(authorData.username)}`;
 
+        let communityContextHTML = '';
+        if (post.community) {
+            communityContextHTML = `
+                <div style="font-size: 13px; color: var(--text-muted); margin-bottom: 8px; display: flex; align-items: center; gap: 6px;">
+                    <i class="fa-solid fa-users"></i>
+                    <a href="#/community/${post.community.handle}" style="color: var(--accent-games); font-weight: 600; text-decoration: none;">
+                        c/${escapeHTML(post.community.handle)}
+                    </a>
+                </div>
+            `;
+        }
+
         return `
             <article class="post ${isPrivate ? 'private-post' : ''}" data-id="${post.id}">
                 ${optionsMenuHTML}
@@ -84,6 +90,7 @@ export class PostRenderer {
                         ${frameHTML}
                     </a>
                     <div class="post-content">
+                        ${communityContextHTML}
                         <div class="post-header">
                             <a href="${profileLink}" class="post-name-link"><span class="post-name">${escapeHTML(authorData.name)}</span></a>
                             ${badgeHTML}

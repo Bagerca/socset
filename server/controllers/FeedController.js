@@ -9,7 +9,6 @@ export class FeedController {
         this.postRenderer = new PostRenderer(stores);
         this.postEvents = new PostEventHandler(stores, this.postRenderer, () => this.renderAll());
         
-        // Элементы создания поста
         this.container = document.getElementById('postsContainer');
         this.input = document.getElementById('postInput');
         this.publishBtn = document.getElementById('publishBtn');
@@ -21,14 +20,11 @@ export class FeedController {
         this.attachMusicBtn = document.getElementById('attachMusicBtn');
         this.attachGameBtn = document.getElementById('attachGameBtn');
         this.attachmentPreview = document.getElementById('attachmentPreview');
-        
-        // Модалки
         this.modal = document.getElementById('selectionModal');
         this.modalTitle = document.getElementById('modalTitle');
         this.modalList = document.getElementById('modalList');
         this.closeModalBtn = document.getElementById('closeModalBtn');
 
-        // Новые элементы для Умной Ленты и Сообществ
         this.feedTabBtns = document.querySelectorAll('.feed-tab-btn');
         this.feedWrapper = document.getElementById('feedWrapper');
         this.catalogWrapper = document.getElementById('catalogWrapper');
@@ -54,9 +50,7 @@ export class FeedController {
 
     async init() {
         this.initEventListeners();
-        
-        // Первичная загрузка главной ленты
-        this.container.innerHTML = '<div style="text-align:center; padding: 40px; color: var(--text-muted);">Загрузка...</div>';
+        this.container.innerHTML = '<div style="text-align:center; padding: 20px; color: var(--text-muted);">Загрузка...</div>';
         await this.stores.posts.loadPosts(1, null, this.currentFeedType);
         this.renderAll();
         
@@ -72,9 +66,7 @@ export class FeedController {
     }
 
     async handleScroll() {
-        // Если грузим или открыт каталог — скролл ленты не работает
         if (this.isLoadingMore || this.catalogWrapper.style.display === 'flex') return;
-        
         const { scrollTop, scrollHeight, clientHeight } = document.documentElement;
         if (scrollTop + clientHeight >= scrollHeight - 100) {
             this.isLoadingMore = true;
@@ -93,38 +85,18 @@ export class FeedController {
         clone.querySelectorAll('.post-quote').forEach(q => { q.replaceWith(`\n> ${q.innerText.trim()}\n`); });
         clone.querySelectorAll('b, strong, span[style*="font-weight: bold"]').forEach(b => { b.replaceWith(`**${b.innerText}**`); });
         clone.querySelectorAll('.editor-spoiler').forEach(s => { s.replaceWith(`||${s.innerText}||`); });
-
-        let html = clone.innerHTML;
-        html = html.replace(/<div><br><\/div>/g, '\n'); 
-        html = html.replace(/<div>/g, '\n'); 
-        html = html.replace(/<\/div>/g, ''); 
-        html = html.replace(/<br>/g, '\n'); 
-
-        const temp = document.createElement('div');
-        temp.innerHTML = html;
-        return temp.innerText.trim();
+        let html = clone.innerHTML.replace(/<div><br><\/div>/g, '\n').replace(/<div>/g, '\n').replace(/<\/div>/g, '').replace(/<br>/g, '\n'); 
+        const temp = document.createElement('div'); temp.innerHTML = html; return temp.innerText.trim();
     }
 
     createGlobalContextMenu() {
         if (document.getElementById('customContextMenu')) document.getElementById('customContextMenu').remove();
-        const menu = document.createElement('div');
-        menu.id = 'customContextMenu';
-        menu.style.display = 'none';
+        const menu = document.createElement('div'); menu.id = 'customContextMenu'; menu.style.display = 'none';
         menu.innerHTML = `<div class="context-menu-item danger" id="ctxDeleteComment"><i class="fa-solid fa-trash"></i> Удалить комментарий</div>`;
-        document.body.appendChild(menu);
-        this.contextMenu = menu;
-        this.contextTargetCommentId = null;
-        this.contextTargetPostId = null;
-
+        document.body.appendChild(menu); this.contextMenu = menu;
         const signal = this.abortController.signal;
-        document.addEventListener('click', () => { 
-            if(this.contextMenu) this.contextMenu.style.display = 'none'; 
-            if(this.formatMenu) this.formatMenu.style.display = 'none';
-        }, { signal });
-        document.addEventListener('scroll', () => { 
-            if(this.contextMenu) this.contextMenu.style.display = 'none'; 
-            if(this.formatMenu) this.formatMenu.style.display = 'none';
-        }, { signal, capture: true });
+        document.addEventListener('click', () => { if(this.contextMenu) this.contextMenu.style.display = 'none'; if(this.formatMenu) this.formatMenu.style.display = 'none'; }, { signal });
+        document.addEventListener('scroll', () => { if(this.contextMenu) this.contextMenu.style.display = 'none'; if(this.formatMenu) this.formatMenu.style.display = 'none'; }, { signal, capture: true });
         
         const ctxDeleteBtn = document.getElementById('ctxDeleteComment');
         if (ctxDeleteBtn) {
@@ -140,24 +112,9 @@ export class FeedController {
 
     createFormatContextMenu() {
         if (document.getElementById('formatContextMenu')) document.getElementById('formatContextMenu').remove();
-        const menu = document.createElement('div');
-        menu.id = 'formatContextMenu';
-        menu.style.position = 'absolute';
-        menu.style.display = 'none';
-        menu.style.zIndex = '999999';
-        menu.style.background = '#222224';
-        menu.style.border = '1px solid rgba(255,255,255,0.08)';
-        menu.style.borderRadius = '8px';
-        menu.style.padding = '6px 0';
-        menu.style.boxShadow = '0 10px 40px rgba(0,0,0,0.8)';
-        menu.innerHTML = `
-            <div class="context-menu-item" id="fmtBold"><i class="fa-solid fa-bold"></i> Жирный</div>
-            <div class="context-menu-item" id="fmtQuote"><i class="fa-solid fa-quote-right"></i> Цитата</div>
-            <div class="context-menu-item" id="fmtSpoiler"><i class="fa-solid fa-eye-slash"></i> Спойлер</div>
-        `;
-        document.body.appendChild(menu);
-        this.formatMenu = menu;
-
+        const menu = document.createElement('div'); menu.id = 'formatContextMenu'; menu.style.position = 'absolute'; menu.style.display = 'none'; menu.style.zIndex = '999999'; menu.style.background = '#222224'; menu.style.border = '1px solid rgba(255,255,255,0.08)'; menu.style.borderRadius = '8px'; menu.style.padding = '6px 0'; menu.style.boxShadow = '0 10px 40px rgba(0,0,0,0.8)';
+        menu.innerHTML = `<div class="context-menu-item" id="fmtBold"><i class="fa-solid fa-bold"></i> Жирный</div><div class="context-menu-item" id="fmtQuote"><i class="fa-solid fa-quote-right"></i> Цитата</div><div class="context-menu-item" id="fmtSpoiler"><i class="fa-solid fa-eye-slash"></i> Спойлер</div>`;
+        document.body.appendChild(menu); this.formatMenu = menu;
         const signal = this.abortController.signal;
         document.getElementById('fmtBold').addEventListener('mousedown', (e) => { e.preventDefault(); this.applyFormat('bold'); }, { signal });
         document.getElementById('fmtQuote').addEventListener('mousedown', (e) => { e.preventDefault(); this.applyFormat('quote'); }, { signal });
@@ -165,65 +122,21 @@ export class FeedController {
     }
 
     applyFormat(type) {
-        this.formatMenu.style.display = 'none';
-        this.input.focus();
-
-        if (this.savedRange) {
-            const selection = window.getSelection();
-            selection.removeAllRanges();
-            selection.addRange(this.savedRange);
-        }
-
-        const selection = window.getSelection();
-        if (!selection.rangeCount) return;
-        const range = selection.getRangeAt(0);
-
-        if (type === 'bold') {
-            document.execCommand('bold', false, null);
-        } else if (type === 'quote') {
-            const extracted = range.extractContents();
-            const div = document.createElement('div');
-            div.className = 'post-quote';
-            if (extracted.textContent.trim() === '') div.textContent = 'Цитата'; else div.appendChild(extracted);
-            range.insertNode(div);
-            const space = document.createTextNode('\u200B'); div.after(space);
-            range.setStartAfter(space); range.collapse(true);
-            selection.removeAllRanges(); selection.addRange(range);
-        } else if (type === 'spoiler') {
-            const extracted = range.extractContents();
-            const span = document.createElement('span');
-            span.className = 'editor-spoiler';
-            if (extracted.textContent.trim() === '') span.textContent = 'Спойлер'; else span.appendChild(extracted);
-            range.insertNode(span);
-            const space = document.createTextNode('\u00A0'); span.after(space);
-            range.setStartAfter(space); range.collapse(true);
-            selection.removeAllRanges(); selection.addRange(range);
-        }
+        this.formatMenu.style.display = 'none'; this.input.focus();
+        if (this.savedRange) { const selection = window.getSelection(); selection.removeAllRanges(); selection.addRange(this.savedRange); }
+        const selection = window.getSelection(); if (!selection.rangeCount) return; const range = selection.getRangeAt(0);
+        if (type === 'bold') { document.execCommand('bold', false, null); } 
+        else if (type === 'quote') { const ext = range.extractContents(); const div = document.createElement('div'); div.className = 'post-quote'; if (ext.textContent.trim() === '') div.textContent = 'Цитата'; else div.appendChild(ext); range.insertNode(div); const space = document.createTextNode('\u200B'); div.after(space); range.setStartAfter(space); range.collapse(true); selection.removeAllRanges(); selection.addRange(range); } 
+        else if (type === 'spoiler') { const ext = range.extractContents(); const span = document.createElement('span'); span.className = 'editor-spoiler'; if (ext.textContent.trim() === '') span.textContent = 'Спойлер'; else span.appendChild(ext); range.insertNode(span); const space = document.createTextNode('\u00A0'); span.after(space); range.setStartAfter(space); range.collapse(true); selection.removeAllRanges(); selection.addRange(range); }
         this.checkPublishState();
     }
 
     initCustomSelect() {
-        const wrapper = document.getElementById('pollDurationWrapper');
-        if (!wrapper) return;
-        
-        const trigger = wrapper.querySelector('.select-trigger');
-        const hiddenInput = document.getElementById('pollDuration');
-        const options = wrapper.querySelectorAll('.select-option');
-
+        const wrapper = document.getElementById('pollDurationWrapper'); if (!wrapper) return;
+        const trigger = wrapper.querySelector('.select-trigger'); const hiddenInput = document.getElementById('pollDuration'); const options = wrapper.querySelectorAll('.select-option');
         trigger.addEventListener('click', (e) => { e.stopPropagation(); wrapper.classList.toggle('active'); });
-        options.forEach(opt => {
-            opt.addEventListener('click', (e) => {
-                e.stopPropagation();
-                trigger.innerHTML = `${opt.textContent} <i class="fa-solid fa-chevron-down"></i>`;
-                hiddenInput.value = opt.dataset.value;
-                options.forEach(o => o.classList.remove('selected'));
-                opt.classList.add('selected');
-                wrapper.classList.remove('active');
-            });
-        });
-
-        this.closeSelectHandler = (e) => { if (!wrapper.contains(e.target)) wrapper.classList.remove('active'); };
-        document.addEventListener('click', this.closeSelectHandler);
+        options.forEach(opt => { opt.addEventListener('click', (e) => { e.stopPropagation(); trigger.innerHTML = `${opt.textContent} <i class="fa-solid fa-chevron-down"></i>`; hiddenInput.value = opt.dataset.value; options.forEach(o => o.classList.remove('selected')); opt.classList.add('selected'); wrapper.classList.remove('active'); }); });
+        this.closeSelectHandler = (e) => { if (!wrapper.contains(e.target)) wrapper.classList.remove('active'); }; document.addEventListener('click', this.closeSelectHandler);
     }
 
     initEventListeners() {
@@ -233,77 +146,52 @@ export class FeedController {
                 this.feedTabBtns.forEach(b => b.classList.remove('active'));
                 btn.classList.add('active');
                 
-                this.currentFeedType = btn.dataset.tab; // 'main' или 'communities'
+                this.currentFeedType = btn.dataset.tab;
                 
-                // Переключаем шапку сообществ
                 if (this.currentFeedType === 'main') {
                     this.commHeader.style.display = 'none';
                 } else {
                     this.commHeader.style.display = 'flex';
                 }
 
-                // Убеждаемся, что мы в ленте, а не в каталоге
                 this.feedWrapper.style.display = 'flex';
                 this.catalogWrapper.style.display = 'none';
 
-                // Загружаем нужные посты
                 this.page = 1;
-                this.container.innerHTML = '<div style="text-align:center; padding: 40px; color: var(--text-muted);">Загрузка...</div>';
+                this.container.innerHTML = '<div style="text-align:center; padding: 20px; color: var(--text-muted);">Загрузка...</div>';
                 await this.stores.posts.loadPosts(1, null, this.currentFeedType);
                 this.renderAll();
             });
         });
 
         // --- КНОПКИ КАТАЛОГА ---
-        const btnOpenCatalog = document.getElementById('btnOpenCatalog');
-        if (btnOpenCatalog) {
-            btnOpenCatalog.addEventListener('click', () => {
-                this.feedWrapper.style.display = 'none';
-                this.catalogWrapper.style.display = 'flex';
-                this.renderCommunities();
-            });
-        }
+        document.getElementById('btnOpenCatalog').addEventListener('click', () => {
+            this.feedWrapper.style.display = 'none';
+            this.catalogWrapper.style.display = 'flex';
+            this.renderCommunities();
+        });
 
-        const btnBackToFeed = document.getElementById('btnBackToFeed');
-        if (btnBackToFeed) {
-            btnBackToFeed.addEventListener('click', () => {
-                this.catalogWrapper.style.display = 'none';
-                this.feedWrapper.style.display = 'flex';
-            });
-        }
+        document.getElementById('btnBackToFeed').addEventListener('click', () => {
+            this.catalogWrapper.style.display = 'none';
+            this.feedWrapper.style.display = 'flex';
+        });
 
-        // --- ПОИСК И СОЗДАНИЕ СООБЩЕСТВ ---
         const handleCommSearch = debounce((query) => { this.renderCommunities(query); }, 300);
         if (this.commSearchInput) this.commSearchInput.addEventListener('input', (e) => handleCommSearch(e.target.value.trim()));
 
         if (this.btnCreateCommunity) {
             this.btnCreateCommunity.addEventListener('click', () => {
-                document.getElementById('newCommName').value = '';
-                document.getElementById('newCommHandle').value = '';
-                document.getElementById('newCommDesc').value = '';
+                document.getElementById('newCommName').value = ''; document.getElementById('newCommHandle').value = ''; document.getElementById('newCommDesc').value = '';
                 this.createCommModal.classList.add('active');
             });
         }
-        
-        const closeCreateCommBtn = document.getElementById('closeCreateCommBtn');
-        if (closeCreateCommBtn) closeCreateCommBtn.addEventListener('click', () => this.createCommModal.classList.remove('active'));
-        
-        const submitCreateCommBtn = document.getElementById('submitCreateCommBtn');
-        if (submitCreateCommBtn) {
-            submitCreateCommBtn.addEventListener('click', async () => {
-                const name = document.getElementById('newCommName').value.trim();
-                const handle = document.getElementById('newCommHandle').value.trim().replace(/[^a-zA-Z0-9_]/g, '');
-                const desc = document.getElementById('newCommDesc').value.trim();
-
+        if (document.getElementById('closeCreateCommBtn')) document.getElementById('closeCreateCommBtn').addEventListener('click', () => this.createCommModal.classList.remove('active'));
+        if (document.getElementById('submitCreateCommBtn')) {
+            document.getElementById('submitCreateCommBtn').addEventListener('click', async () => {
+                const name = document.getElementById('newCommName').value.trim(); const handle = document.getElementById('newCommHandle').value.trim().replace(/[^a-zA-Z0-9_]/g, ''); const desc = document.getElementById('newCommDesc').value.trim();
                 if (!name || !handle) return alert('Введите имя и адрес');
-                
                 const res = await this.stores.communities.create({ name, handle, description: desc });
-                if (res.success) {
-                    this.createCommModal.classList.remove('active');
-                    this.renderCommunities();
-                } else {
-                    alert(res.error || 'Ошибка создания');
-                }
+                if (res.success) { this.createCommModal.classList.remove('active'); this.renderCommunities(); } else { alert(res.error || 'Ошибка создания'); }
             });
         }
 
@@ -314,11 +202,6 @@ export class FeedController {
                     e.stopPropagation();
                     await this.stores.communities.toggleJoin(joinBtn.dataset.id);
                     this.renderCommunities(this.commSearchInput.value.trim()); 
-                    
-                    // Если мы находимся во вкладке сообществ, нужно обновить и ленту
-                    if (this.currentFeedType === 'communities') {
-                        await this.stores.posts.loadPosts(1, null, 'communities');
-                    }
                     return;
                 }
                 const card = e.target.closest('.community-card');
@@ -326,20 +209,12 @@ export class FeedController {
             });
         }
 
-        // --- СОЗДАНИЕ ПОСТА ---
         this.togglePollBtn.addEventListener('click', () => this.togglePoll());
         this.closePollBtn.addEventListener('click', () => this.closePoll());
         this.addOptionBtn.addEventListener('click', () => this.addPollOption());
         
         this.input.addEventListener('input', () => { this.checkPublishState(); });
-        this.input.addEventListener('contextmenu', (e) => {
-            e.preventDefault();
-            const selection = window.getSelection();
-            if(selection.rangeCount > 0) this.savedRange = selection.getRangeAt(0).cloneRange();
-            this.formatMenu.style.display = 'block';
-            this.formatMenu.style.top = `${e.pageY}px`;
-            this.formatMenu.style.left = `${e.pageX}px`;
-        });
+        this.input.addEventListener('contextmenu', (e) => { e.preventDefault(); const selection = window.getSelection(); if(selection.rangeCount > 0) this.savedRange = selection.getRangeAt(0).cloneRange(); this.formatMenu.style.display = 'block'; this.formatMenu.style.top = `${e.pageY}px`; this.formatMenu.style.left = `${e.pageX}px`; });
 
         this.pollInputsContainer.addEventListener('input', () => this.checkPublishState());
         this.publishBtn.addEventListener('click', async () => await this.publishPost());
@@ -394,8 +269,7 @@ export class FeedController {
     }
 
     openModal(type) {
-        this.modal.classList.add('active');
-        this.modalList.innerHTML = ''; 
+        this.modal.classList.add('active'); this.modalList.innerHTML = ''; 
         let items =[];
         if (type === 'music') { this.modalTitle.textContent = 'Прикрепить музыку'; items = this.stores.catalogs.music; } 
         else { this.modalTitle.textContent = 'Прикрепить игру'; items = this.stores.catalogs.games; }
@@ -403,49 +277,25 @@ export class FeedController {
         if (items.length === 0) { this.modalList.innerHTML = '<div style="padding:20px; text-align:center; color:var(--text-muted)">Список пуст или не загружен</div>'; return; }
 
         items.forEach(item => {
-            const el = document.createElement('div');
-            el.className = 'select-item';
-            const img = type === 'music' ? item.cover : item.icon;
-            const title = item.title;
-            const sub = type === 'music' ? item.artist : item.genre;
-            el.innerHTML = `
-                <img src="${img}">
-                <div class="select-info">
-                    <span class="select-title">${escapeHTML(title)}</span>
-                    <span class="select-subtitle">${escapeHTML(sub)}</span>
-                </div>
-            `;
-            el.addEventListener('click', () => { this.selectAttachment(type, item.id, item); });
-            this.modalList.appendChild(el);
+            const el = document.createElement('div'); el.className = 'select-item';
+            const img = type === 'music' ? item.cover : item.icon; const title = item.title; const sub = type === 'music' ? item.artist : item.genre;
+            el.innerHTML = `<img src="${img}"><div class="select-info"><span class="select-title">${escapeHTML(title)}</span><span class="select-subtitle">${escapeHTML(sub)}</span></div>`;
+            el.addEventListener('click', () => { this.selectAttachment(type, item.id, item); }); this.modalList.appendChild(el);
         });
     }
 
     closeModal() { this.modal.classList.remove('active'); }
 
-    selectAttachment(type, id, itemData) {
-        this.currentAttachments[type] = itemData;
-        this.closeModal();
-        this.updateAttachmentPreview();
-        this.checkPublishState();
-    }
+    selectAttachment(type, id, itemData) { this.currentAttachments[type] = itemData; this.closeModal(); this.updateAttachmentPreview(); this.checkPublishState(); }
 
     updateAttachmentPreview() {
-        if (!this.currentAttachments.music && !this.currentAttachments.game) {
-            this.attachmentPreview.style.display = 'none';
-            this.attachmentPreview.innerHTML = '';
-            return;
-        }
-        this.attachmentPreview.style.display = 'flex';
-        this.attachmentPreview.style.gap = '10px';
-        this.attachmentPreview.style.flexWrap = 'wrap';
-        this.attachmentPreview.innerHTML = '';
+        if (!this.currentAttachments.music && !this.currentAttachments.game) { this.attachmentPreview.style.display = 'none'; this.attachmentPreview.innerHTML = ''; return; }
+        this.attachmentPreview.style.display = 'flex'; this.attachmentPreview.style.gap = '10px'; this.attachmentPreview.style.flexWrap = 'wrap'; this.attachmentPreview.innerHTML = '';
 
         const renderPreview = (type, data) => {
             if (!data) return;
-            const img = type === 'music' ? data.cover : data.icon;
-            const sub = type === 'music' ? data.artist : data.genre;
-            const el = document.createElement('div');
-            el.className = 'attached-content-preview';
+            const img = type === 'music' ? data.cover : data.icon; const sub = type === 'music' ? data.artist : data.genre;
+            const el = document.createElement('div'); el.className = 'attached-content-preview';
             const imgStyle = type === 'game' ? 'width:32px; height:42px; border-radius:4px; object-fit:cover;' : 'width:32px; height:32px; border-radius:4px; object-fit:cover;';
             el.innerHTML = `
                 <img src="${img}" style="${imgStyle}">
@@ -455,16 +305,10 @@ export class FeedController {
                 </div>
                 <div class="remove-btn" data-type="${type}"><i class="fa-solid fa-xmark"></i></div>
             `;
-            el.querySelector('.remove-btn').addEventListener('click', () => {
-                this.currentAttachments[type] = null;
-                this.updateAttachmentPreview();
-                this.checkPublishState();
-            });
+            el.querySelector('.remove-btn').addEventListener('click', () => { this.currentAttachments[type] = null; this.updateAttachmentPreview(); this.checkPublishState(); });
             this.attachmentPreview.appendChild(el);
         };
-
-        renderPreview('music', this.currentAttachments.music);
-        renderPreview('game', this.currentAttachments.game);
+        renderPreview('music', this.currentAttachments.music); renderPreview('game', this.currentAttachments.game);
     }
 
     async publishPost() {
@@ -481,21 +325,13 @@ export class FeedController {
         }
 
         if (text.length > 0 || pollData || attachData) {
-            this.publishBtn.disabled = true;
-            this.publishBtn.textContent = 'Отправка...';
+            this.publishBtn.disabled = true; this.publishBtn.textContent = 'Отправка...';
             try {
                 await this.stores.posts.addPost(text, pollData, attachData);
-                this.input.innerHTML = '';
-                this.currentAttachments = { music: null, game: null };
-                this.updateAttachmentPreview();
-                this.closePoll();
-            } catch (error) {
-                console.error(error);
-            } finally {
-                this.publishBtn.disabled = true;
-                this.publishBtn.textContent = 'Опубликовать';
-                this.checkPublishState();
-            }
+                this.input.innerHTML = ''; this.currentAttachments = { music: null, game: null };
+                this.updateAttachmentPreview(); this.closePoll();
+            } catch (error) { console.error(error); } 
+            finally { this.publishBtn.disabled = true; this.publishBtn.textContent = 'Опубликовать'; this.checkPublishState(); }
         }
     }
 
@@ -507,9 +343,7 @@ export class FeedController {
         }
         const hasText = this.input.innerText.trim().length > 0;
         const hasAttachment = this.currentAttachments.music || this.currentAttachments.game;
-        if (this.publishBtn.textContent !== 'Отправка...') {
-            this.publishBtn.disabled = !(hasText || hasAttachment || isPollValid);
-        }
+        if (this.publishBtn.textContent !== 'Отправка...') { this.publishBtn.disabled = !(hasText || hasAttachment || isPollValid); }
     }
 
     togglePoll() { this.isPollActive = !this.isPollActive; this.pollCreator.style.display = this.isPollActive ? "flex" : "none"; this.togglePollBtn.classList.toggle("active", this.isPollActive); this.checkPublishState(); }
@@ -518,8 +352,7 @@ export class FeedController {
 
     renderAll() {
         if (this.stores.posts.posts.length === 0) {
-            let msg = this.currentFeedType === 'main' ? 'В этой ленте пока нет записей.' : 'Вы не состоите в сообществах или в них нет постов.';
-            this.container.innerHTML = `<div style="text-align:center; padding: 40px; color: var(--text-muted);">${msg}</div>`;
+            this.container.innerHTML = `<div style="text-align:center; padding: 40px; color: var(--text-muted);">В этой ленте пока нет записей.</div>`;
         } else {
             this.container.innerHTML = this.stores.posts.posts.map(post => this.postRenderer.createPostHTML(post)).join('');
         }

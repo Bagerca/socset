@@ -1,4 +1,3 @@
-// js/Router.js
 export class Router {
     constructor(routes, stores) {
         this.routes = routes;
@@ -18,10 +17,12 @@ export class Router {
         let basePath = path;
         let param = null;
 
-        // Ищем пути вида /profile/Username
         if (path.startsWith('/profile/')) {
             basePath = '/profile';
             param = decodeURIComponent(path.substring('/profile/'.length));
+        } else if (path.startsWith('/community/')) {
+            basePath = '/community';
+            param = decodeURIComponent(path.substring('/community/'.length));
         }
 
         let route = this.routes[basePath];
@@ -41,7 +42,6 @@ export class Router {
             link.classList.toggle('active', link.dataset.route === basePath);
         });
 
-        // Передаем параметр (имя пользователя) в контроллер
         this.currentManager = new route.Manager(this.stores, param);
     }
 }
