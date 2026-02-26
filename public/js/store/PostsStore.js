@@ -20,18 +20,21 @@ export class PostsStore {
         }
     }
 
-    async loadPosts(page = 1, communityId = null, feedType = 'main') {
+    async loadPosts(page = 1, targetId = null, feedType = 'main', extraIds =[]) {
         try {
-            const newPosts = await PostsAPI.getPosts(page, 10, communityId, feedType);
+            const newPosts = await PostsAPI.getPosts(page, 10, targetId, feedType, extraIds);
             const processed = newPosts.map(p => this._personalize(p));
-            if (page === 1) { this.posts = processed; } 
-            else {
+            if (page === 1) { 
+                this.posts = processed; 
+            } else {
                 const existingIds = new Set(this.posts.map(p => p.id));
                 const uniqueNew = processed.filter(p => !existingIds.has(p.id));
-                this.posts =[...this.posts, ...uniqueNew];
+                this.posts = [...this.posts, ...uniqueNew];
             }
             return processed;
-        } catch (e) { return[]; }
+        } catch (e) { 
+            return[]; 
+        }
     }
 
     _personalize(post) {

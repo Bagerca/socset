@@ -40,6 +40,12 @@ export const ProfileView = {
                 
                 <div class="profile-meta-row">
                     <span id="profileUsername" class="profile-username">@loading</span>
+                    
+                    <!-- НОВЫЙ ЗНАЧОК СООБЩЕСТВ -->
+                    <div id="profileCommunitiesBadge" class="comm-count-badge" style="display:none;" title="Сообщества">
+                        <i class="fa-solid fa-users-rectangle"></i> <span id="commCountVal">0</span>
+                    </div>
+                    
                     <span class="meta-divider">•</span>
                     <div id="profileStats" class="profile-stats-inline"></div>
                 </div>
@@ -88,7 +94,7 @@ export const ProfileView = {
 
         </div>
 
-        <!-- МОДАЛКИ (Настройки, Выбор, Игра, Подарок, Список) -->
+        <!-- МОДАЛКИ -->
         <div id="settingsModal" class="modal-overlay">
             <div class="modal-content" style="max-width: 600px;">
                 <div class="modal-header">

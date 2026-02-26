@@ -23,6 +23,9 @@ export class Router {
         } else if (path.startsWith('/community/')) {
             basePath = '/community';
             param = decodeURIComponent(path.substring('/community/'.length));
+        } else if (path.startsWith('/game/')) {
+            basePath = '/game';
+            param = decodeURIComponent(path.substring('/game/'.length));
         }
 
         let route = this.routes[basePath];

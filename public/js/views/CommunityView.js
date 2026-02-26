@@ -1,4 +1,3 @@
-// public/js/views/CommunityView.js
 import { CommunityController } from '../controllers/CommunityController.js';
 
 export const CommunityView = {
@@ -15,8 +14,10 @@ export const CommunityView = {
                     </div>
                 </div>
 
-                <div class="visitor-actions" style="display:flex;">
+                <div class="visitor-actions" style="display:flex; gap:10px;">
                     <button id="commJoinBtn" class="btn-post"></button>
+                    <!-- Кнопка настроек для админов -->
+                    <button id="commSettingsBtn" class="btn-post btn-edit-profile" style="display:none; margin-bottom: 0; background: rgba(20,20,22,0.8);"><i class="fa-solid fa-gear"></i></button>
                 </div>
             </div>
             
@@ -54,6 +55,49 @@ export const CommunityView = {
             <div class="modal-content">
                 <div class="modal-header"><span id="modalTitle" class="modal-title">Выбрать...</span><button id="closeModalBtn" class="icon-btn-small"><i class="fa-solid fa-xmark"></i></button></div>
                 <div id="modalList" class="modal-body"></div>
+            </div>
+        </div>
+
+        <!-- МОДАЛКА НАСТРОЕК СООБЩЕСТВА -->
+        <div id="commSettingsModal" class="modal-overlay">
+            <div class="modal-content" style="max-width: 500px;">
+                <div class="modal-header">
+                    <span class="modal-title">Настройки сообщества</span>
+                    <button id="closeCommSettingsBtn" class="icon-btn-small"><i class="fa-solid fa-xmark"></i></button>
+                </div>
+                <div class="modal-body" style="gap: 16px;">
+                    <div class="settings-section">
+                        <div class="settings-section-title">Основная информация</div>
+                        <input type="text" id="editCommName" class="poll-input" placeholder="Название сообщества">
+                        <textarea id="editCommDesc" class="poll-input" placeholder="Описание..." style="min-height: 80px; resize: vertical;"></textarea>
+                    </div>
+
+                    <div class="settings-section">
+                        <div class="settings-section-title">Оформление</div>
+                        <div class="settings-grid">
+                            <div>
+                                <label class="file-upload-btn">
+                                    <i class="fa-solid fa-image"></i> Иконка
+                                    <input type="file" id="editCommAvatarFile" accept="image/*" style="display:none;">
+                                </label>
+                                <span id="commAvatarFileName" class="file-name-hint">Текущая иконка</span>
+                            </div>
+                            <div>
+                                <label class="file-upload-btn">
+                                    <i class="fa-solid fa-panorama"></i> Баннер
+                                    <input type="file" id="editCommBannerFile" accept="image/*" style="display:none;">
+                                </label>
+                                <span id="commBannerFileName" class="file-name-hint">Текущий баннер</span>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <button id="saveCommSettingsBtn" class="btn-post" style="width:100%; margin-top: 8px;">Сохранить изменения</button>
+                    
+                    <div style="border-top: 1px solid var(--border-color); margin-top: 16px; padding-top: 16px;">
+                        <button id="deleteCommBtn" class="btn-post" style="width: 100%; background: rgba(255, 69, 58, 0.15); color: var(--danger); border: 1px solid rgba(255, 69, 58, 0.3);"><i class="fa-solid fa-trash"></i> Удалить сообщество</button>
+                    </div>
+                </div>
             </div>
         </div>
     `,

@@ -20,11 +20,17 @@ export class CommunitiesStore {
 
     async toggleJoin(communityId) {
         const comm = this.communities.find(c => c.id === communityId);
-        if (comm) {
-            // Оптимистичное обновление UI
-            comm.isMember = !comm.isMember;
-            comm.membersCount += comm.isMember ? 1 : -1;
+        const res = await CommunitiesAPI.toggleJoin(communityId);
+        
+        if (res.success && comm) {
+            // Обновляем данные в сторе на основе ответа сервера
+            if (res.status === 'joined') {
+                comm.isMember = true;
+            } else {
+                comm.isMember = false;
+            }
+            comm.membersCount = res.membersCount;
         }
-        await CommunitiesAPI.toggleJoin(communityId);
+        return res;
     }
 }

@@ -1,10 +1,12 @@
+/* css/components/_sidebar.css */
+
 /* Обертка для двух сайдбаров */
 .sidebar-wrapper {
     position: sticky;
     top: 40px;
     height: fit-content;
     z-index: 100;
-    width: 72px; /* Фиксируем ширину, чтобы абсолютное позиционирование работало точно */
+    width: 72px;
 }
 
 /* Главный сайдбар */
@@ -77,7 +79,7 @@
     box-shadow: 0 8px 16px rgba(255, 255, 255, 0.1); 
 }
 
-/* Активный статус кнопки Бургера (чтобы отличалась от активной страницы) */
+/* Активный статус кнопки Бургера */
 #burgerMenuBtn.active {
     color: var(--text-main);
     background: rgba(255, 255, 255, 0.1);
@@ -87,11 +89,11 @@
 /* --- ВТОРАЯ КОЛБА (СЕРВИСЫ) --- */
 .sub-sidebar {
     position: absolute;
-    /* Теперь она привязана к правой стороне и выезжает СЛЕВА: 72px (ширина основной) + 16px (отступ) = 88px */
+    /* ВОЗВРАЩЕНО: Привязка к правому краю, чтобы выезжало влево */
     right: 88px; 
     left: auto;
     top: 50%;
-    /* translateX(20px) прячет ее чуть правее для эффекта выезда из-под основной колбы */
+    /* Анимация выезда: немного смещена вправо, чтобы выехать влево */
     transform: translateY(-50%) translateX(20px) scale(0.95);
     opacity: 0;
     pointer-events: none;
@@ -101,6 +103,7 @@
 }
 
 .sub-sidebar.active {
+    /* Финальная позиция */
     transform: translateY(-50%) translateX(0) scale(1);
     opacity: 1;
     pointer-events: auto;
@@ -114,7 +117,7 @@
         left: 24px;
         right: 24px;
         top: auto;
-        width: auto; /* Сбрасываем жесткую ширину для мобилки */
+        width: auto;
     }
 
     .sidebar.glass-pill {
@@ -128,12 +131,12 @@
     .logo-icon { display: none; }
     .nav-links { flex-direction: row; justify-content: space-between; gap: 0; width: 100%;}
     
-    /* Мобильная вторая колба выезжает ВВЕРХ над основным меню */
     .sub-sidebar {
+        /* На мобилках выезжает снизу вверх */
         left: 50%;
-        right: auto; /* Сбрасываем правостороннюю привязку */
+        right: auto;
         top: auto;
-        bottom: 80px; /* 64px высота меню + 16px отступ */
+        bottom: 80px; 
         transform: translateX(-50%) translateY(20px) scale(0.95);
         flex-direction: row; 
         width: fit-content;

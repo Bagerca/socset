@@ -9,7 +9,7 @@ class PostsController {
         const limit = parseInt(req.query.limit) || 10;
         const offset = (page - 1) * limit;
         const communityId = req.query.communityId || null;
-        const feedType = req.query.feedType || 'main'; // 'main' или 'communities'
+        const feedType = req.query.feedType || 'main'; // 'main', 'communities', 'game'
 
         let currentViewer = null;
         const authHeader = req.headers['authorization'];
@@ -19,21 +19,39 @@ class PostsController {
         }
 
         let posts;
-        if (communityId) {
+        
+        if (feedType === 'game') {
+            // --- ИСПРАВЛЕНИЕ: Ищем по ключу $.game, а не $.id ---
+            const gameId = req.query.gameId;
+            
+            // Базовое условие: Тип вложения 'game' И внутри JSON поле game совпадает с ID
+            let whereClause = `(attachment_type = 'game' AND json_extract(attachment_data, '$.game') = ?)`;
+            let params = [gameId];
+
+            // Если у игры есть саундтреки, добавляем их в поиск
+            if (req.query.musicIds) {
+                const mIds = req.query.musicIds.split(',');
+                if (mIds.length > 0 && mIds[0] !== "") {
+                    const placeholders = mIds.map(() => '?').join(',');
+                    // Для музыки ищем по ключу $.music
+                    whereClause += ` OR (attachment_type = 'music' AND json_extract(attachment_data, '$.music') IN (${placeholders}))`;
+                    params.push(...mIds);
+                }
+            }
+            
+            posts = db.prepare(`SELECT * FROM posts WHERE ${whereClause} ORDER BY timestamp DESC LIMIT ? OFFSET ?`).all(...params, limit, offset);
+
+        } else if (communityId) {
             posts = db.prepare(`SELECT * FROM posts WHERE community_id = ? ORDER BY timestamp DESC LIMIT ? OFFSET ?`).all(communityId, limit, offset);
         } else if (feedType === 'communities') {
-            // ЛЕНТА СООБЩЕСТВ: только посты из групп, где состоит юзер
             if (currentViewer) {
                 posts = db.prepare(`
                     SELECT * FROM posts 
                     WHERE community_id IN (SELECT community_id FROM community_members WHERE username = ?)
                     ORDER BY timestamp DESC LIMIT ? OFFSET ?
                 `).all(currentViewer, limit, offset);
-            } else {
-                posts =[];
-            }
+            } else { posts = []; }
         } else {
-            // ГЛАВНАЯ ЛЕНТА: Глобальные посты + посты из моих групп
             if (currentViewer) {
                 posts = db.prepare(`
                     SELECT * FROM posts 
@@ -82,7 +100,7 @@ class PostsController {
                 id: post.id, author, content: post.content, visibility: post.visibility, views: post.views, timestamp: post.timestamp,
                 attachment: post.attachment_data ? JSON.parse(post.attachment_data) : null,
                 poll: post.poll_data ? JSON.parse(post.poll_data) : null,
-                community: communityInfo,
+                community: communityInfo, community_id: post.community_id,
                 likedBy, comments
             };
         });
@@ -134,14 +152,31 @@ class PostsController {
 
     delete(req, res) {
         const { postId } = req.body;
-        const post = db.prepare('SELECT author_username FROM posts WHERE id = ?').get(postId);
+        const post = db.prepare('SELECT author_username, community_id FROM posts WHERE id = ?').get(postId);
         if (!post) return res.status(404).json({ error: 'Post not found' });
-        if (post.author_username !== req.user.username && !req.user.isAdmin) return res.status(403).json({ error: 'Forbidden' });
+        
+        let canDelete = false;
+        
+        if (post.author_username === req.user.username || req.user.isAdmin) {
+            canDelete = true;
+        } 
+        else if (post.community_id) {
+            const member = db.prepare('SELECT role FROM community_members WHERE community_id = ? AND username = ?').get(post.community_id, req.user.username);
+            if (member && member.role === 'admin') {
+                canDelete = true;
+            }
+        }
+
+        if (!canDelete) return res.status(403).json({ error: 'Forbidden' });
+
         const transaction = db.transaction(() => {
-            db.prepare('DELETE FROM posts WHERE id = ?').run(postId); db.prepare('DELETE FROM comments WHERE post_id = ?').run(postId);
-            db.prepare('DELETE FROM likes WHERE post_id = ?').run(postId); db.prepare('DELETE FROM post_views WHERE post_id = ?').run(postId);
+            db.prepare('DELETE FROM posts WHERE id = ?').run(postId); 
+            db.prepare('DELETE FROM comments WHERE post_id = ?').run(postId);
+            db.prepare('DELETE FROM likes WHERE post_id = ?').run(postId); 
+            db.prepare('DELETE FROM post_views WHERE post_id = ?').run(postId);
         });
-        transaction(); res.json({ success: true });
+        transaction(); 
+        res.json({ success: true });
     }
 
     toggleLike(req, res) {
@@ -175,10 +210,26 @@ class PostsController {
 
     deleteComment(req, res) {
         const { commentId } = req.body;
-        const comment = db.prepare('SELECT author_username FROM comments WHERE id = ?').get(commentId);
-        if (comment && (comment.author_username === req.user.username || req.user.isAdmin)) {
-            db.prepare('DELETE FROM comments WHERE id = ?').run(commentId); res.json({ success: true });
-        } else { res.status(403).json({ error: 'Forbidden' }); }
+        const comment = db.prepare('SELECT author_username, post_id FROM comments WHERE id = ?').get(commentId);
+        if (!comment) return res.status(404).json({ error: 'Comment not found' });
+        
+        let canDelete = false;
+        if (comment.author_username === req.user.username || req.user.isAdmin) {
+            canDelete = true;
+        } else {
+            const post = db.prepare('SELECT community_id FROM posts WHERE id = ?').get(comment.post_id);
+            if (post && post.community_id) {
+                const member = db.prepare('SELECT role FROM community_members WHERE community_id = ? AND username = ?').get(post.community_id, req.user.username);
+                if (member && member.role === 'admin') canDelete = true;
+            }
+        }
+
+        if (canDelete) {
+            db.prepare('DELETE FROM comments WHERE id = ?').run(commentId); 
+            res.json({ success: true });
+        } else { 
+            res.status(403).json({ error: 'Forbidden' }); 
+        }
     }
 
     reactComment(req, res) {

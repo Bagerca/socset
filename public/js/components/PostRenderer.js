@@ -242,7 +242,7 @@ export class PostRenderer {
                             <div class="post-card-title">${escapeHTML(game.title)}</div>
                             <div class="post-card-subtitle">${escapeHTML(game.genre)}</div>
                         </div>
-                        <button class="btn-game-link">Перейти</button>
+                        <a href="#/game/${game.id}" class="btn-game-link" style="text-decoration:none; display:flex; align-items:center; justify-content:center;">Перейти</a>
                     </div>`;
             }
         }

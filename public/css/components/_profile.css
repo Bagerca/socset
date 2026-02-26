@@ -262,6 +262,26 @@
     font-weight: 500; 
 }
 
+/* Значок количества сообществ */
+.comm-count-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    background: rgba(124, 58, 237, 0.15);
+    color: var(--accent-games);
+    padding: 2px 8px;
+    border-radius: 6px;
+    font-size: 12px;
+    font-weight: 700;
+    margin-left: 8px;
+    cursor: default;
+    border: 1px solid rgba(124, 58, 237, 0.3);
+}
+
+.comm-count-badge i {
+    font-size: 11px;
+}
+
 .meta-divider { 
     color: rgba(255, 255, 255, 0.2); 
     font-size: 12px; 
@@ -340,7 +360,6 @@
 .social-badge { display: flex; align-items: center; gap: 8px; padding: 8px 16px; background: #1a1a1c; border: 1px solid var(--border-color); border-radius: 8px; color: var(--text-main); text-decoration: none; font-size: 14px; transition: 0.2s; }
 .social-badge:hover { background: rgba(255,255,255,0.1); }
 
-
 /* --- ТАБЫ ПРОФИЛЯ (Посты / Стена) --- */
 .profile-tabs-container {
     padding: 0; 
@@ -395,7 +414,6 @@
     transform: scaleX(1);
     opacity: 1;
 }
-
 
 /* --- СТЕНА --- */
 .wall-input-container {
@@ -463,7 +481,7 @@
 .wall-post-date { font-size: 12px; color: var(--text-muted); }
 .wall-post-content { font-size: 14px; color: #e0e0e0; line-height: 1.4; white-space: pre-wrap; }
 
-/* Действия на стене (НОВОЕ) */
+/* Действия на стене */
 .wall-post-actions {
     margin-top: 8px;
     display: flex;
@@ -496,7 +514,6 @@
 .wall-post:hover .wall-delete-btn { opacity: 1; }
 .wall-delete-btn:hover { color: var(--danger); }
 
-
 /* --- АНИМАЦИЯ ПЕРЕКЛЮЧЕНИЯ КОНТЕНТА --- */
 @keyframes fadeInUpContent {
     from { opacity: 0; transform: translateY(15px); }
@@ -506,7 +523,6 @@
 .tab-content-animate {
     animation: fadeInUpContent 0.3s cubic-bezier(0.2, 0.8, 0.2, 1) forwards;
 }
-
 
 /* --- ЭЛЕМЕНТЫ ВНУТРИ ОКНА НАСТРОЕК --- */
 .settings-section {

@@ -33,6 +33,10 @@ class ProfileController {
         const followingUsernames = followingRows.map(u => u.username);
         user.friends = followersRows.filter(f => followingUsernames.includes(f.username));
         
+        // --- НОВОЕ: Считаем количество сообществ ---
+        const communitiesCount = db.prepare('SELECT COUNT(*) as count FROM community_members WHERE username = ?').get(user.username).count;
+        user.communitiesCount = communitiesCount;
+        
         // Настройка стены и верификации (SQLite хранит 1/0, преобразуем в boolean)
         user.enableWall = user.enableWall === 1;
         user.isVerified = user.isVerified === 1;
@@ -40,8 +44,8 @@ class ProfileController {
         // Заглушки
         user.modules = { music: true, games: true, socials: true };
         user.favoriteTracks = []; 
-        user.favoriteGames = []; 
-        user.customAlbums = [];
+        user.favoriteGames =[]; 
+        user.customAlbums =[];
         
         res.json(user);
     }
@@ -51,7 +55,6 @@ class ProfileController {
             return res.sendStatus(403);
         }
 
-        // Добавили isVerified и verifiedBadgeType в деструктуризацию
         const { 
             name, bio, avatar, banner, frameId, socials, 
             showcaseGames, musicId, enableWall, 
@@ -59,7 +62,6 @@ class ProfileController {
         } = req.body;
         
         try {
-            // ОБНОВЛЕННЫЙ SQL ЗАПРОС
             db.prepare(`
                 UPDATE users 
                 SET name = ?, bio = ?, avatar = ?, banner = ?, frameId = ?, 
@@ -73,11 +75,11 @@ class ProfileController {
                 banner, 
                 frameId, 
                 JSON.stringify(socials || {}), 
-                JSON.stringify(showcaseGames || []), 
+                JSON.stringify(showcaseGames ||[]), 
                 musicId || null, 
                 enableWall ? 1 : 0,
-                isVerified ? 1 : 0,      // Сохраняем статус галочки
-                verifiedBadgeType || 'badge-1', // Сохраняем тип галочки
+                isVerified ? 1 : 0,      
+                verifiedBadgeType || 'badge-1', 
                 req.user.username
             );
             res.json({ success: true });

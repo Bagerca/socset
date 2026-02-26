@@ -1,5 +1,3 @@
-// js/controllers/GamesController.js
-
 import { debounce } from '../utils/utils.js';
 import { SearchEngine } from '../utils/SearchEngine.js';
 import { GamesRenderer } from '../components/GamesRenderer.js';
@@ -15,7 +13,7 @@ export class GamesController {
             searchQuery: '',
             quickFilter: 'all', 
             activeTags: [],
-            activeTiers: []
+            activeTiers:[]
         };
 
         this.heroSection = document.getElementById('heroSection');
@@ -33,8 +31,6 @@ export class GamesController {
         this.closeDrawerBtn = document.getElementById('closeDrawerBtn');
         this.applyFiltersBtn = document.getElementById('applyFiltersBtn');
         this.resetFiltersBtn = document.getElementById('resetFiltersBtn');
-
-        this.gameDetailsModal = document.getElementById('gameDetailsModal');
 
         this.init();
     }
@@ -67,7 +63,9 @@ export class GamesController {
         const tagsString = this.stores.catalogs.getGameTags(heroGame.tags).slice(0, 3).map(t => t.label).join(' • ');
 
         this.heroSection.innerHTML = GamesRenderer.renderHero(heroGame, tierInfo, tagsString);
-        this.heroSection.querySelector('.hero-btn').addEventListener('click', () => this.openGameDetails(heroGame));
+        this.heroSection.querySelector('.hero-btn').addEventListener('click', () => {
+            window.location.hash = `/game/${heroGame.id}`;
+        });
     }
 
     renderDrawerFilters() {
@@ -122,7 +120,7 @@ export class GamesController {
         const handleSearch = debounce((query) => {
             if (!query) { this.searchDropdown.style.display = 'none'; return; }
             const items = this.stores.catalogs.games; 
-            const results = this.searchEngine.search(items, query, [{ field: 'title', weight: 5 }]);
+            const results = this.searchEngine.search(items, query,[{ field: 'title', weight: 5 }]);
 
             if (results.length > 0) {
                 this.searchDropdown.innerHTML = results.slice(0, 6).map(g => GamesRenderer.renderSearchDropdownItem(g)).join('');
@@ -181,7 +179,7 @@ export class GamesController {
 
         this.resetFiltersBtn.addEventListener('click', () => {
             this.drawerContent.querySelectorAll('input').forEach(cb => cb.checked = false);
-            this.state.activeTags = []; this.state.activeTiers = []; this.state.quickFilter = 'all';
+            this.state.activeTags =[]; this.state.activeTiers =[]; this.state.quickFilter = 'all';
             this.quickChips.forEach(b => b.classList.remove('active'));
             if(this.quickChips[0]) this.quickChips[0].classList.add('active');
             this.openFiltersBtn.classList.remove('active');
@@ -216,14 +214,8 @@ export class GamesController {
             const card = e.target.closest('.game-card');
             if (card) {
                 const game = this.stores.catalogs.getGameById(card.dataset.id);
-                if (game) this.openGameDetails(game);
+                if (game) window.location.hash = `/game/${game.id}`;
             }
-        }, { signal });
-
-        document.getElementById('closeGameDetailsBtn').addEventListener('click', () => {
-            const trailerEl = document.getElementById('gdTrailer');
-            if (trailerEl) trailerEl.innerHTML = '';
-            this.gameDetailsModal.classList.remove('active');
         }, { signal });
     }
 
@@ -243,7 +235,7 @@ export class GamesController {
         if (this.state.quickFilter !== 'custom' && this.state.quickFilter !== 'all') {
             const filter = this.state.quickFilter;
             if (filter === 'fav') {
-                const favIds = this.stores.auth.user.favoriteGames || [];
+                const favIds = this.stores.auth.user.favoriteGames ||[];
                 games = games.filter(g => favIds.includes(g.id));
             } else if (filter.startsWith('tier_')) games = games.filter(g => g.tier === filter);
             else if (filter.startsWith('tag_')) games = games.filter(g => g.tags && g.tags.includes(filter));
@@ -326,12 +318,12 @@ export class GamesController {
     }
 
     getRecommendations(allGames) {
-        const favIds = this.stores.auth.user.favoriteGames || [];
+        const favIds = this.stores.auth.user.favoriteGames ||[];
         if (favIds.length === 0) {
             return allGames.filter(g => g.tier === 'tier_aaa');
         }
 
-        const favTags = [];
+        const favTags =[];
         allGames.filter(g => favIds.includes(g.id)).forEach(g => { if(g.tags) favTags.push(...g.tags); });
 
         const tagCounts = {};
@@ -356,34 +348,10 @@ export class GamesController {
     }
 
     createGameCardHTML(game) {
-        const isFav = (this.stores.auth.user.favoriteGames || []).includes(game.id);
+        const isFav = (this.stores.auth.user.favoriteGames ||[]).includes(game.id);
         const tierInfo = GAME_CONSTANTS.tiers[game.tier] || { label: 'Unknown', color: '#999' };
         const displayTags = this.stores.catalogs.getGameTags(game.tags).slice(0, 2);
         
         return GamesRenderer.renderGameCard(game, tierInfo, displayTags, isFav);
-    }
-
-    openGameDetails(game) {
-        const modal = this.gameDetailsModal;
-        const trailerEl = document.getElementById('gdTrailer');
-        
-        if (game.trailer) {
-            trailerEl.style.display = 'block';
-            trailerEl.innerHTML = `<iframe src="${game.trailer}" allow="autoplay; encrypted-media" allowfullscreen></iframe>`;
-        } else {
-            trailerEl.style.display = 'none'; trailerEl.innerHTML = '';
-        }
-
-        document.getElementById('gdCover').src = game.icon;
-        document.getElementById('gdTitle').textContent = game.title;
-        
-        const tier = GAME_CONSTANTS.tiers[game.tier] || { label: 'Unknown', color: '#999' };
-        const tags = this.stores.catalogs.getGameTags(game.tags);
-        
-        document.getElementById('gdGenre').innerHTML = `<span style="color:${tier.color}; font-weight:800; margin-right:8px;">${tier.label}</span>`;
-        document.getElementById('gdTagsList').innerHTML = tags.map(t => `<span class="game-tag-chip">${t.label}</span>`).join('');
-        document.getElementById('gdDescription').textContent = game.description || 'Описание отсутствует.';
-        
-        modal.classList.add('active');
     }
 }

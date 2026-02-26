@@ -68,16 +68,12 @@
 .filter-toggle-btn:hover { background: rgba(255,255,255,0.1); color: #fff;}
 .filter-toggle-btn.active { background: rgba(124, 58, 237, 0.15); color: var(--accent-games); border-color: var(--accent-games); }
 
-/* =========================================
-   ТЕГИ (CHIPS) С ГРАДИЕНТОМ И СКРОЛЛОМ
-========================================= */
+/* --- CHIPS --- */
 .games-chips-wrapper {
     width: calc(100% + 40px);
     margin: 0 -20px;
-    
     -webkit-mask-image: linear-gradient(to right, transparent 0px, black 20px, black calc(100% - 20px), transparent 100%);
     mask-image: linear-gradient(to right, transparent 0px, black 20px, black calc(100% - 20px), transparent 100%);
-    
     position: relative;
     z-index: 1;
 }
@@ -97,17 +93,13 @@
 .g-chip:hover { background: rgba(255,255,255,0.1); color: #fff; }
 .g-chip.active { background: var(--text-main); color: #000; } 
 
-
-/* =========================================
-   ГОРИЗОНТАЛЬНЫЕ РЯДЫ ИГР
-========================================= */
+/* --- HORIZONTAL ROWS --- */
 .games-row-section {
     display: flex; flex-direction: column; gap: 0;
     animation: fadeIn 0.5s ease;
-    margin-bottom: 24px; /* Чуть увеличили отступ снизу для красоты */
+    margin-bottom: 24px;
 }
 
-/* НОВОЕ: Обертка для заголовка и кнопки */
 .games-row-header-wrapper {
     display: flex; justify-content: space-between; align-items: center;
     margin-bottom: 8px; padding-right: 4px;
@@ -118,7 +110,6 @@
     border-left: 4px solid var(--accent-games); padding-left: 12px;
 }
 
-/* Кнопка "Все >" */
 .games-row-expand-btn {
     background: transparent; border: none; color: var(--text-muted);
     font-size: 14px; font-weight: 600; cursor: pointer;
@@ -129,7 +120,6 @@
 .games-row-expand-btn:hover { color: #fff; background: rgba(255,255,255,0.05); }
 .games-row-expand-btn i { font-size: 12px; transition: transform 0.3s; }
 
-/* Состояние: Раскрыто (Стрелка вниз) */
 .games-row-section.is-expanded .games-row-expand-btn i {
     transform: rotate(90deg);
 }
@@ -138,19 +128,16 @@
     position: relative;
     width: calc(100% + 40px);
     margin: 0 -20px; 
-    
     -webkit-mask-image: linear-gradient(to right, transparent 0px, black 20px, black calc(100% - 20px), transparent 100%);
     mask-image: linear-gradient(to right, transparent 0px, black 20px, black calc(100% - 20px), transparent 100%);
-    
     z-index: 1;
-    transition: all 0.3s ease; /* Плавность для маски */
+    transition: all 0.3s ease;
 }
 
-/* КОГДА РЯД РАСКРЫТ: Убираем маску, чтобы игры по краям не были прозрачными */
 .games-row-section.is-expanded .games-scroll-mask {
     -webkit-mask-image: none;
     mask-image: none;
-    width: 100%; margin: 0; /* Возвращаем в границы контейнера */
+    width: 100%; margin: 0; 
 }
 
 .games-horizontal-scroll {
@@ -162,13 +149,12 @@
 }
 .games-horizontal-scroll::-webkit-scrollbar { display: none; }
 
-/* КОГДА РЯД РАСКРЫТ: Превращаем флекс-ряд в сетку */
 .games-row-section.is-expanded .games-horizontal-scroll {
     display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); /* Адаптивная сетка */
+    grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
     gap: 24px;
-    padding: 20px 0; /* Убираем боковые отступы, оставляем вертикальные */
-    overflow-x: visible; /* Убираем скролл */
+    padding: 20px 0; 
+    overflow-x: visible; 
 }
 
 .games-horizontal-scroll::after {
@@ -180,15 +166,14 @@
 .games-horizontal-scroll .game-card { 
     flex: 0 0 220px; 
 }
-/* В сетке карточка занимает 100% ячейки грида */
 .games-row-section.is-expanded .games-horizontal-scroll .game-card {
     flex: auto;
 }
 
-/* --- GRID (ДЛЯ ПОИСКА) --- */
+/* --- GRID --- */
 .games-grid-container { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 24px; padding-top: 20px; }
 
-/* --- GAME CARD (COMMON) --- */
+/* --- GAME CARD --- */
 .game-card {
     background: var(--surface); border: 1px solid var(--border-color); border-radius: 16px;
     overflow: hidden; transition: transform 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275), box-shadow 0.3s;
@@ -235,6 +220,7 @@
 
 /* =========================================
    DRAWER (БОКОВАЯ ПАНЕЛЬ ФИЛЬТРОВ)
+   ИСПРАВЛЕНО: Вернули на правую сторону
 ========================================= */
 
 .filter-drawer-overlay {
@@ -245,11 +231,17 @@
 .filter-drawer-overlay.active { opacity: 1; pointer-events: auto; }
 
 .filter-drawer {
-    position: fixed; top: 0; right: -340px; width: 340px; height: 100%;
+    position: fixed; top: 0; 
+    /* ИСПРАВЛЕНО: Панель снова справа */
+    right: -340px; 
+    width: 340px; height: 100%;
     background: rgba(20, 20, 22, 0.85); backdrop-filter: blur(24px); 
-    border-left: 1px solid rgba(255, 255, 255, 0.08); padding: 32px 24px;
-    z-index: 1000; transition: right 0.4s cubic-bezier(0.16, 1, 0.3, 1);
-    display: flex; flex-direction: column; gap: 24px; box-shadow: -10px 0 50px rgba(0,0,0,0.6);
+    border-left: 1px solid rgba(255, 255, 255, 0.08); 
+    padding: 32px 24px;
+    z-index: 1000; 
+    transition: right 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+    display: flex; flex-direction: column; gap: 24px; 
+    box-shadow: -10px 0 50px rgba(0,0,0,0.6);
 }
 .filter-drawer.active { right: 0; }
 
@@ -269,7 +261,6 @@
 
 .filter-checkbox-grid { display: grid; grid-template-columns: 1fr; gap: 4px; }
 
-/* CUSTOM CHECKBOXES */
 .custom-filter-checkbox {
     display: flex; align-items: center; gap: 14px; cursor: pointer;
     padding: 10px 14px; border-radius: 12px; transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
@@ -286,7 +277,6 @@
 }
 .checkbox-box i { font-size: 12px; color: #fff; opacity: 0; transform: scale(0.2) translateY(5px); transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1); }
 
-/* СОСТОЯНИЕ: ВЫБРАНО */
 .hidden-checkbox:checked + .checkbox-box {
     background: var(--accent-games); border-color: var(--accent-games); 
     box-shadow: 0 0 10px rgba(124, 58, 237, 0.4);
@@ -306,4 +296,52 @@
     .games-search-wrapper { width: 100%; flex: none; }
     .filter-toggle-btn { width: 100%; justify-content: center; }
     .filter-drawer { width: 100%; right: -100%; padding: 24px 16px; border-left: none; }
+}
+
+/* --- СТРАНИЦА ИГРЫ (ОТДЕЛЬНАЯ) --- */
+.game-page-container { display: flex; flex-direction: column; gap: 24px; width: 100%; }
+
+.game-page-hero { 
+    position: relative; width: 100%; height: 350px; border-radius: 24px; overflow: hidden; 
+    display: flex; align-items: flex-end; padding: 32px; border: 1px solid var(--border-color); 
+    background: #000; box-shadow: 0 10px 30px rgba(0,0,0,0.5); 
+}
+.gp-hero-bg { 
+    position: absolute; top:0; left:0; width:100%; height:100%; object-fit: cover; opacity: 0.3; 
+    mask-image: linear-gradient(to top, transparent, black); 
+    -webkit-mask-image: linear-gradient(to top, transparent, black); 
+}
+.gp-hero-content { position: relative; z-index: 2; display: flex; gap: 24px; align-items: center; width: 100%; }
+.gp-cover { width: 160px; aspect-ratio: 3/4; border-radius: 16px; object-fit: cover; box-shadow: 0 10px 30px rgba(0,0,0,0.6); border: 1px solid rgba(255,255,255,0.1); }
+.gp-info { flex: 1; display: flex; flex-direction: column; gap: 12px; margin-bottom: 8px;}
+.gp-tier { display: inline-block; padding: 4px 10px; border-radius: 6px; font-size: 11px; font-weight: 800; text-transform: uppercase; color: #fff; width: fit-content; }
+.gp-title { font-size: 42px; font-weight: 900; color: #fff; line-height: 1.2; text-shadow: 0 4px 10px rgba(0,0,0,0.5); margin-bottom: 4px; }
+.gp-tags { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 4px; }
+
+.game-page-body { display: flex; gap: 24px; align-items: flex-start; }
+.gp-sidebar { flex: 1; min-width: 300px; max-width: 350px; display: flex; flex-direction: column; gap: 24px; }
+.gp-feed { flex: 2; min-width: 0; }
+.gp-block { background: var(--surface); border: 1px solid var(--border-color); border-radius: 16px; padding: 24px; box-shadow: 0 5px 20px rgba(0,0,0,0.2); }
+.gp-block h3 { margin-bottom: 12px; font-size: 18px; color: #fff; font-weight: 800;}
+.gp-desc { color: #d1d1d1; font-size: 15px; line-height: 1.6; }
+
+.gp-sidebar .m-track-header { display: none; }
+.gp-sidebar .m-track-row { 
+    grid-template-columns: 30px minmax(100px, 1fr) auto !important; 
+    padding: 8px !important; 
+    gap: 10px !important; 
+}
+.gp-sidebar .m-tr-genre, 
+.gp-sidebar .m-tr-time { 
+    display: none !important; 
+}
+
+@media (max-width: 768px) {
+    .game-page-hero { height: auto; padding: 24px; flex-direction: column; align-items: center; text-align: center; }
+    .gp-hero-content { flex-direction: column; align-items: center; }
+    .gp-cover { width: 120px; }
+    .gp-title { font-size: 32px; }
+    .gp-tags { justify-content: center; }
+    .game-page-body { flex-direction: column; }
+    .gp-sidebar { max-width: 100%; width: 100%; }
 }

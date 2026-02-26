@@ -1,5 +1,3 @@
-// js/controllers/ProfileController.js
-
 import { escapeHTML, formatTime, parseFormatting } from '../utils/utils.js';
 import { PostRenderer } from '../components/PostRenderer.js';
 import { PostEventHandler } from '../components/PostEventHandler.js';
@@ -24,7 +22,6 @@ export class ProfileController {
         this.tempBanner = null;
         this.savedRange = null;
 
-        // UI References
         this.bgLayer = document.getElementById('profileBackgroundLayer');
         this.avatarImg = document.getElementById('avatarImage');
         this.avatarFrame = document.getElementById('avatarFrame');
@@ -51,10 +48,7 @@ export class ProfileController {
         this.publishBtn = document.getElementById('publishBtn');
         this.postInput = document.getElementById('postInput');
         this.composeBox = document.getElementById('profileComposeBox');
-        
-        this.gameDetailsModal = document.getElementById('gameDetailsModal');
 
-        // Табы и Стена
         this.tabBtns = document.querySelectorAll('.profile-tab');
         this.tabPosts = document.getElementById('tabContentPosts');
         this.tabWall = document.getElementById('tabContentWall');
@@ -85,13 +79,11 @@ export class ProfileController {
         this.renderModules();
         this.renderPosts();
 
-        // Аватарка текущего юзера около поля ввода на стене
         if (this.wallUserAvatar) {
             this.wallUserAvatar.src = this.stores.auth.user.avatar;
             this.wallUserAvatar.onerror = () => this.wallUserAvatar.src = 'https://placehold.co/40x40/333/fff?text=U';
         }
 
-        // Если стена отключена, прячем таб
         if (!this.currentUser.enableWall) {
             const wallTab = document.getElementById('tabWall');
             if (wallTab) wallTab.style.display = 'none';
@@ -101,13 +93,11 @@ export class ProfileController {
             this.initSettingsDropdowns();
             if (this.openSettingsBtn) this.openSettingsBtn.style.display = 'flex';
             if (this.composeBox) this.composeBox.style.display = 'block';
-            
             const visitorActions = document.getElementById('visitorActions');
             if (visitorActions) visitorActions.style.display = 'none';
         } else {
             if (this.openSettingsBtn) this.openSettingsBtn.style.display = 'none';
             if (this.composeBox) this.composeBox.style.display = 'none';
-            
             const visitorActions = document.getElementById('visitorActions');
             if (visitorActions) visitorActions.style.display = 'flex';
         }
@@ -172,17 +162,14 @@ export class ProfileController {
         const signal = this.abortController.signal;
         document.addEventListener('click', (e) => {
             if (this.contextMenu && this.contextMenu.style.display === 'block') this.contextMenu.style.display = 'none';
-            if (this.formatMenu) this.formatMenu.style.display = 'none';
-            ['settingsModal', 'selectionModal', 'gameDetailsModal', 'giftModal', 'usersListModal'].forEach(id => {
+            if (this.formatMenu) this.formatMenu.style.display = 'none';['settingsModal', 'selectionModal', 'giftModal', 'usersListModal'].forEach(id => {
                 const m = document.getElementById(id);
-                if (m && e.target === m) { if (id === 'gameDetailsModal') this.closeGameModal(); else m.classList.remove('active'); }
+                if (m && e.target === m) m.classList.remove('active');
             });
         }, { signal });
         document.addEventListener('scroll', () => { if (this.contextMenu) this.contextMenu.style.display = 'none'; if (this.formatMenu) this.formatMenu.style.display = 'none'; }, { signal, capture: true });
         document.addEventListener('keydown', (e) => {
-            if (e.key === 'Escape') {
-                ['settingsModal', 'selectionModal', 'giftModal', 'usersListModal'].forEach(id => { const m = document.getElementById(id); if (m) m.classList.remove('active'); });
-                if (this.gameDetailsModal) this.closeGameModal();
+            if (e.key === 'Escape') {['settingsModal', 'selectionModal', 'giftModal', 'usersListModal'].forEach(id => { const m = document.getElementById(id); if (m) m.classList.remove('active'); });
                 if (this.contextMenu) this.contextMenu.style.display = 'none';
                 if (this.formatMenu) this.formatMenu.style.display = 'none';
             }
@@ -253,6 +240,16 @@ export class ProfileController {
             } else {
                 this.verifiedBadgeContainer.style.display = 'none';
                 this.verifiedBadgeContainer.innerHTML = '';
+            }
+        }
+
+        const commBadge = document.getElementById('profileCommunitiesBadge');
+        if (commBadge) {
+            if (p.communitiesCount && p.communitiesCount > 0) {
+                commBadge.style.display = 'inline-flex';
+                document.getElementById('commCountVal').textContent = p.communitiesCount;
+            } else {
+                commBadge.style.display = 'none';
             }
         }
 
@@ -407,7 +404,6 @@ export class ProfileController {
                 const frameStyle = post.frameId && post.frameId !== 'frame_none' ? this._getFrameStyle(post.frameId) : '';
                 const frameDiv = frameStyle ? `<div style="position:absolute;top:-10%;left:-10%;width:120%;height:120%;pointer-events:none;background-size:contain;background-repeat:no-repeat;background-position:center;border-radius:50%;${frameStyle}"></div>` : '';
                 
-                // Кнопка "Ответить" (если пост не от себя)
                 const showReply = post.author_username !== this.stores.auth.user.username;
                 const replyBtn = showReply ? 
                     `<div class="wall-post-actions">
@@ -444,7 +440,6 @@ export class ProfileController {
                 });
             });
 
-            // Обработка кнопки "Ответить" на стене
             this.wallList.querySelectorAll('.wall-reply-btn').forEach(btn => {
                 btn.addEventListener('click', () => {
                     const username = btn.dataset.username;
@@ -553,8 +548,6 @@ export class ProfileController {
         });
     }
 
-    closeGameModal() { const trailerEl = document.getElementById('gdTrailer'); if (trailerEl) trailerEl.innerHTML = ''; this.gameDetailsModal.classList.remove('active'); }
-
     openUsersListModal(type) {
         const modal = document.getElementById('usersListModal');
         const title = document.getElementById('usersListTitle');
@@ -618,8 +611,18 @@ export class ProfileController {
 
         this.postsContainer.addEventListener('click', (e) => this.postEvents.handleEvent(e));
         this.postsContainer.addEventListener('contextmenu', (e) => { const item = e.target.closest('.comment-item'); if (item && item.dataset.author === this.stores.auth.user.username) { e.preventDefault(); this.contextTargetCommentId = item.dataset.id; this.contextTargetPostId = item.dataset.postId; this.contextMenu.style.display = 'block'; this.contextMenu.style.top = `${e.pageY}px`; this.contextMenu.style.left = `${e.pageX}px`; } });
-        this.modulesContainer.addEventListener('click', (e) => { const item = e.target.closest('.showcase-item'); if (item) { const game = this.stores.catalogs.getGameById(item.dataset.id); if (game) { const tr = document.getElementById('gdTrailer'); if (game.trailer) { tr.style.display = 'block'; tr.innerHTML = `<iframe src="${game.trailer}" allow="autoplay; encrypted-media" allowfullscreen></iframe>`; } else { tr.style.display = 'none'; tr.innerHTML = ''; } document.getElementById('gdCover').src = game.icon; document.getElementById('gdTitle').textContent = game.title; document.getElementById('gdGenre').textContent = game.genre || 'Игра'; document.getElementById('gdDescription').textContent = game.description || 'Описание отсутствует.'; this.gameDetailsModal.classList.add('active'); } } });
-        const closeGameBtn = document.getElementById('closeGameDetailsBtn'); if (closeGameBtn) closeGameBtn.addEventListener('click', () => this.closeGameModal());
+        
+        // ЗДЕСЬ ПЕРЕХОД НА СТРАНИЦУ ИГРЫ ВМЕСТО МОДАЛКИ
+        this.modulesContainer.addEventListener('click', (e) => { 
+            const item = e.target.closest('.showcase-item'); 
+            if (item) { 
+                const game = this.stores.catalogs.getGameById(item.dataset.id); 
+                if (game) { 
+                    window.location.hash = `/game/${game.id}`;
+                } 
+            } 
+        });
+
         const statsEl = document.getElementById('profileStats'); if (statsEl) statsEl.addEventListener('click', (e) => { const item = e.target.closest('.stat-inline-item'); if (item) this.openUsersListModal(item.dataset.type); }, { signal });
         const closeUsersListBtn = document.getElementById('closeUsersListBtn'); if (closeUsersListBtn) closeUsersListBtn.addEventListener('click', () => { document.getElementById('usersListModal').classList.remove('active'); }, { signal });
 

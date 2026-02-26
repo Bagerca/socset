@@ -11,6 +11,7 @@ import { LoginView } from './views/LoginView.js';
 import { FeedView } from './views/FeedView.js';
 import { ProfileView } from './views/ProfileView.js';
 import { CommunityView } from './views/CommunityView.js';
+import { GameView } from './views/GameView.js';
 import { MusicView } from './views/MusicView.js';
 import { GamesView } from './views/GamesView.js';
 import { ShopView } from './views/ShopView.js';
@@ -61,6 +62,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         '/': FeedView,
         '/profile': ProfileView,
         '/community': CommunityView,
+        '/game': GameView,
         '/music': MusicView,
         '/games': GamesView,
         '/shop': ShopView,

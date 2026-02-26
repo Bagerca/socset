@@ -72,7 +72,6 @@ export class FeedController {
     }
 
     async handleScroll() {
-        // Если грузим или открыт каталог — скролл ленты не работает
         if (this.isLoadingMore || this.catalogWrapper.style.display === 'flex') return;
         
         const { scrollTop, scrollHeight, clientHeight } = document.documentElement;
@@ -233,20 +232,17 @@ export class FeedController {
                 this.feedTabBtns.forEach(b => b.classList.remove('active'));
                 btn.classList.add('active');
                 
-                this.currentFeedType = btn.dataset.tab; // 'main' или 'communities'
+                this.currentFeedType = btn.dataset.tab; 
                 
-                // Переключаем шапку сообществ
                 if (this.currentFeedType === 'main') {
                     this.commHeader.style.display = 'none';
                 } else {
                     this.commHeader.style.display = 'flex';
                 }
 
-                // Убеждаемся, что мы в ленте, а не в каталоге
                 this.feedWrapper.style.display = 'flex';
                 this.catalogWrapper.style.display = 'none';
 
-                // Загружаем нужные посты
                 this.page = 1;
                 this.container.innerHTML = '<div style="text-align:center; padding: 40px; color: var(--text-muted);">Загрузка...</div>';
                 await this.stores.posts.loadPosts(1, null, this.currentFeedType);
@@ -312,12 +308,19 @@ export class FeedController {
                 const joinBtn = e.target.closest('.comm-join-btn');
                 if (joinBtn) {
                     e.stopPropagation();
-                    await this.stores.communities.toggleJoin(joinBtn.dataset.id);
-                    this.renderCommunities(this.commSearchInput.value.trim()); 
+                    const commId = joinBtn.dataset.id;
+                    joinBtn.disabled = true;
                     
-                    // Если мы находимся во вкладке сообществ, нужно обновить и ленту
-                    if (this.currentFeedType === 'communities') {
-                        await this.stores.posts.loadPosts(1, null, 'communities');
+                    try {
+                        await this.stores.communities.toggleJoin(commId);
+                        this.renderCommunities(this.commSearchInput.value.trim()); 
+                        
+                        if (this.currentFeedType === 'communities') {
+                            await this.stores.posts.loadPosts(1, null, 'communities');
+                        }
+                    } catch (err) {
+                        console.error(err);
+                        joinBtn.disabled = false;
                     }
                     return;
                 }

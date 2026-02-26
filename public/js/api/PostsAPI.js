@@ -1,9 +1,14 @@
 import { httpClient } from './httpClient.js';
 
 export const PostsAPI = {
-    getPosts: (page = 1, limit = 10, communityId = null, feedType = 'main') => {
+    getPosts: (page = 1, limit = 10, targetId = null, feedType = 'main', extraIds =[]) => {
         let url = `/posts?page=${page}&limit=${limit}&feedType=${feedType}`;
-        if (communityId) url += `&communityId=${communityId}`;
+        if (feedType === 'communities' || feedType === 'main') {
+            if (targetId) url += `&communityId=${targetId}`;
+        } else if (feedType === 'game') {
+            if (targetId) url += `&gameId=${targetId}`;
+            if (extraIds.length > 0) url += `&musicIds=${extraIds.join(',')}`;
+        }
         return httpClient.get(url);
     },
     createPost: (postData) => httpClient.post('/posts', postData),

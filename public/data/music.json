@@ -1,11 +1,11 @@
-[
-    {
+[{
         "id": "track_be_mine",
         "title": "Be Mine (Miside Song)",
         "artist": "OR3O ft. Royale5",
         "genre": "genre_pop",
         "cover": "img/or3o_be_mine.jpg",
-        "url": "audio/or3o_be_mine.mp3"
+        "url": "audio/or3o_be_mine.mp3",
+        "gameId": "game_val"
     },
     {
         "id": "track_iris_out",
@@ -37,7 +37,8 @@
         "artist": "JT Music",
         "genre": "genre_rap",
         "cover": "img/JT_Music_Rapture_Rising.jpg",
-        "url": "audio/JT_Music_Rapture_Rising.mp3"
+        "url": "audio/JT_Music_Rapture_Rising.mp3",
+        "gameId": "game_bio"
     },
     {
         "id": "track_undertaker",
@@ -53,6 +54,7 @@
         "artist": "JT Music feat. Andrea Storm Kaden",
         "genre": "genre_alt",
         "cover": "img/JT_Music_feat_Andrea_Storm_Kaden_Make_Me_Pretty.jpg",
-        "url": "audio/JT_Music_feat_Andrea_Storm_Kaden_Make_Me_Pretty.mp3"
+        "url": "audio/JT_Music_feat_Andrea_Storm_Kaden_Make_Me_Pretty.mp3",
+        "gameId": "game_bendy"
     }
 ]
