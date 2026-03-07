@@ -1,5 +1,8 @@
 /* css/components/_catalog.css */
 
+/* =========================================
+   ГЛАВНАЯ СТРАНИЦА КАТАЛОГА ИГР
+========================================= */
 .games-page-container {
     display: flex;
     flex-direction: column;
@@ -9,7 +12,7 @@
     padding-bottom: 40px;
 }
 
-/* --- HERO SECTION --- */
+/* --- HERO SECTION (БАННЕР БИБЛИОТЕКИ) --- */
 .hero-section {
     position: relative; width: 100%; height: 300px;
     border-radius: 24px; overflow: hidden; display: flex; align-items: flex-end;
@@ -178,6 +181,7 @@
     background: var(--surface); border: 1px solid var(--border-color); border-radius: 16px;
     overflow: hidden; transition: transform 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275), box-shadow 0.3s;
     position: relative; box-shadow: 0 5px 15px rgba(0,0,0,0.2); display: flex; flex-direction: column;
+    cursor: pointer;
 }
 .game-card:hover { 
     transform: translateY(-10px); 
@@ -220,7 +224,6 @@
 
 /* =========================================
    DRAWER (БОКОВАЯ ПАНЕЛЬ ФИЛЬТРОВ)
-   ИСПРАВЛЕНО: Вернули на правую сторону
 ========================================= */
 
 .filter-drawer-overlay {
@@ -231,14 +234,10 @@
 .filter-drawer-overlay.active { opacity: 1; pointer-events: auto; }
 
 .filter-drawer {
-    position: fixed; top: 0; 
-    /* ИСПРАВЛЕНО: Панель снова справа */
-    right: -340px; 
-    width: 340px; height: 100%;
+    position: fixed; top: 0; right: -340px; width: 340px; height: 100%;
     background: rgba(20, 20, 22, 0.85); backdrop-filter: blur(24px); 
     border-left: 1px solid rgba(255, 255, 255, 0.08); 
-    padding: 32px 24px;
-    z-index: 1000; 
+    padding: 32px 24px; z-index: 1000; 
     transition: right 0.4s cubic-bezier(0.16, 1, 0.3, 1);
     display: flex; flex-direction: column; gap: 24px; 
     box-shadow: -10px 0 50px rgba(0,0,0,0.6);
@@ -298,50 +297,184 @@
     .filter-drawer { width: 100%; right: -100%; padding: 24px 16px; border-left: none; }
 }
 
-/* --- СТРАНИЦА ИГРЫ (ОТДЕЛЬНАЯ) --- */
-.game-page-container { display: flex; flex-direction: column; gap: 24px; width: 100%; }
 
+/* =========================================
+   СТРАНИЦА ИГРЫ (ОБНОВЛЕННАЯ)
+========================================= */
+
+.game-page-container { 
+    display: flex; flex-direction: column; gap: 32px; width: 100%; 
+    padding-bottom: 60px;
+}
+
+/* --- HERO SECTION --- */
 .game-page-hero { 
-    position: relative; width: 100%; height: 350px; border-radius: 24px; overflow: hidden; 
-    display: flex; align-items: flex-end; padding: 32px; border: 1px solid var(--border-color); 
-    background: #000; box-shadow: 0 10px 30px rgba(0,0,0,0.5); 
+    position: relative; width: 100%; border-radius: 24px; overflow: hidden; 
+    display: flex; align-items: flex-end; padding: 48px;
+    border: 1px solid var(--border-color); 
+    box-shadow: 0 10px 40px rgba(0,0,0,0.5); 
+    min-height: 400px;
 }
-.gp-hero-bg { 
-    position: absolute; top:0; left:0; width:100%; height:100%; object-fit: cover; opacity: 0.3; 
-    mask-image: linear-gradient(to top, transparent, black); 
-    -webkit-mask-image: linear-gradient(to top, transparent, black); 
-}
-.gp-hero-content { position: relative; z-index: 2; display: flex; gap: 24px; align-items: center; width: 100%; }
-.gp-cover { width: 160px; aspect-ratio: 3/4; border-radius: 16px; object-fit: cover; box-shadow: 0 10px 30px rgba(0,0,0,0.6); border: 1px solid rgba(255,255,255,0.1); }
-.gp-info { flex: 1; display: flex; flex-direction: column; gap: 12px; margin-bottom: 8px;}
-.gp-tier { display: inline-block; padding: 4px 10px; border-radius: 6px; font-size: 11px; font-weight: 800; text-transform: uppercase; color: #fff; width: fit-content; }
-.gp-title { font-size: 42px; font-weight: 900; color: #fff; line-height: 1.2; text-shadow: 0 4px 10px rgba(0,0,0,0.5); margin-bottom: 4px; }
-.gp-tags { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 4px; }
 
-.game-page-body { display: flex; gap: 24px; align-items: flex-start; }
-.gp-sidebar { flex: 1; min-width: 300px; max-width: 350px; display: flex; flex-direction: column; gap: 24px; }
-.gp-feed { flex: 2; min-width: 0; }
-.gp-block { background: var(--surface); border: 1px solid var(--border-color); border-radius: 16px; padding: 24px; box-shadow: 0 5px 20px rgba(0,0,0,0.2); }
-.gp-block h3 { margin-bottom: 12px; font-size: 18px; color: #fff; font-weight: 800;}
+.gp-hero-bg-wrapper {
+    position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+    overflow: hidden; z-index: 0;
+}
+
+.gp-hero-bg { 
+    width: 100%; height: 100%; object-fit: cover; 
+    filter: blur(30px) brightness(0.4) saturate(1.2); 
+    transform: scale(1.2); 
+}
+
+.gp-hero-overlay {
+    position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+    background: linear-gradient(to top, #0a0a0c 0%, rgba(10,10,12,0.7) 50%, transparent 100%);
+    z-index: 1;
+}
+
+.gp-hero-content { 
+    position: relative; z-index: 2; display: flex; gap: 32px; align-items: flex-end; width: 100%; 
+}
+
+.gp-cover { 
+    width: 220px; aspect-ratio: 3/4; border-radius: 16px; object-fit: cover; 
+    box-shadow: 0 20px 50px rgba(0,0,0,0.8); 
+    border: 1px solid rgba(255,255,255,0.1); 
+    flex-shrink: 0;
+}
+
+.gp-info { flex: 1; display: flex; flex-direction: column; gap: 14px; }
+
+.gp-tier { 
+    display: inline-block; padding: 4px 12px; border-radius: 6px; 
+    font-size: 11px; font-weight: 800; text-transform: uppercase; 
+    color: #fff; width: fit-content; letter-spacing: 0.5px;
+    box-shadow: 0 2px 10px rgba(0,0,0,0.5);
+}
+
+.gp-title { 
+    font-size: 56px; font-weight: 900; color: #fff; line-height: 1; 
+    text-shadow: 0 4px 20px rgba(0,0,0,0.6); margin-bottom: 8px; 
+}
+
+/* Новая сетка метаданных */
+.gp-meta-grid {
+    display: flex; gap: 32px; flex-wrap: wrap;
+    background: rgba(255, 255, 255, 0.05); padding: 16px 24px;
+    border-radius: 16px; border: 1px solid rgba(255,255,255,0.08);
+    backdrop-filter: blur(10px); width: fit-content;
+}
+.gp-meta-item { display: flex; flex-direction: column; gap: 4px; }
+.gp-meta-label { font-size: 11px; text-transform: uppercase; color: var(--text-muted); font-weight: 700; letter-spacing: 0.5px;}
+.gp-meta-value { font-size: 15px; font-weight: 600; color: #fff; }
+
+.gp-tags { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 4px; }
+.gp-actions { margin-top: 8px; }
+
+/* --- BODY (Контент) --- */
+.game-page-body { display: flex; gap: 32px; align-items: flex-start; }
+
+.gp-sidebar { 
+    flex: 1; min-width: 300px; max-width: 320px; 
+    display: flex; flex-direction: column; gap: 24px; 
+    position: sticky; top: 100px; 
+}
+
+.gp-feed { flex: 2; min-width: 0; display: flex; flex-direction: column; gap: 32px; }
+
+.gp-block { 
+    background: var(--surface); border: 1px solid var(--border-color); 
+    border-radius: 16px; padding: 24px; 
+}
+.gp-block.info-block { border-top: 4px solid var(--accent-games); }
+
+.gp-block-title { 
+    margin-bottom: 16px; font-size: 16px; color: #fff; font-weight: 800; 
+    display: flex; align-items: center; gap: 10px; text-transform: uppercase; letter-spacing: 0.5px;
+}
+.gp-block-title i { color: var(--accent-games); }
+
 .gp-desc { color: #d1d1d1; font-size: 15px; line-height: 1.6; }
 
+/* --- СЕКЦИИ В ПРАВОЙ КОЛОНКЕ --- */
+.gp-section-title { font-size: 22px; font-weight: 800; color: #fff; margin-bottom: 16px; }
+
+.gp-trailer-container {
+    width: 100%; aspect-ratio: 16/9; background: #000; 
+    border-radius: 16px; overflow: hidden; 
+    border: 1px solid rgba(255,255,255,0.08);
+    box-shadow: 0 10px 40px rgba(0,0,0,0.3);
+}
+.gp-trailer-container iframe { width: 100%; height: 100%; border: none; }
+
+/* ГАЛЕРЕЯ */
+.gp-screenshots-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 16px;
+    width: 100%;
+}
+
+.gp-screenshot-item {
+    position: relative;
+    aspect-ratio: 16 / 9;
+    cursor: pointer;
+    overflow: hidden;
+    border-radius: 12px;
+    border: 1px solid rgba(255,255,255,0.05);
+    background: #000;
+}
+
+.gp-screenshot-item img {
+    width: 100%; height: 100%; object-fit: cover;
+    transition: transform 0.4s ease, filter 0.4s ease;
+}
+
+.gp-screenshot-item:hover img { transform: scale(1.05); filter: brightness(1.1); }
+
+.gp-more-screens {
+    position: absolute;
+    top: 0; left: 0; width: 100%; height: 100%;
+    background: rgba(0,0,0,0.6);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 24px; font-weight: 800; color: #fff;
+    backdrop-filter: blur(4px);
+    transition: background 0.2s;
+}
+.gp-screenshot-item:hover .gp-more-screens { background: rgba(0,0,0,0.4); }
+
+/* Лента */
+.gp-feed-header { 
+    display: flex; justify-content: space-between; align-items: center; 
+    margin-bottom: 20px; border-bottom: 1px solid var(--border-color); padding-bottom: 16px; 
+}
+.gp-feed-tabs span { 
+    font-size: 14px; font-weight: 600; color: var(--text-muted); cursor: pointer; 
+    padding: 6px 12px; border-radius: 8px; transition: 0.2s;
+}
+.gp-feed-tabs span.active { color: #fff; background: rgba(255,255,255,0.08); }
+
+/* Компактный список музыки */
 .gp-sidebar .m-track-header { display: none; }
 .gp-sidebar .m-track-row { 
     grid-template-columns: 30px minmax(100px, 1fr) auto !important; 
-    padding: 8px !important; 
-    gap: 10px !important; 
+    padding: 10px !important; gap: 10px !important; 
+    border-radius: 8px;
 }
-.gp-sidebar .m-tr-genre, 
-.gp-sidebar .m-tr-time { 
-    display: none !important; 
-}
+.gp-sidebar .m-tr-genre, .gp-sidebar .m-tr-time { display: none !important; }
+.gp-sidebar .m-tr-cover { width: 36px; height: 36px; border-radius: 4px; }
+.gp-sidebar .m-tr-text .title { font-size: 13px; margin-bottom: 0; }
+.gp-sidebar .m-tr-text .artist { font-size: 11px; }
 
+/* АДАПТИВНОСТЬ */
 @media (max-width: 768px) {
-    .game-page-hero { height: auto; padding: 24px; flex-direction: column; align-items: center; text-align: center; }
-    .gp-hero-content { flex-direction: column; align-items: center; }
-    .gp-cover { width: 120px; }
-    .gp-title { font-size: 32px; }
-    .gp-tags { justify-content: center; }
+    .game-page-hero { padding: 24px; flex-direction: column; align-items: center; text-align: center; }
+    .gp-hero-content { flex-direction: column; align-items: center; gap: 20px; }
+    .gp-cover { width: 160px; }
+    .gp-title { font-size: 36px; }
+    .gp-meta-grid { justify-content: center; }
     .game-page-body { flex-direction: column; }
-    .gp-sidebar { max-width: 100%; width: 100%; }
+    .gp-sidebar { max-width: 100%; width: 100%; position: static; }
+    .gp-screenshots-grid { grid-template-columns: 1fr; }
 }

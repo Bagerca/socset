@@ -117,7 +117,14 @@ export class ProfileRenderer {
     static renderSelectionItem(type, item) {
         const img = type === 'game' ? item.icon : item.cover;
         const title = item.title;
-        const sub = type === 'game' ? item.genre : item.artist;
+        
+        // ИСПРАВЛЕНИЕ: Для игр берем первый тег вместо genre
+        let sub = '';
+        if (type === 'game') {
+            sub = (item.tags && item.tags.length > 0) ? item.tags[0] : 'Game';
+        } else {
+            sub = item.artist;
+        }
         
         return `
             <div class="select-item">

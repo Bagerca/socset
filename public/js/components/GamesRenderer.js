@@ -5,8 +5,14 @@ import { escapeHTML } from '../utils/utils.js';
 export class GamesRenderer {
     
     // 1. Главный баннер (Hero Section)
-    static renderHero(game, tierInfo, tagsText) {
-        const heroImage = game.banner || game.icon;
+    static renderHero(game, tierInfo, tagsArray) {
+        // Приоритет изображения: Скриншот -> Баннер -> Обложка
+        const heroImage = (game.screenshots && game.screenshots.length > 0) 
+            ? game.screenshots[0] 
+            : (game.banner || game.icon);
+        
+        // tagsArray теперь массив строк, объединяем их через точку
+        const tagsText = escapeHTML(tagsArray.slice(0, 4).join(' • '));
         
         return `
             <img src="${heroImage}" class="hero-bg" alt="${escapeHTML(game.title)}">
@@ -22,7 +28,7 @@ export class GamesRenderer {
         `;
     }
 
-    // 2. Группа чекбоксов
+    // 2. Группа чекбоксов (для фильтра)
     static renderFilterGroup(title, checkboxesHTML, marginTop = false) {
         return `
             <div class="filter-group" ${marginTop ? 'style="margin-top:8px;"' : ''}>
@@ -55,7 +61,7 @@ export class GamesRenderer {
         `;
     }
 
-    // 5. Пустое состояние
+    // 5. Пустое состояние (ничего не найдено)
     static renderEmptyState() {
         return `
             <div class="games-empty-state">
@@ -65,7 +71,7 @@ export class GamesRenderer {
         `;
     }
 
-    // 6. Горизонтальный ряд игр (ОБНОВЛЕНО)
+    // 6. Горизонтальный ряд игр
     static renderGamesRow(title, cardsHTML) {
         return `
             <div class="games-row-section">
@@ -87,7 +93,8 @@ export class GamesRenderer {
 
     // 7. Карточка игры
     static renderGameCard(game, tierInfo, displayTags, isFav) {
-        const tagsHTML = displayTags.map(t => `<span class="game-tag-chip">${t.label}</span>`).join('');
+        // displayTags - массив строк
+        const tagsHTML = displayTags.map(t => `<span class="game-tag-chip">${escapeHTML(t)}</span>`).join('');
         
         return `
             <div class="game-card" data-id="${game.id}">

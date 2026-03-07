@@ -235,12 +235,15 @@ export class PostRenderer {
         if (gameId) {
             const game = this.stores.catalogs.getGameById(gameId);
             if (game) {
+                // ИСПРАВЛЕНИЕ: Берем первый тег вместо game.genre
+                const genreLabel = (game.tags && game.tags.length > 0) ? game.tags[0] : 'Game';
+                
                 html += `
                     <div class="post-game-card">
                         <img src="${game.icon}" class="post-game-cover">
                         <div class="post-card-info">
                             <div class="post-card-title">${escapeHTML(game.title)}</div>
-                            <div class="post-card-subtitle">${escapeHTML(game.genre)}</div>
+                            <div class="post-card-subtitle">${escapeHTML(genreLabel)}</div>
                         </div>
                         <a href="#/game/${game.id}" class="btn-game-link" style="text-decoration:none; display:flex; align-items:center; justify-content:center;">Перейти</a>
                     </div>`;

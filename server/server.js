@@ -32,6 +32,9 @@ const postsRoutes = require('./routes/posts.routes')(io);
 const adminRoutes = require('./routes/admin.routes');
 const communitiesRoutes = require('./routes/communities.routes');
 
+// Контроллер для работы с конфигурацией (получение хеша БД)
+const ConfigController = require('./controllers/config.controller');
+
 io.on('connection', (socket) => {
     console.log('🔌 Client connected:', socket.id);
 });
@@ -40,6 +43,9 @@ app.post('/api/upload', authenticateToken, upload.single('file'), (req, res) => 
     if (!req.file) return res.status(400).json({ error: 'No file uploaded' });
     res.json({ success: true, url: `/uploads/${req.file.filename}` });
 });
+
+// Открытый маршрут для получения актуального хеша БД (не требует токена)
+app.get('/api/config/db', ConfigController.getDbConfig);
 
 app.use('/api', authRoutes);
 app.use('/api/profile', profileRoutes);

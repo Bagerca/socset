@@ -6,7 +6,7 @@ export const GamesView = {
     html: `
         <div class="games-page-container">
             
-            <!-- 1. HERO SECTION -->
+            <!-- 1. HERO SECTION (Главный баннер) -->
             <div id="heroSection" class="hero-section"></div>
 
             <!-- 2. ПАНЕЛЬ УПРАВЛЕНИЯ -->
@@ -32,10 +32,7 @@ export const GamesView = {
                         <button class="g-chip" data-filter="fav"><i class="fa-solid fa-heart"></i> Избранное</button>
                         <button class="g-chip" data-tier="tier_aaa">AAA</button>
                         <button class="g-chip" data-tier="tier_indie">Indie</button>
-                        <button class="g-chip" data-tag="tag_shooter">Шутеры</button>
-                        <button class="g-chip" data-tag="tag_rpg">RPG</button>
-                        <button class="g-chip" data-tag="tag_horror">Хоррор</button>
-                        <button class="g-chip" data-tag="tag_cyberpunk">Киберпанк</button>
+                        <!-- Остальные теги сгенерируются скриптом автоматически -->
                     </div>
                 </div>
 
@@ -53,34 +50,12 @@ export const GamesView = {
                 <button id="closeDrawerBtn" class="icon-btn-small"><i class="fa-solid fa-xmark"></i></button>
             </div>
             
-            <!-- Сюда JS генерирует чекбоксы из GAME_CONSTANTS -->
+            <!-- Сюда JS генерирует чекбоксы из классов игр и динамических тегов -->
             <div id="filterDrawerContent" class="drawer-content"></div>
 
             <div class="drawer-footer">
                 <button id="resetFiltersBtn" class="btn-post" style="background: rgba(255,255,255,0.1); flex: 1;">Сбросить</button>
                 <button id="applyFiltersBtn" class="btn-post" style="flex: 1;">Применить</button>
-            </div>
-        </div>
-
-        <!-- 5. МОДАЛКА ДЕТАЛЕЙ -->
-        <div id="gameDetailsModal" class="modal-overlay">
-            <div class="modal-content">
-                <div class="modal-header">
-                    <span class="modal-title">Об игре</span>
-                    <button id="closeGameDetailsBtn" class="icon-btn-small"><i class="fa-solid fa-xmark"></i></button>
-                </div>
-                <div class="modal-body game-details-body">
-                    <div id="gdTrailer" class="game-trailer-container"></div>
-                    <div class="game-details-content">
-                        <img id="gdCover" src="" class="gd-cover">
-                        <div class="gd-info">
-                            <div id="gdTitle" class="gd-title"></div>
-                            <div id="gdGenre" class="gd-genre"></div>
-                            <div id="gdTagsList" class="gd-tags-list"></div>
-                            <div id="gdDescription" class="gd-desc"></div>
-                        </div>
-                    </div>
-                </div>
             </div>
         </div>
     `,

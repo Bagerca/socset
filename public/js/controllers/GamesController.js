@@ -1,3 +1,5 @@
+// js/controllers/GamesController.js
+
 import { debounce } from '../utils/utils.js';
 import { SearchEngine } from '../utils/SearchEngine.js';
 import { GamesRenderer } from '../components/GamesRenderer.js';
@@ -13,18 +15,17 @@ export class GamesController {
             searchQuery: '',
             quickFilter: 'all', 
             activeTags: [],
-            activeTiers:[]
+            activeTiers: []
         };
 
+        // Элементы DOM
         this.heroSection = document.getElementById('heroSection');
         this.contentArea = document.getElementById('gamesContentArea');
-        
         this.searchInput = document.getElementById('gamesSearchInput');
         this.searchDropdown = document.getElementById('gamesSearchDropdown');
-        
         this.openFiltersBtn = document.getElementById('openFiltersBtn');
-        this.quickChips = document.querySelectorAll('.g-chip');
         
+        // Боковая панель фильтров
         this.drawer = document.getElementById('filterDrawer');
         this.drawerOverlay = document.getElementById('filterDrawerOverlay');
         this.drawerContent = document.getElementById('filterDrawerContent');
@@ -36,66 +37,100 @@ export class GamesController {
     }
 
     init() {
-        this.renderHero();
-        this.renderDrawerFilters();
-        this.renderContent();
-        this.bindEvents();
+        this.renderChips();        // 1. Генерируем кнопки тегов под поиском
+        this.renderHero();         // 2. Рисуем главный баннер
+        this.renderDrawerFilters();// 3. Заполняем боковую панель
+        this.renderContent();      // 4. Рисуем сетку или ленту игр
+        this.bindEvents();         // 5. Вешаем обработчики событий
     }
 
     destroy() {
         this.abortController.abort();
     }
 
+    // --- 1. Генерация быстрых кнопок (Чипсов) ---
+    renderChips() {
+        const container = document.getElementById('quickChipsContainer');
+        if (!container) return;
+
+        // Удаляем старые динамические чипсы, чтобы не дублировать при перезагрузке
+        container.querySelectorAll('.dynamic-chip').forEach(el => el.remove());
+        
+        // Берем топ-8 самых популярных тегов из хранилища
+        const topTags = this.stores.catalogs.uniqueTags.slice(0, 8);
+        
+        topTags.forEach(tag => {
+            const btn = document.createElement('button');
+            btn.className = 'g-chip dynamic-chip';
+            btn.dataset.tag = tag; // Сохраняем имя тега (например "Шутер")
+            btn.textContent = tag;
+            container.appendChild(btn);
+        });
+    }
+
+    // --- 2. Главный баннер (Hero) ---
     renderHero() {
         const games = this.stores.catalogs.games;
-        const bannerGames = games.filter(g => g.banner);
+        
+        // Приоритет: Игры со скриншотами -> AAA игры -> Любые игры
+        const screenGames = games.filter(g => g.screenshots && g.screenshots.length > 0);
         const aaaGames = games.filter(g => g.tier === 'tier_aaa');
         
-        let pool = bannerGames.length > 0 ? bannerGames : (aaaGames.length > 0 ? aaaGames : games);
+        let pool = screenGames.length > 0 ? screenGames : (aaaGames.length > 0 ? aaaGames : games);
         
         if (pool.length === 0) { 
             this.heroSection.style.display = 'none'; 
             return; 
         }
 
+        // Выбираем случайную игру из пула
         const heroGame = pool[Math.floor(Math.random() * pool.length)];
         const tierInfo = GAME_CONSTANTS.tiers[heroGame.tier] || { label: 'Unknown', color: '#999' };
-        const tagsString = this.stores.catalogs.getGameTags(heroGame.tags).slice(0, 3).map(t => t.label).join(' • ');
+        
+        // Теги теперь массив строк, передаем как есть
+        const displayTags = heroGame.tags || [];
 
-        this.heroSection.innerHTML = GamesRenderer.renderHero(heroGame, tierInfo, tagsString);
-        this.heroSection.querySelector('.hero-btn').addEventListener('click', () => {
-            window.location.hash = `/game/${heroGame.id}`;
-        });
+        this.heroSection.innerHTML = GamesRenderer.renderHero(heroGame, tierInfo, displayTags);
+        
+        // Клик по кнопке "Подробнее"
+        const btn = this.heroSection.querySelector('.hero-btn');
+        if (btn) {
+            btn.addEventListener('click', () => {
+                window.location.hash = `/game/${heroGame.id}`;
+            });
+        }
     }
 
+    // --- 3. Генерация фильтров в боковой панели ---
     renderDrawerFilters() {
         const tiers = GAME_CONSTANTS.tiers;
-        const tags = GAME_CONSTANTS.tags;
-        const categories = GAME_CONSTANTS.categories;
-
         let html = '';
 
+        // Группа: Класс игры (AAA, Indie, AA)
         let tiersHTML = Object.entries(tiers).map(([key, val]) => 
             GamesRenderer.renderFilterCheckbox(key, 'tier', val.label)
         ).join('');
-        html += GamesRenderer.renderFilterGroup('Масштаб', tiersHTML);
+        html += GamesRenderer.renderFilterGroup('Класс игры', tiersHTML);
 
-        for (const [catKey, catLabel] of Object.entries(categories)) {
-            const catTags = Object.values(tags).filter(t => t.category === catKey);
-            if (catTags.length > 0) {
-                let catHTML = catTags.map(tag => 
-                    GamesRenderer.renderFilterCheckbox(tag.id, 'tag', tag.label)
-                ).join('');
-                html += GamesRenderer.renderFilterGroup(catLabel, catHTML, true);
-            }
+        // Группа: Жанры и Теги (Динамические из базы)
+        // Берем топ-30 самых частых тегов, чтобы не перегружать список
+        const topTags = this.stores.catalogs.uniqueTags.slice(0, 30);
+        
+        if (topTags.length > 0) {
+            let tagsHTML = topTags.map(tag => 
+                GamesRenderer.renderFilterCheckbox(tag, 'tag', tag)
+            ).join('');
+            html += GamesRenderer.renderFilterGroup('Популярные метки', tagsHTML, true);
         }
         
         this.drawerContent.innerHTML = html;
     }
 
+    // --- 4. Обработчики событий ---
     bindEvents() {
         const signal = this.abortController.signal;
 
+        // Горизонтальный скролл колесиком для чипсов
         const chipsContainer = document.getElementById('quickChipsContainer');
         if (chipsContainer) {
             chipsContainer.addEventListener('wheel', (evt) => {
@@ -104,23 +139,33 @@ export class GamesController {
                     chipsContainer.scrollLeft += evt.deltaY;
                 }
             }, { signal, passive: false });
-        }
 
-        this.quickChips.forEach(btn => {
-            btn.addEventListener('click', () => {
-                this.quickChips.forEach(b => b.classList.remove('active'));
+            // Делегирование клика по чипсам
+            chipsContainer.addEventListener('click', (e) => {
+                const btn = e.target.closest('.g-chip');
+                if (!btn) return;
+                
+                chipsContainer.querySelectorAll('.g-chip').forEach(b => b.classList.remove('active'));
                 btn.classList.add('active');
-                if (btn.dataset.filter) this.state.quickFilter = btn.dataset.filter;
-                else if (btn.dataset.tier) this.state.quickFilter = btn.dataset.tier;
-                else if (btn.dataset.tag) this.state.quickFilter = btn.dataset.tag;
+                
+                // Определяем тип фильтра
+                if (btn.dataset.filter) this.state.quickFilter = btn.dataset.filter; // all, fav
+                else if (btn.dataset.tier) this.state.quickFilter = btn.dataset.tier; // tier_aaa, tier_indie
+                else if (btn.dataset.tag) this.state.quickFilter = btn.dataset.tag;   // Динамический тег
+                
                 this.renderContent();
             }, { signal });
-        });
+        }
 
+        // Живой поиск с задержкой (Debounce)
         const handleSearch = debounce((query) => {
-            if (!query) { this.searchDropdown.style.display = 'none'; return; }
+            if (!query) { 
+                this.searchDropdown.style.display = 'none'; 
+                return; 
+            }
             const items = this.stores.catalogs.games; 
-            const results = this.searchEngine.search(items, query,[{ field: 'title', weight: 5 }]);
+            // Ищем по названию
+            const results = this.searchEngine.search(items, query, [{ field: 'title', weight: 5 }]);
 
             if (results.length > 0) {
                 this.searchDropdown.innerHTML = results.slice(0, 6).map(g => GamesRenderer.renderSearchDropdownItem(g)).join('');
@@ -151,6 +196,7 @@ export class GamesController {
             }, { signal });
         }
 
+        // Разворачивание горизонтальных рядов в сетку
         this.contentArea.addEventListener('click', (e) => {
             const expandBtn = e.target.closest('.games-row-expand-btn');
             if (expandBtn) {
@@ -161,33 +207,46 @@ export class GamesController {
             }
         }, { signal });
 
+        // Управление Drawer (Боковой панелью)
         this.openFiltersBtn.addEventListener('click', () => this.toggleDrawer(true), { signal });
         this.closeDrawerBtn.addEventListener('click', () => this.toggleDrawer(false), { signal });
         this.drawerOverlay.addEventListener('click', () => this.toggleDrawer(false), { signal });
         
+        // Применить фильтры из Drawer
         this.applyFiltersBtn.addEventListener('click', () => {
+            // Собираем выбранные чекбоксы
             this.state.activeTiers = Array.from(this.drawerContent.querySelectorAll('input[data-type="tier"]:checked')).map(cb => cb.value);
             this.state.activeTags = Array.from(this.drawerContent.querySelectorAll('input[data-type="tag"]:checked')).map(cb => cb.value);
+            
             if (this.state.activeTiers.length || this.state.activeTags.length) {
                 this.state.quickFilter = 'custom';
-                this.quickChips.forEach(b => b.classList.remove('active'));
+                document.querySelectorAll('#quickChipsContainer .g-chip').forEach(b => b.classList.remove('active'));
             }
+            
             this.toggleDrawer(false);
             this.openFiltersBtn.classList.add('active');
             this.renderContent();
         }, { signal });
 
+        // Сбросить фильтры
         this.resetFiltersBtn.addEventListener('click', () => {
             this.drawerContent.querySelectorAll('input').forEach(cb => cb.checked = false);
-            this.state.activeTags =[]; this.state.activeTiers =[]; this.state.quickFilter = 'all';
-            this.quickChips.forEach(b => b.classList.remove('active'));
-            if(this.quickChips[0]) this.quickChips[0].classList.add('active');
+            this.state.activeTags = []; 
+            this.state.activeTiers = []; 
+            this.state.quickFilter = 'all';
+            
+            document.querySelectorAll('#quickChipsContainer .g-chip').forEach(b => b.classList.remove('active'));
+            const firstChip = document.querySelector('#quickChipsContainer .g-chip');
+            if(firstChip) firstChip.classList.add('active');
+            
             this.openFiltersBtn.classList.remove('active');
             this.toggleDrawer(false);
             this.renderContent();
         }, { signal });
 
+        // Глобальный клик (Dropdown, Избранное, Карточка)
         document.addEventListener('click', (e) => {
+            // Клик по результату в выпадающем поиске
             const dropItem = e.target.closest('.search-dropdown-item');
             if (dropItem) {
                 const game = this.stores.catalogs.getGameById(dropItem.dataset.id);
@@ -197,20 +256,30 @@ export class GamesController {
                     this.searchDropdown.style.display = 'none';
                     this.renderContent();
                 }
-            } else if (!e.target.closest('#gamesSearchWrapper')) {
-                this.searchDropdown.style.display = 'none';
+                return;
+            } 
+            
+            // Скрытие dropdown при клике вне
+            if (!e.target.closest('#gamesSearchWrapper')) {
+                if (this.searchDropdown) this.searchDropdown.style.display = 'none';
             }
 
+            // Клик по сердечку (Избранное)
             const favBtn = e.target.closest('.game-fav-btn');
             if (favBtn) {
                 e.stopPropagation();
                 const isFav = this.stores.auth.toggleFavoriteGame(favBtn.dataset.id);
                 favBtn.classList.toggle('active', isFav);
                 favBtn.innerHTML = `<i class="fa-${isFav ? 'solid' : 'regular'} fa-heart"></i>`;
-                if (this.state.quickFilter === 'fav') this.renderContent();
+                
+                // Если мы находимся во вкладке "Избранное", перерисовываем сетку
+                if (this.state.quickFilter === 'fav') {
+                    this.renderContent();
+                }
                 return;
             }
 
+            // Клик по карточке игры -> переход
             const card = e.target.closest('.game-card');
             if (card) {
                 const game = this.stores.catalogs.getGameById(card.dataset.id);
@@ -229,35 +298,59 @@ export class GamesController {
         }
     }
 
+    // --- 5. Логика фильтрации ---
     getFilteredGames(ignoreSearch = false) {
         let games = this.stores.catalogs.games;
 
+        // 1. Быстрые фильтры (Чипсы)
         if (this.state.quickFilter !== 'custom' && this.state.quickFilter !== 'all') {
             const filter = this.state.quickFilter;
+            
             if (filter === 'fav') {
-                const favIds = this.stores.auth.user.favoriteGames ||[];
+                const favIds = this.stores.auth.user.favoriteGames || [];
                 games = games.filter(g => favIds.includes(g.id));
-            } else if (filter.startsWith('tier_')) games = games.filter(g => g.tier === filter);
-            else if (filter.startsWith('tag_')) games = games.filter(g => g.tags && g.tags.includes(filter));
-        } else if (this.state.quickFilter === 'custom') {
-            if (this.state.activeTiers.length > 0) games = games.filter(g => this.state.activeTiers.includes(g.tier));
-            if (this.state.activeTags.length > 0) games = games.filter(g => g.tags && g.tags.some(t => this.state.activeTags.includes(t)));
+            } 
+            else if (filter.startsWith('tier_')) {
+                games = games.filter(g => g.tier === filter);
+            } 
+            else {
+                // Если это динамический тег (простая строка)
+                games = games.filter(g => g.tags && g.tags.includes(filter));
+            }
+        } 
+        // 2. Кастомные фильтры из Drawer
+        else if (this.state.quickFilter === 'custom') {
+            if (this.state.activeTiers.length > 0) {
+                games = games.filter(g => this.state.activeTiers.includes(g.tier));
+            }
+            if (this.state.activeTags.length > 0) {
+                // Ищем совпадение хотя бы одного тега
+                games = games.filter(g => g.tags && g.tags.some(t => this.state.activeTags.includes(t)));
+            }
         }
 
+        // 3. Поиск по названию
         if (!ignoreSearch && this.state.searchQuery) {
             games = this.searchEngine.search(games, this.state.searchQuery, [{ field: 'title', weight: 5 }]);
         }
+        
         return games;
     }
 
+    // --- 6. Рендеринг контента ---
     renderContent() {
-        const isFiltering = this.state.searchQuery || this.state.quickFilter !== 'all' || this.state.activeTags.length > 0 || this.state.activeTiers.length > 0;
+        // Если активен поиск или фильтры -> показываем сетку (Grid)
+        const isFiltering = this.state.searchQuery || 
+                            this.state.quickFilter !== 'all' || 
+                            this.state.activeTags.length > 0 || 
+                            this.state.activeTiers.length > 0;
 
         if (isFiltering) {
             this.heroSection.style.display = 'none';
             this.contentArea.className = 'games-grid-container';
             this.renderFilteredGrid();
         } else {
+            // Иначе показываем Ленту (Hero + горизонтальные ряды)
             this.heroSection.style.display = 'flex';
             this.contentArea.className = '';
             this.renderFeed();
@@ -280,32 +373,31 @@ export class GamesController {
 
         const maxPerLine = 15;
 
+        // Ряд 1: Рекомендации
         const recommended = this.getRecommendations(allGames).slice(0, maxPerLine);
         if (recommended.length > 0) {
             this.renderRow('Рекомендовано вам', recommended);
         }
 
+        // Ряд 2: Блокбастеры
         const aaaGames = allGames.filter(g => g.tier === 'tier_aaa').slice(0, maxPerLine);
         if (aaaGames.length > 0) {
             this.renderRow('Блокбастеры', aaaGames);
         }
 
-        const indieGames = allGames.filter(g => g.tier === 'tier_indie').slice(0, maxPerLine);
-        if (indieGames.length > 0) {
-            this.renderRow('Инди-хиты', indieGames);
-        }
+        // Ряд 3, 4, 5: Динамические подборки
+        // Берем топ-15 популярных тегов и выбираем из них 3 случайных для отображения
+        const topTags = this.stores.catalogs.uniqueTags.slice(0, 15);
+        const randomTags = topTags.sort(() => 0.5 - Math.random()).slice(0, 3);
 
-        const allTags = GAME_CONSTANTS.tags;
-        const tagKeys = Object.keys(allTags);
-        const randomKeys = tagKeys.sort(() => 0.5 - Math.random()).slice(0, 2);
-
-        randomKeys.forEach(tagKey => {
-            const gamesInTag = allGames.filter(g => g.tags && g.tags.includes(tagKey)).slice(0, maxPerLine);
-            if (gamesInTag.length >= 3) {
-                this.renderRow(allTags[tagKey].label, gamesInTag);
+        randomTags.forEach(tag => {
+            const gamesInTag = allGames.filter(g => g.tags && g.tags.includes(tag)).slice(0, maxPerLine);
+            if (gamesInTag.length >= 3) { // Показываем ряд, только если есть хотя бы 3 игры
+                this.renderRow(tag, gamesInTag);
             }
         });
 
+        // Включаем горизонтальный скролл колесиком для рядов
         const scrollContainers = this.contentArea.querySelectorAll('.games-horizontal-scroll');
         scrollContainers.forEach(container => {
             container.addEventListener('wheel', (evt) => {
@@ -317,27 +409,37 @@ export class GamesController {
         });
     }
 
+    // Алгоритм рекомендаций (Simple Content-Based Filtering)
     getRecommendations(allGames) {
-        const favIds = this.stores.auth.user.favoriteGames ||[];
+        const favIds = this.stores.auth.user.favoriteGames || [];
+        
+        // Если нет избранного, просто предлагаем AAA
         if (favIds.length === 0) {
             return allGames.filter(g => g.tier === 'tier_aaa');
         }
 
-        const favTags =[];
-        allGames.filter(g => favIds.includes(g.id)).forEach(g => { if(g.tags) favTags.push(...g.tags); });
+        // Собираем все теги из любимых игр пользователя
+        const favTags = [];
+        allGames.filter(g => favIds.includes(g.id)).forEach(g => { 
+            if (g.tags) favTags.push(...g.tags); 
+        });
 
+        // Считаем частоту встречаемости каждого тега
         const tagCounts = {};
         favTags.forEach(t => tagCounts[t] = (tagCounts[t] || 0) + 1);
 
         return allGames
-            .filter(g => !favIds.includes(g.id))
+            .filter(g => !favIds.includes(g.id)) // Не рекомендуем то, что уже лайкнуто
             .map(g => {
                 let score = 0;
-                if(g.tags) g.tags.forEach(t => score += (tagCounts[t] || 0));
+                // Начисляем очки за совпадение тегов
+                if (g.tags) {
+                    g.tags.forEach(t => score += (tagCounts[t] || 0));
+                }
                 return { game: g, score };
             })
-            .filter(item => item.score > 0)
-            .sort((a, b) => b.score - a.score)
+            .filter(item => item.score > 0) // Убираем игры с нулевым совпадением
+            .sort((a, b) => b.score - a.score) // Сортируем: лучшие совпадения сверху
             .map(item => item.game);
     }
 
@@ -348,9 +450,11 @@ export class GamesController {
     }
 
     createGameCardHTML(game) {
-        const isFav = (this.stores.auth.user.favoriteGames ||[]).includes(game.id);
+        const isFav = (this.stores.auth.user.favoriteGames || []).includes(game.id);
         const tierInfo = GAME_CONSTANTS.tiers[game.tier] || { label: 'Unknown', color: '#999' };
-        const displayTags = this.stores.catalogs.getGameTags(game.tags).slice(0, 2);
+        
+        // Берем первые 2 тега для отображения на карточке (массив строк)
+        const displayTags = (game.tags || []).slice(0, 2);
         
         return GamesRenderer.renderGameCard(game, tierInfo, displayTags, isFav);
     }
