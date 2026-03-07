@@ -12,7 +12,7 @@
     padding-bottom: 40px;
 }
 
-/* --- HERO SECTION (БАННЕР БИБЛИОТЕКИ) --- */
+/* --- HERO SECTION --- */
 .hero-section {
     position: relative; width: 100%; height: 300px;
     border-radius: 24px; overflow: hidden; display: flex; align-items: flex-end;
@@ -299,11 +299,11 @@
 
 
 /* =========================================
-   СТРАНИЦА ИГРЫ (ОБНОВЛЕННАЯ)
+   СТРАНИЦА ИГРЫ (СВОБОДНАЯ СТРУКТУРА)
 ========================================= */
 
 .game-page-container { 
-    display: flex; flex-direction: column; gap: 32px; width: 100%; 
+    display: flex; flex-direction: column; gap: 24px; width: 100%; 
     padding-bottom: 60px;
 }
 
@@ -313,7 +313,7 @@
     display: flex; align-items: flex-end; padding: 48px;
     border: 1px solid var(--border-color); 
     box-shadow: 0 10px 40px rgba(0,0,0,0.5); 
-    min-height: 400px;
+    min-height: 380px;
 }
 
 .gp-hero-bg-wrapper {
@@ -323,13 +323,13 @@
 
 .gp-hero-bg { 
     width: 100%; height: 100%; object-fit: cover; 
-    filter: blur(30px) brightness(0.4) saturate(1.2); 
-    transform: scale(1.2); 
+    filter: blur(10px) brightness(0.3) saturate(1.2); 
+    transform: scale(1.1); 
 }
 
 .gp-hero-overlay {
     position: absolute; top: 0; left: 0; width: 100%; height: 100%;
-    background: linear-gradient(to top, #0a0a0c 0%, rgba(10,10,12,0.7) 50%, transparent 100%);
+    background: linear-gradient(to top, #0a0a0c 0%, rgba(10,10,12,0.4) 100%);
     z-index: 1;
 }
 
@@ -338,143 +338,170 @@
 }
 
 .gp-cover { 
-    width: 220px; aspect-ratio: 3/4; border-radius: 16px; object-fit: cover; 
+    width: 200px; aspect-ratio: 3/4; border-radius: 16px; object-fit: cover; 
     box-shadow: 0 20px 50px rgba(0,0,0,0.8); 
     border: 1px solid rgba(255,255,255,0.1); 
     flex-shrink: 0;
 }
 
-.gp-info { flex: 1; display: flex; flex-direction: column; gap: 14px; }
+.gp-info { flex: 1; display: flex; flex-direction: column; }
 
-.gp-tier { 
-    display: inline-block; padding: 4px 12px; border-radius: 6px; 
-    font-size: 11px; font-weight: 800; text-transform: uppercase; 
-    color: #fff; width: fit-content; letter-spacing: 0.5px;
-    box-shadow: 0 2px 10px rgba(0,0,0,0.5);
-}
+.gp-title-area { display: flex; flex-direction: column; gap: 10px; align-items: flex-start; margin-bottom: 24px; }
 
 .gp-title { 
-    font-size: 56px; font-weight: 900; color: #fff; line-height: 1; 
-    text-shadow: 0 4px 20px rgba(0,0,0,0.6); margin-bottom: 8px; 
+    font-size: clamp(32px, 4vw, 52px); 
+    font-weight: 900; color: #fff; line-height: 1.1; 
+    text-shadow: 0 4px 20px rgba(0,0,0,0.6); 
+    margin: 0; 
 }
 
-/* Новая сетка метаданных */
-.gp-meta-grid {
-    display: flex; gap: 32px; flex-wrap: wrap;
-    background: rgba(255, 255, 255, 0.05); padding: 16px 24px;
-    border-radius: 16px; border: 1px solid rgba(255,255,255,0.08);
-    backdrop-filter: blur(10px); width: fit-content;
-}
-.gp-meta-item { display: flex; flex-direction: column; gap: 4px; }
-.gp-meta-label { font-size: 11px; text-transform: uppercase; color: var(--text-muted); font-weight: 700; letter-spacing: 0.5px;}
-.gp-meta-value { font-size: 15px; font-weight: 600; color: #fff; }
-
-.gp-tags { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 4px; }
-.gp-actions { margin-top: 8px; }
-
-/* --- BODY (Контент) --- */
-.game-page-body { display: flex; gap: 32px; align-items: flex-start; }
-
-.gp-sidebar { 
-    flex: 1; min-width: 300px; max-width: 320px; 
-    display: flex; flex-direction: column; gap: 24px; 
-    position: sticky; top: 100px; 
+/* ОБНОВЛЕННАЯ ПАНЕЛЬ ДЕЙСТВИЙ */
+.gp-controls-row {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    margin-top: 16px;
+    flex-wrap: wrap;
 }
 
-.gp-feed { flex: 2; min-width: 0; display: flex; flex-direction: column; gap: 32px; }
-
-.gp-block { 
-    background: var(--surface); border: 1px solid var(--border-color); 
-    border-radius: 16px; padding: 24px; 
+.gp-actions-buttons {
+    display: flex;
+    gap: 12px;
+    align-items: center;
 }
-.gp-block.info-block { border-top: 4px solid var(--accent-games); }
 
-.gp-block-title { 
-    margin-bottom: 16px; font-size: 16px; color: #fff; font-weight: 800; 
-    display: flex; align-items: center; gap: 10px; text-transform: uppercase; letter-spacing: 0.5px;
+.gp-actions-divider {
+    width: 1px;
+    height: 24px;
+    background: rgba(255, 255, 255, 0.2);
 }
-.gp-block-title i { color: var(--accent-games); }
+
+.gp-tier { 
+    display: inline-flex; align-items: center; padding: 4px 12px; border-radius: 6px; 
+    font-size: 11px; font-weight: 800; text-transform: uppercase; 
+    color: #fff; letter-spacing: 0.5px; box-shadow: 0 2px 10px rgba(0,0,0,0.5);
+    margin: 0; height: fit-content;
+}
+
+/* Кнопки */
+.gp-main-btn {
+    background: #fff; color: #000; font-size: 15px; font-weight: 700;
+    padding: 12px 24px; border-radius: 12px;
+}
+.gp-main-btn:hover {
+    background: var(--accent-games); color: #fff;
+    box-shadow: 0 0 20px rgba(124, 58, 237, 0.4);
+}
+
+.fav-game-btn { 
+    background: rgba(255, 255, 255, 0.1);
+    width: 44px;
+    height: 44px;
+    color: #fff;
+    border: 1px solid transparent; 
+    transition: 0.2s; 
+}
+.fav-game-btn:hover { background: rgba(255,255,255,0.2) !important; }
+.fav-game-btn.active { color: var(--danger) !important; border-color: rgba(255,69,58,0.3); background: rgba(255,69,58,0.1) !important; }
+
+/* Теги на строку ниже */
+.gp-short-tags {
+    display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
+    color: #b3b3b3; font-size: 14px; font-weight: 500; margin-top: 16px;
+}
+.gp-tag-dot { color: #555; font-size: 10px; }
+
+
+/* --- BODY (ДВЕ КОЛОНКИ) --- */
+.gp-body-layout { 
+    display: grid; 
+    grid-template-columns: minmax(0, 1fr) 280px; 
+    gap: 48px; 
+    align-items: start; 
+}
+
+/* Левая колонка - больше никаких рамок и фонов! */
+.gp-main-column { display: flex; flex-direction: column; gap: 48px; min-width: 0; }
+
+.gp-section { display: flex; flex-direction: column; gap: 12px; }
+
+.gp-section-title { 
+    font-size: 20px; font-weight: 800; color: #fff; margin-bottom: 4px; 
+    border-bottom: 1px solid rgba(255,255,255,0.05); padding-bottom: 12px;
+}
 
 .gp-desc { color: #d1d1d1; font-size: 15px; line-height: 1.6; }
 
-/* --- СЕКЦИИ В ПРАВОЙ КОЛОНКЕ --- */
-.gp-section-title { font-size: 22px; font-weight: 800; color: #fff; margin-bottom: 16px; }
+.gp-desc-wrapper { position: relative; max-height: 150px; overflow: hidden; transition: max-height 0.4s ease; }
+.gp-desc-wrapper.expanded { max-height: 3000px; }
+.gp-desc-fade { position: absolute; bottom: 0; left: 0; width: 100%; height: 60px; background: linear-gradient(to bottom, transparent, var(--bg-base)); pointer-events: none; }
+.gp-desc-wrapper.expanded .gp-desc-fade { display: none; }
 
-.gp-trailer-container {
-    width: 100%; aspect-ratio: 16/9; background: #000; 
-    border-radius: 16px; overflow: hidden; 
-    border: 1px solid rgba(255,255,255,0.08);
-    box-shadow: 0 10px 40px rgba(0,0,0,0.3);
+.gp-read-more-btn { background: transparent; color: var(--accent-games); border: none; cursor: pointer; padding-top: 12px; font-weight: 700; font-size: 14px; display: inline-block; transition: 0.2s; text-align: left;}
+.gp-read-more-btn:hover { color: #fff; text-decoration: underline; }
+
+/* Правая колонка (Сайдбар) */
+.gp-sidebar-column { 
+    display: flex; flex-direction: column; gap: 16px; 
+    position: sticky; top: 100px; 
 }
+
+/* Легкие, почти прозрачные карточки для сайдбара */
+.gp-side-block { 
+    background: rgba(255,255,255,0.02); 
+    border: 1px solid rgba(255,255,255,0.05); 
+    border-radius: 16px; padding: 20px; 
+}
+
+.gp-side-title { font-size: 16px; font-weight: 700; color: #fff; margin-bottom: 16px; text-transform: uppercase; letter-spacing: 0.5px;}
+.gp-side-title i { color: var(--accent-games); margin-right: 6px; }
+
+/* --- ЭЛЕМЕНТЫ ПРАВОЙ КОЛОНКИ --- */
+.gp-meta-list { display: flex; flex-direction: column; gap: 16px; }
+.gp-meta-item { display: flex; flex-direction: column; gap: 4px; }
+.gp-meta-label { font-size: 12px; text-transform: uppercase; color: var(--text-muted); font-weight: 700; letter-spacing: 0.5px;}
+.gp-meta-value { font-size: 15px; font-weight: 600; color: #fff; }
+
+.gp-all-tags { display: flex; flex-wrap: wrap; gap: 8px; }
+.gp-tag-chip { font-size: 12px; background: rgba(255, 255, 255, 0.05); color: #d1d1d1; padding: 6px 12px; border-radius: 8px; white-space: nowrap; border: 1px solid rgba(255,255,255,0.05); transition: 0.2s; text-decoration: none;}
+.gp-tag-chip:hover { background: rgba(255,255,255,0.1); color: #fff; }
+
+/* --- ЭЛЕМЕНТЫ ЛЕВОЙ КОЛОНКИ --- */
+.gp-trailer-container { width: 100%; aspect-ratio: 16/9; background: #000; border-radius: 12px; overflow: hidden; border: 1px solid rgba(255,255,255,0.08); }
 .gp-trailer-container iframe { width: 100%; height: 100%; border: none; }
 
-/* ГАЛЕРЕЯ */
-.gp-screenshots-grid {
-    display: grid;
-    grid-template-columns: repeat(2, 1fr);
-    gap: 16px;
-    width: 100%;
-}
-
-.gp-screenshot-item {
-    position: relative;
-    aspect-ratio: 16 / 9;
-    cursor: pointer;
-    overflow: hidden;
-    border-radius: 12px;
-    border: 1px solid rgba(255,255,255,0.05);
-    background: #000;
-}
-
-.gp-screenshot-item img {
-    width: 100%; height: 100%; object-fit: cover;
-    transition: transform 0.4s ease, filter 0.4s ease;
-}
-
+.gp-screenshots-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; width: 100%; }
+.gp-screenshot-item { position: relative; aspect-ratio: 16 / 9; cursor: pointer; overflow: hidden; border-radius: 8px; border: 1px solid rgba(255,255,255,0.05); background: #000; }
+.gp-screenshot-item img { width: 100%; height: 100%; object-fit: cover; transition: transform 0.4s ease, filter 0.4s ease; }
 .gp-screenshot-item:hover img { transform: scale(1.05); filter: brightness(1.1); }
-
-.gp-more-screens {
-    position: absolute;
-    top: 0; left: 0; width: 100%; height: 100%;
-    background: rgba(0,0,0,0.6);
-    display: flex; align-items: center; justify-content: center;
-    font-size: 24px; font-weight: 800; color: #fff;
-    backdrop-filter: blur(4px);
-    transition: background 0.2s;
-}
+.gp-more-screens { position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.6); display: flex; align-items: center; justify-content: center; font-size: 24px; font-weight: 800; color: #fff; backdrop-filter: blur(4px); transition: background 0.2s; }
 .gp-screenshot-item:hover .gp-more-screens { background: rgba(0,0,0,0.4); }
 
-/* Лента */
-.gp-feed-header { 
-    display: flex; justify-content: space-between; align-items: center; 
-    margin-bottom: 20px; border-bottom: 1px solid var(--border-color); padding-bottom: 16px; 
-}
-.gp-feed-tabs span { 
-    font-size: 14px; font-weight: 600; color: var(--text-muted); cursor: pointer; 
-    padding: 6px 12px; border-radius: 8px; transition: 0.2s;
-}
-.gp-feed-tabs span.active { color: #fff; background: rgba(255,255,255,0.08); }
+.gp-feed-header { border-bottom: 1px solid var(--border-color); padding-bottom: 16px; margin-bottom: 20px; }
 
-/* Компактный список музыки */
-.gp-sidebar .m-track-header { display: none; }
-.gp-sidebar .m-track-row { 
-    grid-template-columns: 30px minmax(100px, 1fr) auto !important; 
-    padding: 10px !important; gap: 10px !important; 
-    border-radius: 8px;
-}
-.gp-sidebar .m-tr-genre, .gp-sidebar .m-tr-time { display: none !important; }
-.gp-sidebar .m-tr-cover { width: 36px; height: 36px; border-radius: 4px; }
-.gp-sidebar .m-tr-text .title { font-size: 13px; margin-bottom: 0; }
-.gp-sidebar .m-tr-text .artist { font-size: 11px; }
+/* Компактный список музыки в сайдбаре */
+.gp-sidebar-column .m-track-header { display: none; }
+.gp-sidebar-column .m-track-row { grid-template-columns: 30px minmax(100px, 1fr) auto !important; padding: 10px !important; gap: 10px !important; border-radius: 8px; }
+.gp-sidebar-column .m-tr-genre, .gp-sidebar-column .m-tr-time { display: none !important; }
+.gp-sidebar-column .m-tr-cover { width: 36px; height: 36px; border-radius: 4px; }
+.gp-sidebar-column .m-tr-text .title { font-size: 13px; margin-bottom: 0; }
+.gp-sidebar-column .m-tr-text .artist { font-size: 11px; }
 
 /* АДАПТИВНОСТЬ */
+@media (max-width: 900px) {
+    .gp-body-layout { grid-template-columns: 1fr; gap: 32px; } 
+    .gp-sidebar-column { position: static; order: -1; } 
+}
+
 @media (max-width: 768px) {
-    .game-page-hero { padding: 24px; flex-direction: column; align-items: center; text-align: center; }
+    .game-page-hero { padding: 24px; flex-direction: column; align-items: center; text-align: center; min-height: auto; }
     .gp-hero-content { flex-direction: column; align-items: center; gap: 20px; }
     .gp-cover { width: 160px; }
+    .gp-title-area { align-items: center; margin-bottom: 16px;}
     .gp-title { font-size: 36px; }
-    .gp-meta-grid { justify-content: center; }
-    .game-page-body { flex-direction: column; }
-    .gp-sidebar { max-width: 100%; width: 100%; position: static; }
+    .gp-controls-row { flex-direction: column; justify-content: center; width: 100%; gap: 12px; }
+    .gp-actions-buttons { justify-content: center; width: 100%; }
+    .gp-actions-divider { display: none; }
+    .gp-short-tags { justify-content: center; }
     .gp-screenshots-grid { grid-template-columns: 1fr; }
 }
