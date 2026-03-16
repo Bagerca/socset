@@ -1,4 +1,5 @@
-// js/api/httpClient.js
+// public/js/api/httpClient.js
+import { Toast } from '../utils/Toast.js';
 
 export class HttpClient {
     constructor() {
@@ -33,15 +34,24 @@ export class HttpClient {
         try {
             const response = await fetch(`${this.baseUrl}${endpoint}`, config);
             
-            // Если токен протух или неверный
             if (response.status === 401 || response.status === 403) {
                 console.warn('Unauthorized or Token Expired');
+                Toast.show('Сессия истекла. Пожалуйста, войдите снова.', 'warning');
                 throw new Error('AuthError');
+            }
+
+            if (response.status >= 500) {
+                Toast.show('Ошибка сервера. Мы уже чиним!', 'error');
+                throw new Error('ServerError');
             }
 
             return await response.json();
         } catch (error) {
-            console.error(`API Error (${method} ${endpoint}):`, error);
+            // Перехват потери сети (Failed to fetch)
+            if (error.message === 'Failed to fetch') {
+                console.warn('Network Error:', error);
+                Toast.show('Нет связи с сервером.', 'error');
+            }
             throw error;
         }
     }

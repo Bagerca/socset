@@ -1,82 +1,46 @@
 /* css/components/_player.css */
 
-/* =========================================
-   ГЛОБАЛЬНЫЙ ПЛАВУЧИЙ МИНИ-ПЛЕЕР
-========================================= */
-
-.floating-mini-player {
-    position: fixed; 
-    width: 360px;
-    background: rgba(20, 20, 22, 0.85);
-    border: 1px solid rgba(255, 255, 255, 0.1);
-    border-radius: 16px;
-    box-shadow: 0 20px 50px rgba(0,0,0,0.6);
-    z-index: 9999; /* Поверх всего сайта */
-    backdrop-filter: blur(20px);
-    overflow: hidden;
-    
-    cursor: grab;
-    touch-action: none; 
-}
-
+.floating-mini-player { position: fixed; top: 0; left: 0; width: 360px; background: rgba(20, 20, 22, 0.85); border: 1px solid rgba(255, 255, 255, 0.1); border-radius: var(--radius-lg); box-shadow: var(--shadow-lg); z-index: 9999; backdrop-filter: blur(20px); overflow: hidden; cursor: grab; touch-action: none; transform: translate3d(var(--fmp-x, 0px), var(--fmp-y, 0px), 0); will-change: transform; transition: transform var(--transition-smooth), opacity 0.2s ease; }
 .floating-mini-player:active { cursor: grabbing; }
-
-.floating-mini-player.hidden { opacity: 0; pointer-events: none; transform: scale(0.9); }
+.floating-mini-player.hidden { opacity: 0; pointer-events: none; transform: translate3d(var(--fmp-x, 0px), var(--fmp-y, 0px), 0) scale(0.9); }
 
 .fmp-bg-blur { position: absolute; top: -50%; left: -50%; width: 200%; height: 200%; background-size: cover; background-position: center; filter: blur(50px) brightness(0.3); z-index: -1; opacity: 0.6; }
-
 .fmp-drag-handle { width: 100%; height: 16px; display: flex; align-items: center; justify-content: center; background: transparent; }
 .drag-bar { width: 40px; height: 4px; border-radius: 2px; background: rgba(255,255,255,0.2); }
 
-.fmp-inner { padding: 0 16px 16px 16px; display: flex; flex-direction: column; gap: 12px; transition: opacity 0.2s ease; }
-
+.fmp-inner { padding: 0 var(--space-md) var(--space-md) var(--space-md); display: flex; flex-direction: column; gap: var(--space-12); transition: opacity 0.2s ease; }
 .fmp-progress-wrapper { margin-bottom: 4px; }
-.fmp-main-content { display: flex; align-items: center; gap: 12px; }
-.fmp-cover { width: 48px; height: 48px; border-radius: 8px; object-fit: cover; box-shadow: 0 4px 10px rgba(0,0,0,0.4); pointer-events: none; }
+.fmp-main-content { display: flex; align-items: center; gap: var(--space-12); }
+.fmp-cover { width: 48px; height: 48px; border-radius: var(--space-sm); object-fit: cover; box-shadow: 0 4px 10px rgba(0,0,0,0.4); pointer-events: none; }
 .fmp-info { flex: 1; min-width: 0; display: flex; flex-direction: column; justify-content: center; pointer-events: none; }
-.fmp-title { font-size: 14px; font-weight: 700; color: #fff; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-bottom: 2px; }
+.fmp-title { font-size: var(--font-sm); font-weight: 700; color: #fff; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-bottom: 2px; }
 .fmp-artist { font-size: 12px; color: rgba(255,255,255,0.7); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.fmp-fav { color: var(--text-muted); font-size: 16px; }
+.fmp-fav { color: var(--text-muted); font-size: var(--font-md); }
 .fmp-fav.active { color: var(--danger); }
 
 .fmp-controls-row { display: flex; align-items: center; justify-content: space-between; }
 .fmp-time { font-size: 11px; color: rgba(255,255,255,0.5); font-variant-numeric: tabular-nums; width: 30px; text-align: center; pointer-events: none; }
-.fmp-buttons { display: flex; align-items: center; gap: 16px; }
-
-.fmp-btn { background: transparent; border: none; color: #fff; font-size: 16px; cursor: pointer; transition: 0.2s; }
+.fmp-buttons { display: flex; align-items: center; gap: var(--space-md); }
+.fmp-btn { background: transparent; border: none; color: #fff; font-size: var(--font-md); cursor: pointer; transition: var(--transition-fast); }
 .fmp-btn:hover { color: #44bd32; }
-.fmp-btn.play { width: 36px; height: 36px; border-radius: 50%; background: #fff; color: #000; font-size: 14px; display: flex; align-items: center; justify-content: center; }
+.fmp-btn.play { width: 36px; height: 36px; border-radius: 50%; background: #fff; color: #000; font-size: var(--font-sm); display: flex; align-items: center; justify-content: center; }
 .fmp-btn.play:hover { transform: scale(1.1); background: #e0e0e0; color: #000; }
-.fmp-btn.small { font-size: 14px; color: rgba(255,255,255,0.5); position: relative; }
+.fmp-btn.small { font-size: var(--font-sm); color: rgba(255,255,255,0.5); position: relative; }
 .fmp-btn.small.active { color: #44bd32; }
 .fmp-btn.small.active span { position: absolute; font-size: 8px; right: -6px; top: -4px; font-weight: 800; background: #222; border-radius: 50%; width: 12px; height: 12px; display: flex; align-items: center; justify-content: center; color: #fff; }
 
-.fmp-volume-row { display: flex; align-items: center; gap: 8px; justify-content: center; }
-#fmpVolumeIcon { font-size: 12px; color: rgba(255,255,255,0.6); cursor: pointer; transition: 0.2s; width: 16px; text-align: center; }
+.fmp-volume-row { display: flex; align-items: center; gap: var(--space-sm); justify-content: center; }
+#fmpVolumeIcon { font-size: 12px; color: rgba(255,255,255,0.6); cursor: pointer; transition: var(--transition-fast); width: 16px; text-align: center; }
 #fmpVolumeIcon.muted { color: var(--danger); }
-
 .fmp-slider { -webkit-appearance: none; width: 100%; height: 4px; background: rgba(255,255,255,0.2); border-radius: 2px; outline: none; cursor: pointer; transition: height 0.2s; }
 .fmp-slider::-webkit-slider-thumb { -webkit-appearance: none; width: 0; height: 0; background: #fff; border-radius: 50%; transition: 0.2s; }
 .fmp-slider:hover::-webkit-slider-thumb { width: 10px; height: 10px; }
 .fmp-slider.vol { width: 100px; height: 4px; }
 
-
-/* --- СОСТОЯНИЕ ВДОЛБЛЕНИЯ В СТЕНУ (DOCKED) --- */
-.floating-mini-player.docked-left .fmp-inner,
-.floating-mini-player.docked-right .fmp-inner { opacity: 0; pointer-events: none; }
-
-.fmp-docked-overlay {
-    position: absolute; top: 0; left: 0; width: 100%; height: 100%;
-    display: flex; align-items: center; justify-content: center;
-    opacity: 0; pointer-events: none; transition: opacity 0.3s ease;
-    cursor: pointer; 
-}
-
-.floating-mini-player.docked-left .fmp-docked-overlay,
-.floating-mini-player.docked-right .fmp-docked-overlay { opacity: 1; pointer-events: auto; }
-
-.floating-mini-player.docked-left .fmp-docked-overlay { justify-content: flex-end; padding-right: 12px; }
-.floating-mini-player.docked-right .fmp-docked-overlay { justify-content: flex-start; padding-left: 12px; }
-
+.floating-mini-player.docked-left .fmp-inner, .floating-mini-player.docked-right .fmp-inner { opacity: 0; pointer-events: none; }
+.fmp-docked-overlay { position: absolute; top: 0; left: 0; width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; opacity: 0; pointer-events: none; transition: opacity 0.3s ease; cursor: pointer; }
+.floating-mini-player.docked-left .fmp-docked-overlay, .floating-mini-player.docked-right .fmp-docked-overlay { opacity: 1; pointer-events: auto; }
+.floating-mini-player.docked-left .fmp-docked-overlay { justify-content: flex-end; padding-right: var(--space-12); }
+.floating-mini-player.docked-right .fmp-docked-overlay { justify-content: flex-start; padding-left: var(--space-12); }
 .fmp-docked-cover { position: absolute; top: 0; left: 0; width: 100%; height: 100%; object-fit: cover; opacity: 0.4; z-index: -1; pointer-events: none; }
-.docked-play { width: 44px; height: 44px; font-size: 16px; box-shadow: 0 4px 10px rgba(0,0,0,0.5); }
+.docked-play { width: 44px; height: 44px; font-size: var(--font-md); box-shadow: 0 4px 10px rgba(0,0,0,0.5); }

@@ -1,0 +1,210 @@
+/* css/components/_admin.css */
+
+/* Полноэкранная обертка поверх всего сайта */
+.adm-god-mode {
+    position: fixed;
+    top: 0; left: 0; right: 0; bottom: 0;
+    background: #050508;
+    z-index: 99999; /* Поверх сайдбаров и модалок */
+    display: flex;
+    flex-direction: column;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    color: #fff;
+    overflow: hidden;
+}
+
+/* Верхняя панель (Статистика) */
+.adm-topbar {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 0 24px;
+    height: 60px;
+    background: rgba(20, 20, 22, 0.95);
+    border-bottom: 1px solid var(--border-color);
+    backdrop-filter: blur(10px);
+    z-index: 10;
+}
+
+.adm-logo {
+    font-size: 18px;
+    font-weight: 900;
+    letter-spacing: 2px;
+    color: var(--accent-games);
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.adm-stats-row {
+    display: flex;
+    gap: 30px;
+}
+
+.adm-stat {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    font-size: 11px;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    font-weight: 800;
+}
+
+.adm-stat b {
+    font-size: 18px;
+    color: #fff;
+}
+
+.adm-btn-exit {
+    background: rgba(255, 69, 58, 0.1);
+    color: var(--danger);
+    border: 1px solid rgba(255, 69, 58, 0.3);
+    padding: 8px 16px;
+    border-radius: 100px;
+    font-weight: 700;
+    font-size: 13px;
+    cursor: pointer;
+    transition: 0.2s;
+}
+.adm-btn-exit:hover {
+    background: var(--danger);
+    color: #fff;
+}
+
+/* Основное пространство */
+.adm-workspace {
+    flex: 1;
+    display: flex;
+    position: relative;
+    overflow: hidden;
+}
+
+/* Левая панель (Поиск и Список) */
+.adm-left-panel {
+    width: 320px;
+    background: rgba(20, 20, 22, 0.85);
+    backdrop-filter: blur(12px);
+    border-right: 1px solid var(--border-color);
+    display: flex;
+    flex-direction: column;
+    z-index: 5;
+}
+
+.adm-search-header {
+    padding: 20px;
+    border-bottom: 1px solid rgba(255,255,255,0.05);
+}
+
+.adm-search-input-wrapper {
+    position: relative;
+    width: 100%;
+}
+.adm-search-input-wrapper i {
+    position: absolute;
+    left: 14px; top: 50%; transform: translateY(-50%);
+    color: var(--text-muted);
+}
+.adm-search-input {
+    width: 100%;
+    background: #0a0a0c;
+    border: 1px solid rgba(255,255,255,0.1);
+    padding: 12px 14px 12px 40px;
+    border-radius: 10px;
+    color: #fff;
+    outline: none;
+    transition: 0.2s;
+}
+.adm-search-input:focus { border-color: var(--accent-games); }
+
+.adm-user-list {
+    flex: 1;
+    overflow-y: auto;
+    padding: 10px;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.adm-user-list::-webkit-scrollbar { width: 4px; }
+.adm-user-list::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.2); }
+
+/* Элемент списка */
+.adm-list-item {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 10px;
+    border-radius: 8px;
+    cursor: pointer;
+    background: transparent;
+    transition: 0.2s;
+    border: 1px solid transparent;
+}
+.adm-list-item:hover, .adm-list-item.selected {
+    background: rgba(255,255,255,0.05);
+    border-color: rgba(255,255,255,0.1);
+}
+
+/* Радар */
+.adm-radar-container {
+    flex: 1;
+    position: relative;
+    background: radial-gradient(circle at center, #111116 0%, #050508 100%);
+}
+
+/* Выезжающее Досье справа */
+.adm-right-panel {
+    position: absolute;
+    right: 0; top: 0; bottom: 0;
+    width: 400px;
+    background: rgba(20, 20, 22, 0.95);
+    backdrop-filter: blur(20px);
+    border-left: 1px solid var(--border-color);
+    box-shadow: -10px 0 50px rgba(0,0,0,0.5);
+    transform: translateX(100%);
+    transition: transform 0.4s cubic-bezier(0.25, 1, 0.5, 1);
+    display: flex;
+    flex-direction: column;
+    z-index: 10;
+}
+.adm-right-panel.open {
+    transform: translateX(0);
+}
+
+.adm-dossier-scroll {
+    flex: 1;
+    overflow-y: auto;
+    padding: 24px;
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+}
+.adm-dossier-scroll::-webkit-scrollbar { width: 4px; }
+.adm-dossier-scroll::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.2); }
+
+/* Элементы Досье */
+.adm-section {
+    background: rgba(255,255,255,0.02);
+    border: 1px solid rgba(255,255,255,0.05);
+    border-radius: 12px;
+    padding: 16px;
+}
+.adm-sec-title {
+    font-size: 11px; text-transform: uppercase; color: var(--text-muted);
+    font-weight: 800; margin-bottom: 12px; letter-spacing: 1px;
+}
+
+@media (max-width: 900px) {
+    .adm-left-panel { display: none; } /* На мобилках скрываем список, оставляем только радар */
+    .adm-right-panel { width: 100%; }
+    .adm-topbar-stats { display: none; }
+}
+
+.adm-list-item img {
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    object-fit: cover;
+    flex-shrink: 0;
+}

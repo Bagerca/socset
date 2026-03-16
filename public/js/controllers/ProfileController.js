@@ -1,6 +1,6 @@
+// public/js/controllers/ProfileController.js
 import { escapeHTML, formatTime, parseFormatting } from '../utils/utils.js';
-import { PostRenderer } from '../components/PostRenderer.js';
-import { PostEventHandler } from '../components/PostEventHandler.js';
+import { PostComponent } from '../components/PostComponent.js';
 import { ProfileRenderer } from '../components/ProfileRenderer.js';
 import { ProfileAPI } from '../api/ProfileAPI.js';
 
@@ -12,9 +12,6 @@ export class ProfileController {
         this.targetUsername = targetUsername;
         this.isMyProfile = !targetUsername || targetUsername === stores.auth.user.username;
         this.currentUser = null;
-
-        this.postRenderer = new PostRenderer(stores);
-        this.postEvents = new PostEventHandler(stores, this.postRenderer, () => this.renderPosts());
 
         this.tempShowcaseGames =[];
         this.tempMusicId = null;
@@ -103,7 +100,17 @@ export class ProfileController {
         }
 
         this.initEventListeners();
+        
+        // Слушатель обновления постов (для своей ленты в профиле)
         document.addEventListener('cycle:posts_updated', () => this.renderPosts(), { signal: this.abortController.signal });
+
+        // Реал-тайм прослушка обновления стены (Socket.io)
+        document.addEventListener('cycle:wall_updated', (e) => {
+            // Перерисовываем стену только если обновилась стена пользователя, которого мы сейчас смотрим
+            if (e.detail === this.currentUser.username) {
+                this.renderWall();
+            }
+        }, { signal: this.abortController.signal });
     }
 
     destroy() {
@@ -174,12 +181,16 @@ export class ProfileController {
                 if (this.formatMenu) this.formatMenu.style.display = 'none';
             }
         }, { signal });
+        
         const ctxDeleteBtn = document.getElementById('ctxDeleteComment');
         if (ctxDeleteBtn) {
             ctxDeleteBtn.addEventListener('click', () => {
                 if (this.contextTargetPostId && this.contextTargetCommentId) {
                     this.stores.posts.deleteComment(this.contextTargetPostId, this.contextTargetCommentId);
-                    this.postEvents._rerenderComments(this.contextTargetPostId);
+                    const postEl = document.querySelector(`.post[data-id="${this.contextTargetPostId}"]`);
+                    if (postEl && postEl.__component) {
+                        postEl.__component._renderComments();
+                    }
                     this.contextMenu.style.display = 'none';
                 }
             }, { signal });
@@ -323,18 +334,23 @@ export class ProfileController {
         const canvas = document.getElementById('profileAudioCanvas');
         const wrapper = document.getElementById('profilePlayerWrapper');
         if (!globalAudio || !clickArea || !canvas) return;
+        
         const overlay = clickArea.querySelector('.profile-player-overlay');
         let hideOverlayTimeout;
         const startOverlayTimer = () => { clearTimeout(hideOverlayTimeout); hideOverlayTimeout = setTimeout(() => { if (overlay) overlay.classList.add('hidden-overlay'); }, 3000); };
         const showOverlay = () => { clearTimeout(hideOverlayTimeout); if (overlay) overlay.classList.remove('hidden-overlay'); };
         clickArea.addEventListener('mouseenter', showOverlay); clickArea.addEventListener('mouseleave', startOverlayTimer); startOverlayTimer();
+        
         const ctx = canvas.getContext('2d'); canvas.width = 600; canvas.height = 100;
+        
         const syncUI = () => {
             if (window.cyclePlayer && !globalAudio.paused && window.cyclePlayer.playlist[window.cyclePlayer.currentIndex]?.id === trackId) wrapper.classList.add('playing');
             else wrapper.classList.remove('playing');
         };
+        
         const signal = this.abortController.signal;
         globalAudio.addEventListener('play', syncUI, { signal }); globalAudio.addEventListener('pause', syncUI, { signal }); syncUI();
+        
         clickArea.addEventListener('click', async () => {
             showOverlay(); startOverlayTimer(); if (!window.cyclePlayer) return;
             if (!window.globalAudioAnalyser && globalAudio.crossOrigin === 'anonymous') {
@@ -344,6 +360,7 @@ export class ProfileController {
                 } catch (e) {}
             }
             if (window.globalAudioCtx && window.globalAudioCtx.state === 'suspended') await window.globalAudioCtx.resume();
+            
             const curr = window.cyclePlayer.playlist[window.cyclePlayer.currentIndex];
             if (curr && curr.id === trackId) window.cyclePlayer.togglePlay();
             else {
@@ -352,6 +369,7 @@ export class ProfileController {
                 window.cyclePlayer.playTrack(trackId);
             }
         });
+        
         const drawWaveform = () => {
             if (!document.getElementById('profileAudioCanvas')) return; requestAnimationFrame(drawWaveform);
             ctx.clearRect(0, 0, canvas.width, canvas.height); ctx.lineWidth = 3; ctx.strokeStyle = 'rgba(255, 255, 255, 0.25)'; ctx.beginPath();
@@ -384,7 +402,13 @@ export class ProfileController {
         if (myPosts.length === 0) {
             this.postsContainer.innerHTML = `<div style="text-align:center; padding: 40px; color: var(--text-muted);">Нет публикаций</div>`;
         } else {
-            this.postsContainer.innerHTML = myPosts.map(post => this.postRenderer.createPostHTML(post)).join('');
+            this.postsContainer.innerHTML = '';
+            const fragment = document.createDocumentFragment();
+            myPosts.forEach(post => {
+                const comp = new PostComponent(post, this.stores);
+                fragment.appendChild(comp.getElement());
+            });
+            this.postsContainer.appendChild(fragment);
         }
     }
 
@@ -609,10 +633,20 @@ export class ProfileController {
             }, { signal });
         }
 
-        this.postsContainer.addEventListener('click', (e) => this.postEvents.handleEvent(e));
-        this.postsContainer.addEventListener('contextmenu', (e) => { const item = e.target.closest('.comment-item'); if (item && item.dataset.author === this.stores.auth.user.username) { e.preventDefault(); this.contextTargetCommentId = item.dataset.id; this.contextTargetPostId = item.dataset.postId; this.contextMenu.style.display = 'block'; this.contextMenu.style.top = `${e.pageY}px`; this.contextMenu.style.left = `${e.pageX}px`; } });
+        // Контекстное меню для удаления комментариев
+        this.postsContainer.addEventListener('contextmenu', (e) => { 
+            const item = e.target.closest('.comment-item'); 
+            if (item && item.dataset.author === this.stores.auth.user.username) { 
+                e.preventDefault(); 
+                this.contextTargetCommentId = item.dataset.id; 
+                const post = e.target.closest('.post');
+                if (post) this.contextTargetPostId = post.dataset.id; 
+                this.contextMenu.style.display = 'block'; 
+                this.contextMenu.style.top = `${e.pageY}px`; 
+                this.contextMenu.style.left = `${e.pageX}px`; 
+            } 
+        });
         
-        // ЗДЕСЬ ПЕРЕХОД НА СТРАНИЦУ ИГРЫ ВМЕСТО МОДАЛКИ
         this.modulesContainer.addEventListener('click', (e) => { 
             const item = e.target.closest('.showcase-item'); 
             if (item) { 
@@ -672,10 +706,18 @@ export class ProfileController {
         document.getElementById('removeProfileTrackBtn').addEventListener('click', () => { this.tempMusicId = null; this.renderSettingsMusicState(); });
         document.getElementById('settingsAddGameBtn').addEventListener('click', () => { this.openSelectionModal('game', 'settingsGame'); });
         this.closeSelectionBtn.addEventListener('click', () => { if(this.selectionModal) this.selectionModal.classList.remove('active'); });
+        
         if (this.publishBtn) {
-            this.publishBtn.addEventListener('click', () => { const text = this.getFormattedContent(); if (text) { this.stores.posts.addPost(text); this.postInput.innerHTML = ''; this.publishBtn.disabled = true; } });
+            this.publishBtn.addEventListener('click', () => { 
+                const text = this.getFormattedContent(); 
+                if (text) { 
+                    this.stores.posts.addPost(text); 
+                    this.postInput.innerHTML = ''; 
+                    this.checkPublishState(); 
+                } 
+            });
             this.postInput.addEventListener('input', () => { this.checkPublishState(); });
-            this.postInput.addEventListener('contextmenu', (e) => { e.preventDefault(); const s = window.getSelection(); if(s.rangeCount > 0) { this.savedRange = s.getRangeAt(0); } this.formatMenu.style.display = 'block'; this.formatMenu.style.top = `${e.pageY}px`; this.formatMenu.style.left = `${e.pageX}px`; });
+            this.postInput.addEventListener('contextmenu', (e) => { e.preventDefault(); const s = window.getSelection(); if(s.rangeCount > 0) { this.savedRange = s.getRangeAt(0).cloneRange(); } this.formatMenu.style.display = 'block'; this.formatMenu.style.top = `${e.pageY}px`; this.formatMenu.style.left = `${e.pageX}px`; });
         }
     }
 }

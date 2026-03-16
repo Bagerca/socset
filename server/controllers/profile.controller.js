@@ -1,5 +1,7 @@
+// server/controllers/profile.controller.js
 const db = require('../database');
 const { v4: uuidv4 } = require('uuid');
+const NotificationService = require('../services/NotificationService');
 
 class ProfileController {
     getOne(req, res) {
@@ -13,7 +15,6 @@ class ProfileController {
         user.showcaseGames = JSON.parse(user.showcaseGames || '[]');
         user.purchasedFrames = db.prepare('SELECT item_id FROM inventory WHERE username = ?').all(user.username).map(i => i.item_id);
         
-        // Получаем подписчиков и подписки с полными данными
         const followersRows = db.prepare(`
             SELECT u.username, u.name, u.avatar, u.frameId, u.isVerified, u.verifiedBadgeType 
             FROM follows f JOIN users u ON f.follower_username = u.username 
@@ -29,23 +30,19 @@ class ProfileController {
         user.followers = followersRows;
         user.following = followingRows;
         
-        // Друзья — это взаимные подписки
         const followingUsernames = followingRows.map(u => u.username);
         user.friends = followersRows.filter(f => followingUsernames.includes(f.username));
         
-        // --- НОВОЕ: Считаем количество сообществ ---
         const communitiesCount = db.prepare('SELECT COUNT(*) as count FROM community_members WHERE username = ?').get(user.username).count;
         user.communitiesCount = communitiesCount;
         
-        // Настройка стены и верификации (SQLite хранит 1/0, преобразуем в boolean)
         user.enableWall = user.enableWall === 1;
         user.isVerified = user.isVerified === 1;
 
-        // Заглушки
         user.modules = { music: true, games: true, socials: true };
         user.favoriteTracks = []; 
-        user.favoriteGames =[]; 
-        user.customAlbums =[];
+        user.favoriteGames = []; 
+        user.customAlbums = [];
         
         res.json(user);
     }
@@ -75,7 +72,7 @@ class ProfileController {
                 banner, 
                 frameId, 
                 JSON.stringify(socials || {}), 
-                JSON.stringify(showcaseGames ||[]), 
+                JSON.stringify(showcaseGames || []), 
                 musicId || null, 
                 enableWall ? 1 : 0,
                 isVerified ? 1 : 0,      
@@ -101,7 +98,6 @@ class ProfileController {
             ORDER BY w.timestamp DESC
         `).all(profileUser);
         
-        // Преобразуем isVerified из 1/0 в true/false для фронта
         const processed = comments.map(c => ({
             ...c,
             isVerified: c.isVerified === 1
@@ -130,9 +126,13 @@ class ProfileController {
             VALUES (@id, @profile_username, @author_username, @content, @timestamp)
         `).run(newComment);
 
+        const io = req.app.get('io');
+        // Уведомление
+        NotificationService.create(io, targetUsername, req.user.username, 'wall', null, content.substring(0, 20));
+        // Реал-тайм обновление стены
+        io.emit('wall_updated', targetUsername);
+
         const author = db.prepare('SELECT name, avatar, frameId, isVerified, verifiedBadgeType FROM users WHERE username = ?').get(req.user.username);
-        
-        // Приводим к boolean для ответа
         author.isVerified = author.isVerified === 1;
 
         res.json({ success: true, comment: { ...newComment, ...author } });
@@ -149,6 +149,10 @@ class ProfileController {
         }
 
         db.prepare('DELETE FROM profile_wall WHERE id = ?').run(commentId);
+        
+        const io = req.app.get('io');
+        io.emit('wall_updated', comment.profile_username);
+
         res.json({ success: true });
     }
 }

@@ -1,211 +1,61 @@
 /* css/components/_shop.css */
 
-.shop-container {
-    display: flex;
-    flex-direction: column;
-    gap: 24px;
-    width: 100%;
-}
+.shop-container { display: flex; flex-direction: column; gap: var(--space-lg); width: 100%; }
 
-/* Шапка магазина */
-.shop-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    background: var(--surface);
-    padding: 16px 24px;
-    border-radius: var(--radius-large);
-    border: 1px solid var(--border-color);
-    box-shadow: 0 10px 30px rgba(0,0,0,0.2);
-}
-
-.shop-tabs { display: flex; gap: 8px; flex-wrap: wrap; }
-.shop-tab-btn {
-    background: transparent; border: 1px solid transparent; color: var(--text-muted);
-    padding: 10px 20px; border-radius: 100px; font-size: 14px; font-weight: 600;
-    cursor: pointer; transition: 0.2s; display: flex; align-items: center; gap: 8px;
-}
+.shop-header { display: flex; justify-content: space-between; align-items: center; background: var(--surface); padding: var(--space-md) var(--space-lg); border-radius: var(--radius-xl); border: 1px solid var(--border-color); box-shadow: var(--shadow-sm); }
+.shop-tabs { display: flex; gap: var(--space-sm); flex-wrap: wrap; }
+.shop-tab-btn { background: transparent; border: 1px solid transparent; color: var(--text-muted); padding: 10px 20px; border-radius: var(--radius-pill); font-size: var(--font-sm); font-weight: 600; cursor: pointer; transition: var(--transition-fast); display: flex; align-items: center; gap: var(--space-sm); }
 .shop-tab-btn:hover { color: var(--text-main); background: rgba(255,255,255,0.05); }
+.shop-tab-btn.active { background: var(--accent-shop); color: #000; box-shadow: 0 0 15px rgba(255, 215, 0, 0.3); }
 
-/* Активный таб - Золотой, но с темным текстом для читаемости */
-.shop-tab-btn.active { 
-    background: var(--accent-shop); 
-    color: #000; 
-    box-shadow: 0 0 15px rgba(255, 215, 0, 0.3);
-}
+.shop-balance { display: flex; align-items: center; gap: var(--space-sm); background: rgba(255, 215, 0, 0.1); border: 1px solid var(--accent-shop); padding: var(--space-sm) var(--space-md); border-radius: var(--radius-pill); font-weight: 700; color: var(--accent-shop); font-size: var(--font-base); flex-shrink: 0; box-shadow: 0 0 10px rgba(255, 215, 0, 0.1); }
 
-/* Баланс */
-.shop-balance {
-    display: flex; align-items: center; gap: 8px;
-    background: rgba(255, 215, 0, 0.1); border: 1px solid var(--accent-shop);
-    padding: 8px 16px; border-radius: 100px;
-    font-weight: 700; color: var(--accent-shop); font-size: 15px;
-    flex-shrink: 0; box-shadow: 0 0 10px rgba(255, 215, 0, 0.1);
-}
-
-/* --- ПОИСК В МАГАЗИНЕ --- */
-.shop-search-container {
-    position: relative;
-    width: 100%;
-    margin-bottom: 4px;
-}
-.shop-search-input {
-    width: 100%;
-    padding: 14px 20px 14px 44px;
-    background: #1a1a1c;
-    border: 1px solid var(--border-color);
-    border-radius: 100px;
-    color: var(--text-main);
-    font-size: 15px;
-    outline: none;
-    transition: 0.2s;
-}
-.shop-search-input:focus {
-    border-color: var(--accent-shop); /* Золотая обводка */
-    box-shadow: 0 0 15px rgba(255, 215, 0, 0.1);
-}
-.shop-search-icon {
-    position: absolute;
-    left: 18px;
-    top: 50%;
-    transform: translateY(-50%);
-    color: var(--text-muted);
-    font-size: 15px;
-}
-
-/* Выпадающий список автокомплита */
-.shop-search-dropdown {
-    position: absolute;
-    top: calc(100% + 8px);
-    left: 0;
-    width: 100%;
-    background: #222224;
-    border: 1px solid var(--border-color);
-    border-radius: 16px;
-    box-shadow: 0 10px 40px rgba(0,0,0,0.6);
-    z-index: 100;
-    overflow: hidden;
-    animation: slideDown 0.2s ease;
-}
-.shop-search-item {
-    display: flex;
-    align-items: center;
-    gap: 12px;
-    padding: 12px 16px;
-    cursor: pointer;
-    transition: background-color 0.2s;
-    border-bottom: 1px solid rgba(255,255,255,0.03);
-}
+.shop-search-container { position: relative; width: 100%; margin-bottom: 4px; }
+.shop-search-input { width: 100%; padding: 14px 20px 14px 44px; background: #1a1a1c; border: 1px solid var(--border-color); border-radius: var(--radius-pill); color: var(--text-main); font-size: var(--font-base); outline: none; transition: var(--transition-fast); }
+.shop-search-input:focus { border-color: var(--accent-shop); box-shadow: 0 0 15px rgba(255, 215, 0, 0.1); }
+.shop-search-icon { position: absolute; left: 18px; top: 50%; transform: translateY(-50%); color: var(--text-muted); font-size: var(--font-base); }
+.shop-search-dropdown { position: absolute; top: calc(100% + 8px); left: 0; width: 100%; background: #222224; border: 1px solid var(--border-color); border-radius: var(--radius-lg); box-shadow: 0 10px 40px rgba(0,0,0,0.6); z-index: 100; overflow: hidden; animation: slideDown 0.2s ease; }
+.shop-search-item { display: flex; align-items: center; gap: var(--space-12); padding: var(--space-12) var(--space-md); cursor: pointer; transition: background-color var(--transition-fast); border-bottom: 1px solid rgba(255,255,255,0.03); }
 .shop-search-item:last-child { border-bottom: none; }
 .shop-search-item:hover { background: rgba(255,255,255,0.08); }
 
+.shop-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 20px; }
+.shop-card { background: var(--surface); border: 1px solid var(--border-color); border-radius: var(--radius-lg); padding: 20px; display: flex; flex-direction: column; align-items: center; text-align: center; gap: var(--space-12); transition: var(--transition-fast); box-shadow: 0 5px 15px rgba(0,0,0,0.2); position: relative; }
+.shop-card:hover { transform: translateY(-5px); box-shadow: var(--shadow-md); border-color: rgba(255,255,255,0.2); }
+.shop-card.is-active { border-color: #5dade2; box-shadow: 0 0 20px rgba(93, 173, 226, 0.15); }
 
-/* --- СЕТКА КАРТОЧЕК --- */
-.shop-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
-    gap: 20px;
-}
+.shop-preview-box { position: relative; width: 80px; height: 80px; margin-bottom: 10px; }
+.shop-preview-avatar { width: 100%; height: 100%; border-radius: 50%; object-fit: cover; background: #333; }
+.shop-preview-frame { position: absolute; top: -10%; left: -10%; width: 120%; height: 120%; border-radius: 50%; pointer-events: none; box-sizing: border-box; }
 
-.shop-card {
-    background: var(--surface); border: 1px solid var(--border-color);
-    border-radius: 16px; padding: 20px; display: flex; flex-direction: column;
-    align-items: center; text-align: center; gap: 12px; transition: 0.2s;
-    box-shadow: 0 5px 15px rgba(0,0,0,0.2);
-    position: relative;
-}
-.shop-card:hover { transform: translateY(-5px); box-shadow: 0 15px 30px rgba(0,0,0,0.4); border-color: rgba(255,255,255,0.2); }
-
-/* Активная рамка в инвентаре (Синяя, чтобы отличаться от золота магазина) */
-.shop-card.is-active {
-    border-color: #5dade2;
-    box-shadow: 0 0 20px rgba(93, 173, 226, 0.15);
-}
-
-.shop-preview-box {
-    position: relative; width: 80px; height: 80px; margin-bottom: 10px;
-}
-.shop-preview-avatar {
-    width: 100%; height: 100%; border-radius: 50%; object-fit: cover;
-    background: #333;
-}
-.shop-preview-frame {
-    position: absolute; top: -10%; left: -10%; width: 120%; height: 120%;
-    border-radius: 50%; pointer-events: none; box-sizing: border-box;
-}
-
-.shop-item-name { font-size: 16px; font-weight: 800; color: #fff; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; width: 100%; }
+.shop-item-name { font-size: var(--font-md); font-weight: 800; color: #fff; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; width: 100%; }
 .shop-item-author { font-size: 12px; color: var(--text-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; width: 100%; }
 
-/* КНОПКИ В КАРТОЧКАХ */
-.shop-buy-btn {
-    width: 100%; padding: 10px; border-radius: 8px; border: none; font-weight: 700;
-    cursor: pointer; transition: 0.2s; display: flex; align-items: center; justify-content: center; gap: 8px;
-    background: var(--accent-shop); color: #000; margin-top: 8px; /* Золотая кнопка */
-}
+.shop-buy-btn { width: 100%; padding: 10px; border-radius: var(--space-sm); border: none; font-weight: 700; cursor: pointer; transition: var(--transition-fast); display: flex; align-items: center; justify-content: center; gap: var(--space-sm); background: var(--accent-shop); color: #000; margin-top: var(--space-sm); }
 .shop-buy-btn:hover { background: #ffea00; transform: scale(1.05); box-shadow: 0 0 15px rgba(255, 215, 0, 0.4); }
 .shop-buy-btn.bought { background: rgba(255,255,255,0.1); color: var(--text-muted); cursor: not-allowed; transform: none; box-shadow: none; }
 
-.shop-equip-btn {
-    width: 100%; padding: 10px; border-radius: 8px; border: none; font-weight: 700;
-    cursor: pointer; transition: 0.2s; display: flex; align-items: center; justify-content: center; gap: 8px;
-    background: #5dade2; color: #fff; margin-top: auto;
-}
+.shop-equip-btn { width: 100%; padding: 10px; border-radius: var(--space-sm); border: none; font-weight: 700; cursor: pointer; transition: var(--transition-fast); display: flex; align-items: center; justify-content: center; gap: var(--space-sm); background: #5dade2; color: #fff; margin-top: auto; }
 .shop-equip-btn:hover { background: #459bd5; }
-
-.shop-equip-btn.equipped {
-    background: rgba(255, 69, 58, 0.1); color: var(--danger); border: 1px solid rgba(255, 69, 58, 0.3);
-}
+.shop-equip-btn.equipped { background: rgba(255, 69, 58, 0.1); color: var(--danger); border: 1px solid rgba(255, 69, 58, 0.3); }
 .shop-equip-btn.equipped:hover { background: rgba(255, 69, 58, 0.2); }
 
-/* Кнопки в студии */
-.shop-edit-btn {
-    flex: 1; padding: 8px; border-radius: 6px; border: 1px solid rgba(255,255,255,0.2);
-    background: transparent; color: var(--text-main); font-weight: 600;
-    cursor: pointer; transition: 0.2s; 
-}
+.shop-edit-btn { flex: 1; padding: var(--space-sm); border-radius: 6px; border: 1px solid rgba(255,255,255,0.2); background: transparent; color: var(--text-main); font-weight: 600; cursor: pointer; transition: var(--transition-fast); }
 .shop-edit-btn:hover { background: rgba(255,255,255,0.1); }
-
-.shop-delete-btn {
-    flex: 1; padding: 8px; border-radius: 6px; border: 1px solid rgba(255,69,58,0.3);
-    background: rgba(255,69,58,0.1); color: var(--danger); font-weight: 600;
-    cursor: pointer; transition: 0.2s; 
-}
+.shop-delete-btn { flex: 1; padding: var(--space-sm); border-radius: 6px; border: 1px solid rgba(255,69,58,0.3); background: rgba(255,69,58,0.1); color: var(--danger); font-weight: 600; cursor: pointer; transition: var(--transition-fast); }
 .shop-delete-btn:hover { background: rgba(255,69,58,0.2); }
 
-
-/* --- СТУДИЯ КРЕАТОРА --- */
-.creator-studio {
-    background: var(--surface); border: 1px solid var(--border-color);
-    border-radius: 16px; padding: 24px; gap: 24px;
-}
+.creator-studio { background: var(--surface); border: 1px solid var(--border-color); border-radius: var(--radius-lg); padding: var(--space-lg); gap: var(--space-lg); }
 .creator-studio.active { display: flex; flex-direction: column; }
-
 .creator-works-section { width: 100%; }
-
-.creator-preview-section {
-    flex: 1; min-width: 250px; display: flex; flex-direction: column; align-items: center; justify-content: center;
-    background: #1a1a1c; border-radius: 12px; border: 1px dashed rgba(255,255,255,0.2); padding: 40px;
-}
-
-.creator-large-preview {
-    position: relative; width: 120px; height: 120px;
-}
-
-.creator-form-section {
-    flex: 2; min-width: 300px; display: flex; flex-direction: column; gap: 16px;
-}
-
-.css-editor {
-    width: 100%; height: 150px; background: #0a0a0c; border: 1px solid var(--border-color);
-    color: #5dade2; font-family: monospace; font-size: 14px; padding: 16px;
-    border-radius: 8px; resize: vertical; outline: none; transition: 0.2s;
-}
+.creator-preview-section { flex: 1; min-width: 250px; display: flex; flex-direction: column; align-items: center; justify-content: center; background: #1a1a1c; border-radius: var(--space-12); border: 1px dashed rgba(255,255,255,0.2); padding: 40px; }
+.creator-large-preview { position: relative; width: 120px; height: 120px; }
+.creator-form-section { flex: 2; min-width: 300px; display: flex; flex-direction: column; gap: var(--space-md); }
+.css-editor { width: 100%; height: 150px; background: #0a0a0c; border: 1px solid var(--border-color); color: #5dade2; font-family: monospace; font-size: var(--font-sm); padding: var(--space-md); border-radius: var(--space-sm); resize: vertical; outline: none; transition: var(--transition-fast); }
 .css-editor:focus { border-color: rgba(255,255,255,0.4); }
 
-/* Адаптив магазина */
 @media (max-width: 600px) {
-    .shop-header { flex-direction: column; align-items: stretch; gap: 16px; }
+    .shop-header { flex-direction: column; align-items: stretch; gap: var(--space-md); }
     .shop-tabs { justify-content: center; }
     .shop-balance { justify-content: center; }
 }

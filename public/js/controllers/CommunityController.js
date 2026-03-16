@@ -1,7 +1,7 @@
+// js/controllers/CommunityController.js
 import { escapeHTML } from '../utils/utils.js';
 import { CommunitiesAPI } from '../api/CommunitiesAPI.js';
-import { PostRenderer } from '../components/PostRenderer.js';
-import { PostEventHandler } from '../components/PostEventHandler.js';
+import { PostComponent } from '../components/PostComponent.js';
 
 export class CommunityController {
     constructor(stores, handle) {
@@ -9,9 +9,6 @@ export class CommunityController {
         this.handle = handle;
         this.community = null;
         this.abortController = new AbortController();
-        
-        this.postRenderer = new PostRenderer(stores);
-        this.postEvents = new PostEventHandler(stores, this.postRenderer, () => this.renderPosts());
 
         this.tempAvatar = null;
         this.tempBanner = null;
@@ -102,15 +99,13 @@ export class CommunityController {
         if (commPosts.length === 0) {
             container.innerHTML = `<div style="text-align:center; padding: 40px; color: var(--text-muted);">В этом сообществе пока нет записей</div>`;
         } else {
-            container.innerHTML = commPosts.map(post => {
-                const originalIsAdmin = this.stores.auth.user.isAdmin;
-                if (this.stores.auth.user.activeCommunityAdmin === this.community.id) {
-                    this.stores.auth.user.isAdmin = true; 
-                }
-                const html = this.postRenderer.createPostHTML(post);
-                this.stores.auth.user.isAdmin = originalIsAdmin; 
-                return html;
-            }).join('');
+            container.innerHTML = '';
+            const fragment = document.createDocumentFragment();
+            commPosts.forEach(post => {
+                const comp = new PostComponent(post, this.stores);
+                fragment.appendChild(comp.getElement());
+            });
+            container.appendChild(fragment);
         }
     }
 
@@ -190,7 +185,6 @@ export class CommunityController {
             btn.textContent = 'Сохранить изменения';
         }, { signal });
 
-        // УДАЛЕНИЕ СООБЩЕСТВА
         const deleteBtn = document.getElementById('deleteCommBtn');
         if (this.community.isCreator || this.stores.auth.user.isAdmin) {
             deleteBtn.style.display = 'block';
@@ -199,7 +193,7 @@ export class CommunityController {
                     const res = await CommunitiesAPI.delete(this.community.id);
                     if (res.success) {
                         document.getElementById('commSettingsModal').classList.remove('active');
-                        window.location.hash = '/'; // Возврат в ленту
+                        window.location.hash = '/'; 
                     } else {
                         alert('Ошибка удаления');
                     }
@@ -246,7 +240,7 @@ export class CommunityController {
 
         this.input.addEventListener('input', () => this.checkPublishState());
         
-        this.publishBtn.addEventListener('click', async () => {
+        this.publishBtn.addEventListener('click', () => {
             const text = this.input.innerText.trim();
             let attachData = null;
             if (this.currentAttachments.music || this.currentAttachments.game) {
@@ -257,14 +251,11 @@ export class CommunityController {
             }
 
             if (text.length > 0 || attachData) {
-                this.publishBtn.disabled = true;
-                this.publishBtn.textContent = 'Отправка...';
-                await this.stores.posts.addPost(text, null, attachData, this.community.id);
+                this.stores.posts.addPost(text, null, attachData, this.community.id);
                 
                 this.input.innerHTML = '';
                 this.currentAttachments = { music: null, game: null };
                 this.updateAttachmentPreview();
-                this.publishBtn.textContent = 'Опубликовать';
                 this.checkPublishState();
             }
         });
@@ -290,8 +281,6 @@ export class CommunityController {
             this.community = await CommunitiesAPI.getOne(this.handle);
             this.renderHeader();
         }, { signal });
-
-        document.getElementById('postsContainer').addEventListener('click', (e) => this.postEvents.handleEvent(e), { signal });
     }
 
     openModal(type) {

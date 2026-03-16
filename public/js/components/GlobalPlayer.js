@@ -1,8 +1,8 @@
-// js/components/GlobalPlayer.js
+// public/js/components/GlobalPlayer.js
 
 export class GlobalPlayer {
     constructor(stores) {
-        this.stores = stores; // Теперь используем объект stores
+        this.stores = stores;
         this.audio = document.getElementById('globalAudioPlayer');
         
         this.widget = document.getElementById('floatingMiniPlayer');
@@ -29,7 +29,7 @@ export class GlobalPlayer {
         this.dockedCover = document.getElementById('fmpDockedCover');
         this.dockedPlayBtn = document.getElementById('fmpDockedPlayBtn');
 
-        this.playlist = [];
+        this.playlist =[];
         this.currentIndex = -1;
         this.isDragging = false;
         
@@ -115,11 +115,15 @@ export class GlobalPlayer {
         let isDraggingPlayer = false;
         let startX, startY;
         
+        // ОПТИМИЗАЦИЯ: Фиксируем top/left в нуле, всё движение через CSS-переменные и GPU
+        widget.style.top = '0px';
+        widget.style.left = '0px';
+
         let currentX = window.innerWidth - 360 - 24; 
         let currentY = window.innerHeight - 220 - 24; 
 
-        widget.style.left = `${currentX}px`;
-        widget.style.top = `${currentY}px`;
+        widget.style.setProperty('--fmp-x', `${currentX}px`);
+        widget.style.setProperty('--fmp-y', `${currentY}px`);
 
         const clamp = (val, min, max) => Math.max(min, Math.min(val, max));
 
@@ -130,8 +134,8 @@ export class GlobalPlayer {
             const screenW = window.innerWidth;
             const screenH = window.innerHeight;
 
-            if (currentX < -w / 3) { widget.classList.add('docked-left'); currentX = -w + 64; widget.style.left = `${currentX}px`; return; }
-            if (currentX > screenW - (w * 0.66)) { widget.classList.add('docked-right'); currentX = screenW - 64; widget.style.left = `${currentX}px`; return; }
+            if (currentX < -w / 3) { widget.classList.add('docked-left'); currentX = -w + 64; widget.style.setProperty('--fmp-x', `${currentX}px`); return; }
+            if (currentX > screenW - (w * 0.66)) { widget.classList.add('docked-right'); currentX = screenW - 64; widget.style.setProperty('--fmp-x', `${currentX}px`); return; }
 
             widget.classList.remove('docked-left', 'docked-right');
 
@@ -149,8 +153,8 @@ export class GlobalPlayer {
             currentY = distTop < distBottom ? snapTop : snapBottom;
             currentY = clamp(currentY, snapTop, snapBottom);
 
-            widget.style.left = `${currentX}px`;
-            widget.style.top = `${currentY}px`;
+            widget.style.setProperty('--fmp-x', `${currentX}px`);
+            widget.style.setProperty('--fmp-y', `${currentY}px`);
         };
 
         window.addEventListener('resize', () => { if (!isDraggingPlayer && !widget.classList.contains('hidden')) snapToCorners(); });
@@ -171,8 +175,8 @@ export class GlobalPlayer {
             currentY = e.clientY - startY;
             if (widget.classList.contains('docked-left') && currentX > -widget.offsetWidth / 2) widget.classList.remove('docked-left');
             if (widget.classList.contains('docked-right') && currentX < window.innerWidth - widget.offsetWidth / 2) widget.classList.remove('docked-right');
-            widget.style.left = `${currentX}px`;
-            widget.style.top = `${currentY}px`;
+            widget.style.setProperty('--fmp-x', `${currentX}px`);
+            widget.style.setProperty('--fmp-y', `${currentY}px`);
         });
 
         widget.addEventListener('pointerup', (e) => {
@@ -180,17 +184,17 @@ export class GlobalPlayer {
             isDraggingPlayer = false;
             widget.releasePointerCapture(e.pointerId);
             widget.style.cursor = 'grab';
-            widget.style.transition = 'left 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275), top 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275)';
+            widget.style.transition = 'transform 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275), opacity 0.2s ease';
             snapToCorners(); 
         });
 
         this.dockedOverlay.addEventListener('click', (e) => {
             if (e.target.closest('#fmpDockedPlayBtn')) { this.togglePlay(); return; }
             widget.classList.remove('docked-left', 'docked-right');
-            widget.style.transition = 'left 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275), top 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275)';
+            widget.style.transition = 'transform 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275), opacity 0.2s ease';
             if (currentX < 0) currentX = 24;
             if (currentX > window.innerWidth - widget.offsetWidth) currentX = window.innerWidth - widget.offsetWidth - 24;
-            widget.style.left = `${currentX}px`;
+            widget.style.setProperty('--fmp-x', `${currentX}px`);
         });
     }
 
@@ -225,7 +229,6 @@ export class GlobalPlayer {
             
             this.timeDuration.textContent = "0:00"; 
             
-            // Проверяем избранное через authStore
             const isFav = this.stores.auth.user.favoriteTracks.includes(track.id);
             this.btnFav.innerHTML = `<i class="fa-${isFav ? 'solid' : 'regular'} fa-heart"></i>`;
             this.btnFav.classList.toggle('active', isFav);

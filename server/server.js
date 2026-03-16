@@ -1,4 +1,6 @@
 // server/server.js
+require('dotenv').config(); 
+
 const express = require('express');
 const cors = require('cors');
 const path = require('path');
@@ -8,6 +10,9 @@ const { Server } = require('socket.io');
 const app = express();
 const server = http.createServer(app); 
 const io = new Server(server, { cors: { origin: "*" } });
+
+// ПРОБРАСЫВАЕМ IO ДЛЯ ИСПОЛЬЗОВАНИЯ В КОНТРОЛЛЕРАХ
+app.set('io', io);
 
 const PORT = process.env.PORT || 3000;
 
@@ -25,18 +30,21 @@ app.use('/uploads', express.static(UPLOADS_DIR, { maxAge: oneDay }));
 const { authenticateToken } = require('./middlewares/auth.middleware');
 const upload = require('./middlewares/upload.middleware');
 
+// --- ИМПОРТ РОУТОВ ---
 const authRoutes = require('./routes/auth.routes');
 const profileRoutes = require('./routes/profile.routes');
 const shopRoutes = require('./routes/shop.routes');
 const postsRoutes = require('./routes/posts.routes')(io);
 const adminRoutes = require('./routes/admin.routes');
 const communitiesRoutes = require('./routes/communities.routes');
-
-// Контроллер для работы с конфигурацией (получение хеша БД)
+const notificationsRoutes = require('./routes/notifications.routes');
 const ConfigController = require('./controllers/config.controller');
 
 io.on('connection', (socket) => {
-    console.log('🔌 Client connected:', socket.id);
+    // Регистрация сокета пользователя в персональной комнате
+    socket.on('register', (username) => {
+        socket.join(`user_${username}`);
+    });
 });
 
 app.post('/api/upload', authenticateToken, upload.single('file'), (req, res) => {
@@ -44,15 +52,16 @@ app.post('/api/upload', authenticateToken, upload.single('file'), (req, res) => 
     res.json({ success: true, url: `/uploads/${req.file.filename}` });
 });
 
-// Открытый маршрут для получения актуального хеша БД (не требует токена)
 app.get('/api/config/db', ConfigController.getDbConfig);
 
+// --- ПОДКЛЮЧЕНИЕ РОУТОВ ---
 app.use('/api', authRoutes);
 app.use('/api/profile', profileRoutes);
 app.use('/api/shop', shopRoutes);
 app.use('/api/posts', postsRoutes);
 app.use('/api/admin', adminRoutes);
 app.use('/api/communities', communitiesRoutes);
+app.use('/api/notifications', notificationsRoutes); 
 
 app.get(/.*/, (req, res) => {
     res.sendFile(path.join(PUBLIC_DIR, 'index.html'));

@@ -1,8 +1,8 @@
+// js/controllers/GameController.js
 import { escapeHTML } from '../utils/utils.js';
 import { GAME_CONSTANTS } from '../config/GameConstants.js';
 import { MUSIC_CONSTANTS } from '../config/MusicConstants.js';
-import { PostRenderer } from '../components/PostRenderer.js';
-import { PostEventHandler } from '../components/PostEventHandler.js';
+import { PostComponent } from '../components/PostComponent.js';
 import { MusicRenderer } from '../components/MusicRenderer.js';
 
 export class GameController {
@@ -11,13 +11,10 @@ export class GameController {
         this.gameId = gameId;
         this.abortController = new AbortController();
         
-        this.postRenderer = new PostRenderer(stores);
-        this.postEvents = new PostEventHandler(stores, this.postRenderer, () => this.renderPosts());
-        
         this.page = 1;
         this.isLoadingMore = false;
         this.currentScreenshotIndex = 0; 
-        this.savedRange = null; // Для форматирования текста
+        this.savedRange = null; 
 
         this.boundTrackChanged = () => this.syncListIcons();
         this.boundPlayState = (e) => this.updateListPlayIcon(e.detail);
@@ -50,12 +47,14 @@ export class GameController {
         this.renderPosts();
         
         this.initEventListeners();
+        
+        document.addEventListener('cycle:posts_updated', () => this.renderPosts(), { signal: this.abortController.signal });
     }
 
     destroy() {
         this.abortController.abort();
         const trailerContainer = document.getElementById('gameTrailerContainer');
-        if (trailerContainer) trailerContainer.innerHTML = ''; // Убиваем плеер YouTube
+        if (trailerContainer) trailerContainer.innerHTML = ''; 
         if (this.contextMenu) this.contextMenu.remove();
         if (this.formatMenu) this.formatMenu.remove();
     }
@@ -86,7 +85,6 @@ export class GameController {
 
         const allTagsEl = document.getElementById('gameSideTags');
         if (allTagsEl) {
-            // Делаем теги ссылками для перехода в каталог
             allTagsEl.innerHTML = tags.map(t => `<a href="#/games" class="gp-tag-chip" style="text-decoration:none;">${escapeHTML(t)}</a>`).join('');
         }
 
@@ -95,7 +93,6 @@ export class GameController {
             document.getElementById('gameTrailerContainer').innerHTML = `<iframe src="${this.game.trailer}" allow="autoplay; encrypted-media" allowfullscreen></iframe>`;
         }
 
-        // Кнопка избранного
         const favIds = this.stores.auth.user.favoriteGames ||[];
         const isFav = favIds.includes(this.gameId);
         const favBtn = document.getElementById('btnFavGame');
@@ -113,7 +110,6 @@ export class GameController {
         
         descEl.innerHTML = escapeHTML(this.game.description || 'Описание отсутствует.').replace(/\n/g, '<br>');
         
-        // Проверяем высоту текста (ждем рендера)
         setTimeout(() => {
             if (descEl.offsetHeight <= 150) {
                 btn.style.display = 'none';
@@ -159,11 +155,16 @@ export class GameController {
         if (this.stores.posts.posts.length === 0) {
             container.innerHTML = `<div style="text-align:center; padding: 40px; color: var(--text-muted);">Будьте первым, кто оставит запись!</div>`;
         } else {
-            container.innerHTML = this.stores.posts.posts.map(post => this.postRenderer.createPostHTML(post)).join('');
+            container.innerHTML = '';
+            const fragment = document.createDocumentFragment();
+            this.stores.posts.posts.forEach(post => {
+                const comp = new PostComponent(post, this.stores);
+                fragment.appendChild(comp.getElement());
+            });
+            container.appendChild(fragment);
         }
     }
 
-    // --- ЛОГИКА СОЗДАНИЯ ПОСТА ---
     initComposeBox() {
         this.input = document.getElementById('postInput');
         this.publishBtn = document.getElementById('publishBtn');
@@ -181,24 +182,13 @@ export class GameController {
             this.formatMenu.style.left = `${e.pageX}px`;
         });
 
-        this.publishBtn.addEventListener('click', async () => {
+        this.publishBtn.addEventListener('click', () => {
             const text = this.getFormattedContent();
             if (text.length > 0) {
-                this.publishBtn.disabled = true;
-                this.publishBtn.textContent = 'Отправка...';
-                try {
-                    // Игра прикрепляется принудительно
-                    await this.stores.posts.addPost(text, null, { music: null, game: this.game.id });
-                    this.input.innerHTML = '';
-                    await this.stores.posts.loadPosts(1, this.gameId, 'game', this.musicTracks.map(m => m.id));
-                    this.renderPosts();
-                } catch (error) {
-                    console.error(error);
-                } finally {
-                    this.publishBtn.disabled = false;
-                    this.publishBtn.textContent = 'Опубликовать';
-                    this.checkPublishState();
-                }
+                // Игра прикрепляется принудительно
+                this.stores.posts.addPost(text, null, { music: null, game: this.game.id });
+                this.input.innerHTML = '';
+                this.checkPublishState();
             }
         });
     }
@@ -229,9 +219,7 @@ export class GameController {
     checkPublishState() {
         if (!this.input || !this.publishBtn) return;
         const hasText = this.input.innerText.trim().length > 0;
-        if (this.publishBtn.textContent !== 'Отправка...') {
-            this.publishBtn.disabled = !hasText; // Требуем текст (чтобы не было спама пустыми карточками)
-        }
+        this.publishBtn.disabled = !hasText;
     }
 
     openScreenshotModal(index) {
@@ -250,29 +238,23 @@ export class GameController {
 
     initEventListeners() {
         const signal = this.abortController.signal;
-
-        document.getElementById('postsContainer').addEventListener('click', (e) => this.postEvents.handleEvent(e), { signal });
         
-        // Разворачивание описания
         document.getElementById('btnReadMoreDesc').addEventListener('click', () => {
             document.getElementById('gameDescWrapper').classList.add('expanded');
             document.getElementById('btnReadMoreDesc').style.display = 'none';
         }, { signal });
 
-        // Написание поста (Скролл)
         document.getElementById('btnWritePost').addEventListener('click', () => {
             document.getElementById('gameComposeBox').scrollIntoView({ behavior: 'smooth', block: 'center' });
             document.getElementById('postInput').focus();
         }, { signal });
 
-        // Избранное
         document.getElementById('btnFavGame').addEventListener('click', (e) => {
             const isNowFav = this.stores.auth.toggleFavoriteGame(this.gameId);
             e.currentTarget.innerHTML = `<i class="fa-${isNowFav ? 'solid' : 'regular'} fa-heart"></i>`;
             e.currentTarget.classList.toggle('active', isNowFav);
         }, { signal });
 
-        // Пауза плеера при наведении на трейлер
         const trailerContainer = document.getElementById('gameTrailerContainer');
         if (trailerContainer) {
             trailerContainer.addEventListener('mouseenter', () => {
@@ -282,7 +264,6 @@ export class GameController {
             }, { signal });
         }
 
-        // Лайтбокс
         const screensGrid = document.getElementById('gameScreenshotsGrid');
         if (screensGrid) {
             screensGrid.addEventListener('click', (e) => {
@@ -305,7 +286,6 @@ export class GameController {
             }
         }, { signal });
 
-        // Музыка
         const musicList = document.getElementById('gameMusicList');
         if (musicList) {
             musicList.addEventListener('click', (e) => {
@@ -322,7 +302,6 @@ export class GameController {
             }, { signal });
         }
         
-        // Скролл
         window.addEventListener('scroll', async () => {
             if (this.isLoadingMore) return;
             const { scrollTop, scrollHeight, clientHeight } = document.documentElement;
@@ -331,14 +310,17 @@ export class GameController {
                 this.page++;
                 const newPosts = await this.stores.posts.loadPosts(this.page, this.gameId, 'game', this.musicTracks.map(m => m.id));
                 if (newPosts.length > 0) {
-                    const html = newPosts.map(p => this.postRenderer.createPostHTML(p)).join('');
-                    document.getElementById('postsContainer').insertAdjacentHTML('beforeend', html);
+                    const fragment = document.createDocumentFragment();
+                    newPosts.forEach(p => {
+                        const comp = new PostComponent(p, this.stores);
+                        fragment.appendChild(comp.getElement());
+                    });
+                    document.getElementById('postsContainer').appendChild(fragment);
                 }
                 this.isLoadingMore = false;
             }
         }, { signal });
 
-        // Меню
         document.getElementById('postsContainer').addEventListener('contextmenu', (e) => {
             const commentItem = e.target.closest('.comment-item');
             if (commentItem) {
@@ -347,7 +329,8 @@ export class GameController {
                 if (authorUsername === currentUser.username || currentUser.isAdmin) {
                     e.preventDefault();
                     this.contextTargetCommentId = commentItem.dataset.id;
-                    this.contextTargetPostId = commentItem.dataset.postId;
+                    const post = e.target.closest('.post');
+                    if (post) this.contextTargetPostId = post.dataset.id;
                     this.contextMenu.style.display = 'block';
                     this.contextMenu.style.top = `${e.pageY}px`;
                     this.contextMenu.style.left = `${e.pageX}px`;
@@ -370,7 +353,10 @@ export class GameController {
             ctxDeleteBtn.addEventListener('click', () => {
                 if (this.contextTargetPostId && this.contextTargetCommentId) {
                     this.stores.posts.deleteComment(this.contextTargetPostId, this.contextTargetCommentId);
-                    this.postEvents._rerenderComments(this.contextTargetPostId);
+                    const postEl = document.querySelector(`.post[data-id="${this.contextTargetPostId}"]`);
+                    if (postEl && postEl.__component) {
+                        postEl.__component._renderComments();
+                    }
                     this.contextMenu.style.display = 'none';
                 }
             }, { signal });

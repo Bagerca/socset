@@ -1,15 +1,12 @@
+// js/controllers/FeedController.js
 import { escapeHTML, debounce } from '../utils/utils.js';
-import { PostRenderer } from '../components/PostRenderer.js';
-import { PostEventHandler } from '../components/PostEventHandler.js';
+import { PostComponent } from '../components/PostComponent.js';
 
 export class FeedController {
     constructor(stores) {
         this.stores = stores;
         this.abortController = new AbortController();
-        this.postRenderer = new PostRenderer(stores);
-        this.postEvents = new PostEventHandler(stores, this.postRenderer, () => this.renderAll());
         
-        // Элементы создания поста
         this.container = document.getElementById('postsContainer');
         this.input = document.getElementById('postInput');
         this.publishBtn = document.getElementById('publishBtn');
@@ -22,13 +19,11 @@ export class FeedController {
         this.attachGameBtn = document.getElementById('attachGameBtn');
         this.attachmentPreview = document.getElementById('attachmentPreview');
         
-        // Модалки
         this.modal = document.getElementById('selectionModal');
         this.modalTitle = document.getElementById('modalTitle');
         this.modalList = document.getElementById('modalList');
         this.closeModalBtn = document.getElementById('closeModalBtn');
 
-        // Новые элементы для Умной Ленты и Сообществ
         this.feedTabBtns = document.querySelectorAll('.feed-tab-btn');
         this.feedWrapper = document.getElementById('feedWrapper');
         this.catalogWrapper = document.getElementById('catalogWrapper');
@@ -43,7 +38,7 @@ export class FeedController {
         this.currentAttachments = { music: null, game: null };
         this.savedRange = null;
         
-        this.currentFeedType = 'main'; // 'main' или 'communities'
+        this.currentFeedType = 'main'; 
         this.page = 1;
         this.isLoadingMore = false;
 
@@ -55,7 +50,6 @@ export class FeedController {
     async init() {
         this.initEventListeners();
         
-        // Первичная загрузка главной ленты
         this.container.innerHTML = '<div style="text-align:center; padding: 40px; color: var(--text-muted);">Загрузка...</div>';
         await this.stores.posts.loadPosts(1, null, this.currentFeedType);
         this.renderAll();
@@ -80,8 +74,12 @@ export class FeedController {
             this.page++;
             const newPosts = await this.stores.posts.loadPosts(this.page, null, this.currentFeedType);
             if (newPosts.length > 0) {
-                const html = newPosts.map(p => this.postRenderer.createPostHTML(p)).join('');
-                this.container.insertAdjacentHTML('beforeend', html);
+                const fragment = document.createDocumentFragment();
+                newPosts.forEach(p => {
+                    const comp = new PostComponent(p, this.stores);
+                    fragment.appendChild(comp.getElement());
+                });
+                this.container.appendChild(fragment);
             }
             this.isLoadingMore = false;
         }
@@ -94,10 +92,7 @@ export class FeedController {
         clone.querySelectorAll('.editor-spoiler').forEach(s => { s.replaceWith(`||${s.innerText}||`); });
 
         let html = clone.innerHTML;
-        html = html.replace(/<div><br><\/div>/g, '\n'); 
-        html = html.replace(/<div>/g, '\n'); 
-        html = html.replace(/<\/div>/g, ''); 
-        html = html.replace(/<br>/g, '\n'); 
+        html = html.replace(/<div><br><\/div>/g, '\n').replace(/<div>/g, '\n').replace(/<\/div>/g, '').replace(/<br>/g, '\n'); 
 
         const temp = document.createElement('div');
         temp.innerHTML = html;
@@ -130,7 +125,12 @@ export class FeedController {
             ctxDeleteBtn.addEventListener('click', () => {
                 if (this.contextTargetPostId && this.contextTargetCommentId) {
                     this.stores.posts.deleteComment(this.contextTargetPostId, this.contextTargetCommentId);
-                    this.postEvents._rerenderComments(this.contextTargetPostId);
+                    
+                    // Обновляем комментарии ТОЛЬКО у целевого компонента!
+                    const postEl = document.querySelector(`.post[data-id="${this.contextTargetPostId}"]`);
+                    if (postEl && postEl.__component) {
+                        postEl.__component._renderComments();
+                    }
                     this.contextMenu.style.display = 'none';
                 }
             }, { signal });
@@ -226,7 +226,6 @@ export class FeedController {
     }
 
     initEventListeners() {
-        // --- ТАБЫ (Округлые кнопки) ---
         this.feedTabBtns.forEach(btn => {
             btn.addEventListener('click', async () => {
                 this.feedTabBtns.forEach(b => b.classList.remove('active'));
@@ -250,7 +249,6 @@ export class FeedController {
             });
         });
 
-        // --- КНОПКИ КАТАЛОГА ---
         const btnOpenCatalog = document.getElementById('btnOpenCatalog');
         if (btnOpenCatalog) {
             btnOpenCatalog.addEventListener('click', () => {
@@ -268,7 +266,6 @@ export class FeedController {
             });
         }
 
-        // --- ПОИСК И СОЗДАНИЕ СООБЩЕСТВ ---
         const handleCommSearch = debounce((query) => { this.renderCommunities(query); }, 300);
         if (this.commSearchInput) this.commSearchInput.addEventListener('input', (e) => handleCommSearch(e.target.value.trim()));
 
@@ -329,7 +326,6 @@ export class FeedController {
             });
         }
 
-        // --- СОЗДАНИЕ ПОСТА ---
         this.togglePollBtn.addEventListener('click', () => this.togglePoll());
         this.closePollBtn.addEventListener('click', () => this.closePoll());
         this.addOptionBtn.addEventListener('click', () => this.addPollOption());
@@ -345,7 +341,8 @@ export class FeedController {
         });
 
         this.pollInputsContainer.addEventListener('input', () => this.checkPublishState());
-        this.publishBtn.addEventListener('click', async () => await this.publishPost());
+        
+        this.publishBtn.addEventListener('click', () => this.publishPost());
 
         this.attachMusicBtn.addEventListener('click', () => this.openModal('music'));
         this.attachGameBtn.addEventListener('click', () => this.openModal('game'));
@@ -353,8 +350,6 @@ export class FeedController {
         
         if (this.modal) this.modal.addEventListener('click', (e) => { if (e.target === this.modal) this.closeModal(); });
 
-        this.container.addEventListener('click', (e) => this.postEvents.handleEvent(e));
-        
         this.container.addEventListener('contextmenu', (e) => {
             const commentItem = e.target.closest('.comment-item');
             if (commentItem) {
@@ -363,7 +358,9 @@ export class FeedController {
                 if (authorUsername === currentUser.username || currentUser.isAdmin) {
                     e.preventDefault();
                     this.contextTargetCommentId = commentItem.dataset.id;
-                    this.contextTargetPostId = commentItem.dataset.postId;
+                    // Получаем ID поста через closest
+                    const post = e.target.closest('.post');
+                    if (post) this.contextTargetPostId = post.dataset.id;
                     this.contextMenu.style.display = 'block';
                     this.contextMenu.style.top = `${e.pageY}px`;
                     this.contextMenu.style.left = `${e.pageX}px`;
@@ -470,7 +467,7 @@ export class FeedController {
         renderPreview('game', this.currentAttachments.game);
     }
 
-    async publishPost() {
+    publishPost() {
         const text = this.getFormattedContent();
         let pollData = null;
         if (this.isPollActive) {
@@ -484,21 +481,13 @@ export class FeedController {
         }
 
         if (text.length > 0 || pollData || attachData) {
-            this.publishBtn.disabled = true;
-            this.publishBtn.textContent = 'Отправка...';
-            try {
-                await this.stores.posts.addPost(text, pollData, attachData);
-                this.input.innerHTML = '';
-                this.currentAttachments = { music: null, game: null };
-                this.updateAttachmentPreview();
-                this.closePoll();
-            } catch (error) {
-                console.error(error);
-            } finally {
-                this.publishBtn.disabled = true;
-                this.publishBtn.textContent = 'Опубликовать';
-                this.checkPublishState();
-            }
+            this.stores.posts.addPost(text, pollData, attachData);
+            
+            this.input.innerHTML = '';
+            this.currentAttachments = { music: null, game: null };
+            this.updateAttachmentPreview();
+            this.closePoll();
+            this.checkPublishState();
         }
     }
 
@@ -510,9 +499,7 @@ export class FeedController {
         }
         const hasText = this.input.innerText.trim().length > 0;
         const hasAttachment = this.currentAttachments.music || this.currentAttachments.game;
-        if (this.publishBtn.textContent !== 'Отправка...') {
-            this.publishBtn.disabled = !(hasText || hasAttachment || isPollValid);
-        }
+        this.publishBtn.disabled = !(hasText || hasAttachment || isPollValid);
     }
 
     togglePoll() { this.isPollActive = !this.isPollActive; this.pollCreator.style.display = this.isPollActive ? "flex" : "none"; this.togglePollBtn.classList.toggle("active", this.isPollActive); this.checkPublishState(); }
@@ -524,7 +511,13 @@ export class FeedController {
             let msg = this.currentFeedType === 'main' ? 'В этой ленте пока нет записей.' : 'Вы не состоите в сообществах или в них нет постов.';
             this.container.innerHTML = `<div style="text-align:center; padding: 40px; color: var(--text-muted);">${msg}</div>`;
         } else {
-            this.container.innerHTML = this.stores.posts.posts.map(post => this.postRenderer.createPostHTML(post)).join('');
+            this.container.innerHTML = '';
+            const fragment = document.createDocumentFragment();
+            this.stores.posts.posts.forEach(postData => {
+                const comp = new PostComponent(postData, this.stores);
+                fragment.appendChild(comp.getElement());
+            });
+            this.container.appendChild(fragment);
         }
         this.checkPublishState();
     }

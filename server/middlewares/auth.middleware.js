@@ -1,6 +1,7 @@
 const jwt = require('jsonwebtoken');
 
-const SECRET_KEY = 'my_super_secret_key_change_me'; // Секретный ключ для шифрования
+// Берем ключ из .env. Если его там нет (забыли создать файл) — используем запасной
+const SECRET_KEY = process.env.JWT_SECRET || 'fallback_secret_key';
 
 function authenticateToken(req, res, next) {
     const authHeader = req.headers['authorization'];

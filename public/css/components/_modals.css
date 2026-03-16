@@ -1,248 +1,54 @@
 /* css/components/_modals.css */
 
-/* Модальное окно (фон) */
-.modal-overlay {
-    display: none; /* Скрыто по умолчанию */
-    position: fixed;
-    z-index: 1000;
-    left: 0;
-    top: 0;
-    width: 100%;
-    height: 100%;
-    background-color: rgba(0, 0, 0, 0.7); /* Темный фон */
-    backdrop-filter: blur(5px); /* Размытие фона */
-    align-items: center;
-    justify-content: center;
-    animation: fadeInModal 0.2s ease;
-}
+.modal-overlay { display: none; position: fixed; z-index: 1000; left: 0; top: 0; width: 100%; height: 100%; background-color: rgba(0, 0, 0, 0.7); backdrop-filter: blur(5px); align-items: center; justify-content: center; animation: fadeInModal 0.2s ease; }
+.modal-overlay.active { display: flex; }
 
-.modal-overlay.active {
-    display: flex;
-}
-
-/* Контент модального окна */
-.modal-content {
-    background: var(--surface);
-    border: 1px solid var(--border-color);
-    border-radius: var(--radius-large);
-    width: 100%;
-    max-width: 500px;
-    max-height: 85vh; /* Чуть увеличили высоту */
-    display: flex;
-    flex-direction: column;
-    box-shadow: 0 20px 50px rgba(0,0,0,0.5);
-    animation: slideUpModal 0.3s cubic-bezier(0.16, 1, 0.3, 1);
-}
-
-.modal-header {
-    padding: 16px 24px;
-    border-bottom: 1px solid var(--border-color);
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-}
+.modal-content { background: var(--surface); border: 1px solid var(--border-color); border-radius: var(--radius-xl); width: 100%; max-width: 500px; max-height: 85vh; display: flex; flex-direction: column; box-shadow: var(--shadow-lg); animation: slideUpModal 0.3s cubic-bezier(0.16, 1, 0.3, 1); will-change: transform, opacity; }
+.modal-header { padding: var(--space-md) var(--space-lg); border-bottom: 1px solid var(--border-color); display: flex; justify-content: space-between; align-items: center; }
 .modal-title { font-size: 18px; font-weight: 700; color: var(--text-main); }
+.modal-body { padding: 20px; overflow-y: auto; display: flex; flex-direction: column; gap: var(--space-sm); }
 
-.modal-body {
-    padding: 20px;
-    overflow-y: auto;
-    display: flex;
-    flex-direction: column;
-    gap: 8px;
-}
-
-/* Элементы списка в модальном окне */
-.select-item {
-    display: flex;
-    align-items: center;
-    gap: 12px;
-    padding: 10px;
-    border-radius: 8px;
-    cursor: pointer;
-    transition: 0.2s;
-    background: rgba(255,255,255,0.02);
-}
+.select-item { display: flex; align-items: center; gap: var(--space-12); padding: 10px; border-radius: var(--space-sm); cursor: pointer; transition: var(--transition-fast); background: rgba(255,255,255,0.02); }
 .select-item:hover { background: rgba(255,255,255,0.08); }
-
-.select-item img {
-    width: 48px; height: 48px; border-radius: 6px; object-fit: cover;
-}
+.select-item img { width: 48px; height: 48px; border-radius: 6px; object-fit: cover; }
 .select-info { display: flex; flex-direction: column; }
-.select-title { font-weight: 600; font-size: 15px; color: var(--text-main); }
+.select-title { font-weight: 600; font-size: var(--font-base); color: var(--text-main); }
 .select-subtitle { font-size: 13px; color: var(--text-muted); }
 
 @keyframes fadeInModal { from { opacity: 0; } to { opacity: 1; } }
 @keyframes slideUpModal { from { transform: translateY(20px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
 
-/* Стили для превью контента при создании поста */
-.attached-content-preview {
-    flex: 1;
-    min-width: 200px;
-    margin-top: 10px;
-    padding: 10px;
-    background: rgba(255,255,255,0.05);
-    border-radius: 8px;
-    display: flex;
-    align-items: center;
-    gap: 12px;
-    border: 1px solid var(--border-color);
-}
-.attached-content-preview .remove-btn {
-    margin-left: auto; color: var(--text-muted); cursor: pointer;
-}
+.attached-content-preview { flex: 1; min-width: 200px; margin-top: 10px; padding: 10px; background: rgba(255,255,255,0.05); border-radius: var(--space-sm); display: flex; align-items: center; gap: var(--space-12); border: 1px solid var(--border-color); }
+.attached-content-preview .remove-btn { margin-left: auto; color: var(--text-muted); cursor: pointer; }
 .attached-content-preview .remove-btn:hover { color: var(--danger); }
 
-/* Карточка музыки внутри поста */
-.post-music-card {
-    margin-top: 12px;
-    background: #1a1a1c;
-    border: 1px solid var(--border-color);
-    /* НОВОЕ: Зеленая полоска слева */
-    border-left: 3px solid var(--accent-music);
-    border-radius: 12px;
-    padding: 12px;
-    display: flex;
-    align-items: center;
-    gap: 16px;
-}
-.post-music-cover { 
-    width: 56px; 
-    height: 56px; 
-    border-radius: 6px; 
-    object-fit: cover; 
-}
+.post-music-card { margin-top: var(--space-12); background: #1a1a1c; border: 1px solid var(--border-color); border-left: 3px solid var(--accent-music); border-radius: var(--radius-md); padding: var(--space-12); display: flex; align-items: center; gap: var(--space-md); }
+.post-music-cover { width: 56px; height: 56px; border-radius: 6px; object-fit: cover; }
 
-/* Карточка игры внутри поста (выделяется фоном и пропорциями) */
-.post-game-card {
-    margin-top: 12px;
-    background: linear-gradient(145deg, rgba(30, 30, 35, 0.4) 0%, rgba(20, 20, 24, 0.6) 100%);
-    border: 1px solid rgba(255, 255, 255, 0.05);
-    /* ИЗМЕНЕНО: Фиолетовая полоска слева (вместо голубой) */
-    border-left: 3px solid var(--accent-games); 
-    border-radius: 12px;
-    padding: 12px;
-    display: flex;
-    align-items: center;
-    gap: 16px;
-}
-.post-game-cover { 
-    width: 54px; 
-    height: 72px; /* Соотношение 3:4 (прямоугольная коробка) */
-    border-radius: 6px; 
-    object-fit: cover; 
-    box-shadow: 0 4px 10px rgba(0,0,0,0.3);
-}
+.post-game-card { margin-top: var(--space-12); background: linear-gradient(145deg, rgba(30, 30, 35, 0.4) 0%, rgba(20, 20, 24, 0.6) 100%); border: 1px solid rgba(255, 255, 255, 0.05); border-left: 3px solid var(--accent-games); border-radius: var(--radius-md); padding: var(--space-12); display: flex; align-items: center; gap: var(--space-md); }
+.post-game-cover { width: 54px; height: 72px; border-radius: 6px; object-fit: cover; box-shadow: 0 4px 10px rgba(0,0,0,0.3); }
 
 .post-card-info { flex: 1; min-width: 0; }
-.post-card-title { font-weight: 700; font-size: 15px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.post-card-title { font-weight: 700; font-size: var(--font-base); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .post-card-subtitle { font-size: 13px; color: var(--text-muted); }
 
-/* Кнопка "Перейти" у карточки игры */
-.btn-game-link {
-    font-size: 13px;
-    font-weight: 600;
-    padding: 6px 14px;
-    background: rgba(255, 255, 255, 0.1);
-    color: var(--text-main);
-    border-radius: 8px;
-    border: none;
-    cursor: pointer;
-    transition: 0.2s;
-}
+.btn-game-link { font-size: 13px; font-weight: 600; padding: 6px 14px; background: rgba(255, 255, 255, 0.1); color: var(--text-main); border-radius: var(--space-sm); border: none; cursor: pointer; transition: var(--transition-fast); }
 .btn-game-link:hover { background: rgba(255, 255, 255, 0.2); }
 
-/* --- МОДАЛКА ОПИСАНИЯ ИГРЫ (ОБНОВЛЕННАЯ) --- */
+#gameDetailsModal .modal-content { max-width: 800px; }
+.game-details-body { display: flex; flex-direction: column; gap: var(--space-lg); padding-top: var(--space-12); }
+.game-trailer-container { width: 100%; aspect-ratio: 16 / 9; border-radius: var(--radius-md); overflow: hidden; background: #000; box-shadow: 0 4px 20px rgba(0,0,0,0.5); display: none; flex-shrink: 0; }
+.game-trailer-container iframe { width: 100%; height: 100%; border: none; }
+.game-details-content { display: flex; gap: var(--space-lg); align-items: flex-start; }
+.gd-cover { width: 160px; aspect-ratio: 2/3; object-fit: cover; border-radius: var(--radius-md); box-shadow: 0 4px 15px rgba(0,0,0,0.3); flex-shrink: 0; }
+.gd-info { flex: 1; display: flex; flex-direction: column; gap: var(--space-12); }
+.gd-title { font-size: 28px; font-weight: 800; color: var(--text-main); line-height: 1.1; }
+.gd-genre { font-size: var(--font-sm); color: var(--text-muted); background: rgba(255,255,255,0.05); padding: 6px var(--space-12); border-radius: 6px; width: fit-content; font-weight: 600; }
+.gd-desc { font-size: var(--font-base); color: #d1d1d1; line-height: 1.6; }
 
-/* Увеличиваем ширину модалки только для окна игры */
-#gameDetailsModal .modal-content {
-    max-width: 800px;
-}
-
-.game-details-body {
-    display: flex;
-    flex-direction: column; /* Вертикальный стек: Трейлер -> Контент */
-    gap: 24px;
-    padding-top: 12px;
-}
-
-/* Контейнер для трейлера */
-.game-trailer-container {
-    width: 100%;
-    aspect-ratio: 16 / 9; /* Формат видео */
-    border-radius: 12px;
-    overflow: hidden;
-    background: #000;
-    box-shadow: 0 4px 20px rgba(0,0,0,0.5);
-    display: none; /* Скрыт, если нет ссылки */
-    flex-shrink: 0;
-}
-
-.game-trailer-container iframe {
-    width: 100%;
-    height: 100%;
-    border: none;
-}
-
-/* Нижняя часть: Обложка + Текст */
-.game-details-content {
-    display: flex;
-    gap: 24px;
-    align-items: flex-start;
-}
-
-.gd-cover {
-    width: 160px; /* Размер обложки в модалке */
-    aspect-ratio: 2/3;
-    object-fit: cover;
-    border-radius: 12px;
-    box-shadow: 0 4px 15px rgba(0,0,0,0.3);
-    flex-shrink: 0;
-}
-
-.gd-info {
-    flex: 1;
-    display: flex;
-    flex-direction: column;
-    gap: 12px;
-}
-
-.gd-title {
-    font-size: 28px;
-    font-weight: 800;
-    color: var(--text-main);
-    line-height: 1.1;
-}
-
-.gd-genre {
-    font-size: 14px;
-    color: var(--text-muted);
-    background: rgba(255,255,255,0.05);
-    padding: 6px 12px;
-    border-radius: 6px;
-    width: fit-content;
-    font-weight: 600;
-}
-
-.gd-desc {
-    font-size: 15px;
-    color: #d1d1d1;
-    line-height: 1.6;
-}
-
-/* Адаптив для модалки игры */
 @media (max-width: 600px) {
-    .game-details-content {
-        flex-direction: column;
-        align-items: center;
-        text-align: center;
-    }
-    
+    .game-details-content { flex-direction: column; align-items: center; text-align: center; }
     .gd-title { font-size: 24px; }
-    
-    .gd-cover {
-        width: 140px;
-        box-shadow: 0 8px 25px rgba(0,0,0,0.4);
-    }
-    
+    .gd-cover { width: 140px; box-shadow: 0 8px 25px rgba(0,0,0,0.4); }
     .gd-info { align-items: center; }
 }
