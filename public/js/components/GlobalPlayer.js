@@ -115,7 +115,6 @@ export class GlobalPlayer {
         let isDraggingPlayer = false;
         let startX, startY;
         
-        // ОПТИМИЗАЦИЯ: Фиксируем top/left в нуле, всё движение через CSS-переменные и GPU
         widget.style.top = '0px';
         widget.style.left = '0px';
 
@@ -298,6 +297,15 @@ export class GlobalPlayer {
         
         document.dispatchEvent(new CustomEvent('cycle:play-state', { detail: isPlaying }));
         this.syncPostPlayButtons();
+
+        // Отправка состояния на Радар Админа
+        if (window.socket) {
+            const track = this.playlist[this.currentIndex];
+            window.socket.emit('music_state', {
+                trackId: track ? track.id : null,
+                isPlaying: isPlaying
+            });
+        }
     }
 
     syncPostPlayButtons() {

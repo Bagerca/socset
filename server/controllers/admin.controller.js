@@ -2,27 +2,63 @@ const db = require('../database');
 const { v4: uuidv4 } = require('uuid');
 
 class AdminController {
-    // 1. Получить данные для радара (Юзеры + Связи)
     getAdminData(req, res) {
         try {
-            const users = db.prepare('SELECT id, username, name, avatar, coins, isAdmin, isVerified, verifiedBadgeType, isBlocked, muteUntil, warnings FROM users').all();
+            const users = db.prepare('SELECT id, username, name, avatar, banner, coins, isAdmin, isVerified, verifiedBadgeType, isBlocked, muteUntil, warnings, showcaseGames, musicId, created_at FROM users').all();
             const follows = db.prepare('SELECT follower_username as source, following_username as target FROM follows').all();
+            const memberships = db.prepare('SELECT community_id, username FROM community_members').all();
+            const communities = db.prepare('SELECT id, name, handle FROM communities').all();
             
-            const safeUsers = users.map(u => ({
-                ...u,
-                isAdmin: u.isAdmin === 1,
-                isVerified: u.isVerified === 1,
-                isBlocked: u.isBlocked === 1,
-                warnings: JSON.parse(u.warnings || '[]')
+            const lastPosts = db.prepare('SELECT author_username, MAX(timestamp) as ts FROM posts GROUP BY author_username').all();
+            const lastComments = db.prepare('SELECT author_username, MAX(timestamp) as ts FROM comments GROUP BY author_username').all();
+
+            // Статистика контента
+            const postCounts = db.prepare('SELECT author_username, COUNT(*) as c FROM posts GROUP BY author_username').all();
+            const commentCounts = db.prepare('SELECT author_username, COUNT(*) as c FROM comments GROUP BY author_username').all();
+            
+            const pMap = {}; postCounts.forEach(p => pMap[p.author_username] = p.c);
+            const cMap = {}; commentCounts.forEach(c => cMap[c.author_username] = c.c);
+
+            const activityMap = {};
+            lastPosts.forEach(p => { activityMap[p.author_username] = p.ts; });
+            lastComments.forEach(c => {
+                if (!activityMap[c.author_username] || c.ts > activityMap[c.author_username]) {
+                    activityMap[c.author_username] = c.ts;
+                }
+            });
+
+            // Получаем глобальную карту онлайна из server.js
+            const onlineMap = req.app.get('onlineUsers') || new Map();
+
+            const safeUsers = users.map(u => {
+                const liveState = onlineMap.get(u.username);
+                return {
+                    ...u,
+                    isAdmin: u.isAdmin === 1,
+                    isVerified: u.isVerified === 1,
+                    isBlocked: u.isBlocked === 1,
+                    warnings: JSON.parse(u.warnings || '[]'),
+                    showcaseGames: JSON.parse(u.showcaseGames || '[]'),
+                    lastActive: activityMap[u.username] || u.created_at || Date.now(),
+                    postCount: pMap[u.username] || 0,
+                    commentCount: cMap[u.username] || 0,
+                    // Данные реального времени
+                    isOnline: !!liveState,
+                    playingMusicId: liveState ? liveState.currentTrack : null
+                };
+            });
+
+            const enrichedCommunities = communities.map(c => ({
+                ...c, members: memberships.filter(m => m.community_id === c.id).map(m => m.username)
             }));
 
-            res.json({ users: safeUsers, links: follows });
+            res.json({ users: safeUsers, links: follows, communities: enrichedCommunities });
         } catch (e) {
+            console.error(e);
             res.status(500).json({ error: 'Ошибка получения данных' });
         }
     }
 
-    // 2. Обновить монеты и верификацию
     updateUser(req, res) {
         const { targetUsername, coins, isVerified, verifiedBadgeType } = req.body;
         try {
@@ -32,7 +68,6 @@ class AdminController {
         } catch (e) { res.status(500).json({ error: 'Ошибка' }); }
     }
 
-    // 3. Блокировка (Ban)
     toggleBlock(req, res) {
         const { targetUsername } = req.body;
         if (targetUsername === req.user.username) return res.status(400).json({ error: 'Нельзя забанить себя' });
@@ -44,7 +79,6 @@ class AdminController {
         } catch (e) { res.status(500).json({ error: 'Ошибка' }); }
     }
 
-    // 4. Мут
     muteUser(req, res) {
         const { targetUsername, hours } = req.body;
         if (targetUsername === req.user.username) return res.status(400).json({ error: 'Нельзя замутить себя' });
@@ -55,7 +89,6 @@ class AdminController {
         } catch (e) { res.status(500).json({ error: 'Ошибка' }); }
     }
 
-    // 5. Выдать предупреждение
     warnUser(req, res) {
         const { targetUsername, reason } = req.body;
         try {
@@ -68,7 +101,6 @@ class AdminController {
         } catch (e) { res.status(500).json({ error: 'Ошибка' }); }
     }
 
-    // 6. Снять предупреждение
     removeWarning(req, res) {
         const { targetUsername, warningId } = req.body;
         try {
@@ -80,7 +112,6 @@ class AdminController {
         } catch (e) { res.status(500).json({ error: 'Ошибка' }); }
     }
 
-    // 7. Nuke и Удаление (Оставляем как было)
     nukeUser(req, res) {
         const { targetUsername } = req.body;
         if (targetUsername === req.user.username) return res.status(400).json({ error: 'Нельзя зачистить себя' });
@@ -89,7 +120,7 @@ class AdminController {
                 db.prepare('DELETE FROM posts WHERE author_username = ?').run(targetUsername);
                 db.prepare('DELETE FROM comments WHERE author_username = ?').run(targetUsername);
                 db.prepare('DELETE FROM profile_wall WHERE profile_username = ? OR author_username = ?').run(targetUsername, targetUsername);
-                db.prepare('UPDATE users SET bio = "Контент скрыт за нарушение правил.", avatar = "https://placehold.co/150/000/f00?text=BANNED" WHERE username = ?').run(targetUsername);
+                db.prepare('UPDATE users SET bio = "Контент скрыт за нарушение правил.", avatar = "https://placehold.co/150/000/f00?text=BANNED", banner = "https://placehold.co/800x250/111/f00?text=BANNED" WHERE username = ?').run(targetUsername);
             })();
             res.json({ success: true });
         } catch (e) { res.status(500).json({ error: 'Ошибка' }); }
@@ -110,6 +141,26 @@ class AdminController {
                 db.prepare('DELETE FROM community_members WHERE username = ?').run(targetUsername);
             })();
             res.json({ success: true });
+        } catch (e) { res.status(500).json({ error: 'Ошибка' }); }
+    }
+
+    resetMedia(req, res) {
+        const { targetUsername } = req.body;
+        try {
+            db.prepare('UPDATE users SET avatar = ?, banner = ? WHERE username = ?')
+              .run('https://placehold.co/150x150/333/fff?text=U', 'https://placehold.co/800x250/111/fff?text=Reset', targetUsername);
+            res.json({ success: true });
+        } catch (e) { res.status(500).json({ error: 'Ошибка' }); }
+    }
+
+    toggleAdmin(req, res) {
+        const { targetUsername } = req.body;
+        if (targetUsername === req.user.username) return res.status(400).json({ error: 'Нельзя снять права с себя' });
+        try {
+            const user = db.prepare('SELECT isAdmin FROM users WHERE username = ?').get(targetUsername);
+            const newState = user.isAdmin === 1 ? 0 : 1;
+            db.prepare('UPDATE users SET isAdmin = ? WHERE username = ?').run(newState, targetUsername);
+            res.json({ success: true, isAdmin: newState === 1 });
         } catch (e) { res.status(500).json({ error: 'Ошибка' }); }
     }
 }

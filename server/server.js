@@ -14,6 +14,10 @@ const io = new Server(server, { cors: { origin: "*" } });
 // ПРОБРАСЫВАЕМ IO ДЛЯ ИСПОЛЬЗОВАНИЯ В КОНТРОЛЛЕРАХ
 app.set('io', io);
 
+// ВАЖНО: Глобальное состояние онлайна для Радара
+const onlineUsers = new Map(); 
+app.set('onlineUsers', onlineUsers);
+
 const PORT = process.env.PORT || 3000;
 
 const PUBLIC_DIR = path.join(__dirname, '../public');
@@ -41,9 +45,34 @@ const notificationsRoutes = require('./routes/notifications.routes');
 const ConfigController = require('./controllers/config.controller');
 
 io.on('connection', (socket) => {
-    // Регистрация сокета пользователя в персональной комнате
+    let currentUsername = null;
+
+    // Регистрация сокета пользователя
     socket.on('register', (username) => {
+        currentUsername = username;
         socket.join(`user_${username}`);
+        
+        // Отмечаем юзера как онлайн
+        onlineUsers.set(username, { isOnline: true, currentTrack: null });
+        io.emit('radar_update', { username, type: 'online' });
+    });
+
+    // Реал-тайм прослушивание музыки
+    socket.on('music_state', (data) => {
+        if (currentUsername) {
+            const state = onlineUsers.get(currentUsername) || { isOnline: true };
+            state.currentTrack = data.isPlaying ? data.trackId : null;
+            onlineUsers.set(currentUsername, state);
+            io.emit('radar_update', { username: currentUsername, type: 'music', currentTrack: state.currentTrack });
+        }
+    });
+
+    // Отключение пользователя
+    socket.on('disconnect', () => {
+        if (currentUsername) {
+            onlineUsers.delete(currentUsername);
+            io.emit('radar_update', { username: currentUsername, type: 'offline' });
+        }
     });
 });
 

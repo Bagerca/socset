@@ -1,78 +1,30 @@
 /* css/components/_admin.css */
 
-/* Полноэкранная обертка поверх всего сайта */
 .adm-god-mode {
-    position: fixed;
-    top: 0; left: 0; right: 0; bottom: 0;
+    position: fixed; inset: 0;
     background: #050508;
-    z-index: 99999; /* Поверх сайдбаров и модалок */
-    display: flex;
-    flex-direction: column;
+    z-index: 99999;
+    display: flex; flex-direction: column;
     font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
     color: #fff;
     overflow: hidden;
 }
 
-/* Верхняя панель (Статистика) */
 .adm-topbar {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    padding: 0 24px;
-    height: 60px;
+    display: flex; justify-content: space-between; align-items: center;
+    padding: 0 24px; height: 60px;
     background: rgba(20, 20, 22, 0.95);
     border-bottom: 1px solid var(--border-color);
     backdrop-filter: blur(10px);
-    z-index: 10;
+    z-index: 10; flex-shrink: 0;
 }
+.adm-logo { font-size: 18px; font-weight: 900; letter-spacing: 2px; color: var(--accent-games); display: flex; align-items: center; gap: 10px; }
+.adm-stats-row { display: flex; gap: 30px; }
+.adm-stat { display: flex; flex-direction: column; align-items: center; font-size: 11px; color: var(--text-muted); text-transform: uppercase; font-weight: 800; }
+.adm-stat b { font-size: 18px; color: #fff; }
+.adm-btn-exit { background: rgba(255, 69, 58, 0.1); color: var(--danger); border: 1px solid rgba(255, 69, 58, 0.3); padding: 8px 16px; border-radius: 100px; font-weight: 700; font-size: 13px; cursor: pointer; transition: 0.2s; }
+.adm-btn-exit:hover { background: var(--danger); color: #fff; }
 
-.adm-logo {
-    font-size: 18px;
-    font-weight: 900;
-    letter-spacing: 2px;
-    color: var(--accent-games);
-    display: flex;
-    align-items: center;
-    gap: 10px;
-}
-
-.adm-stats-row {
-    display: flex;
-    gap: 30px;
-}
-
-.adm-stat {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    font-size: 11px;
-    color: var(--text-muted);
-    text-transform: uppercase;
-    font-weight: 800;
-}
-
-.adm-stat b {
-    font-size: 18px;
-    color: #fff;
-}
-
-.adm-btn-exit {
-    background: rgba(255, 69, 58, 0.1);
-    color: var(--danger);
-    border: 1px solid rgba(255, 69, 58, 0.3);
-    padding: 8px 16px;
-    border-radius: 100px;
-    font-weight: 700;
-    font-size: 13px;
-    cursor: pointer;
-    transition: 0.2s;
-}
-.adm-btn-exit:hover {
-    background: var(--danger);
-    color: #fff;
-}
-
-/* Основное пространство */
 .adm-workspace {
     flex: 1;
     display: flex;
@@ -80,131 +32,124 @@
     overflow: hidden;
 }
 
-/* Левая панель (Поиск и Список) */
 .adm-left-panel {
-    width: 320px;
-    background: rgba(20, 20, 22, 0.85);
-    backdrop-filter: blur(12px);
+    width: 320px; flex-shrink: 0;
+    background: rgba(20, 20, 22, 0.85); backdrop-filter: blur(12px);
     border-right: 1px solid var(--border-color);
-    display: flex;
-    flex-direction: column;
+    display: flex; flex-direction: column;
     z-index: 5;
 }
-
-.adm-search-header {
-    padding: 20px;
-    border-bottom: 1px solid rgba(255,255,255,0.05);
-}
-
-.adm-search-input-wrapper {
-    position: relative;
-    width: 100%;
-}
-.adm-search-input-wrapper i {
-    position: absolute;
-    left: 14px; top: 50%; transform: translateY(-50%);
-    color: var(--text-muted);
-}
-.adm-search-input {
-    width: 100%;
-    background: #0a0a0c;
-    border: 1px solid rgba(255,255,255,0.1);
-    padding: 12px 14px 12px 40px;
-    border-radius: 10px;
-    color: #fff;
-    outline: none;
-    transition: 0.2s;
-}
+.adm-search-header { padding: 20px; border-bottom: 1px solid rgba(255,255,255,0.05); }
+.adm-search-input-wrapper { position: relative; }
+.adm-search-input-wrapper i { position: absolute; left: 14px; top: 50%; transform: translateY(-50%); color: var(--text-muted); }
+.adm-search-input { width: 100%; background: #0a0a0c; border: 1px solid rgba(255,255,255,0.1); padding: 12px 14px 12px 40px; border-radius: 10px; color: #fff; outline: none; transition: 0.2s; }
 .adm-search-input:focus { border-color: var(--accent-games); }
-
-.adm-user-list {
-    flex: 1;
-    overflow-y: auto;
-    padding: 10px;
-    display: flex;
-    flex-direction: column;
-    gap: 4px;
-}
-
+.adm-user-list { flex: 1; overflow-y: auto; padding: 10px; display: flex; flex-direction: column; gap: 4px; }
 .adm-user-list::-webkit-scrollbar { width: 4px; }
 .adm-user-list::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.2); }
+.adm-list-item { display: flex; align-items: center; gap: 12px; padding: 10px; border-radius: 8px; cursor: pointer; background: transparent; transition: 0.2s; border: 1px solid transparent; }
+.adm-list-item:hover, .adm-list-item.selected { background: rgba(255,255,255,0.05); border-color: rgba(255,255,255,0.1); }
+.adm-list-item img { width: 36px; height: 36px; border-radius: 50%; object-fit: cover; flex-shrink: 0; }
 
-/* Элемент списка */
-.adm-list-item {
-    display: flex;
-    align-items: center;
-    gap: 12px;
-    padding: 10px;
-    border-radius: 8px;
-    cursor: pointer;
-    background: transparent;
-    transition: 0.2s;
-    border: 1px solid transparent;
-}
-.adm-list-item:hover, .adm-list-item.selected {
-    background: rgba(255,255,255,0.05);
-    border-color: rgba(255,255,255,0.1);
-}
-
-/* Радар */
 .adm-radar-container {
     flex: 1;
     position: relative;
     background: radial-gradient(circle at center, #111116 0%, #050508 100%);
+    min-width: 0; 
 }
 
-/* Выезжающее Досье справа */
+/* ОБНОВЛЕННАЯ ПРАВАЯ ПАНЕЛЬ */
 .adm-right-panel {
-    position: absolute;
-    right: 0; top: 0; bottom: 0;
-    width: 400px;
-    background: rgba(20, 20, 22, 0.95);
-    backdrop-filter: blur(20px);
-    border-left: 1px solid var(--border-color);
-    box-shadow: -10px 0 50px rgba(0,0,0,0.5);
-    transform: translateX(100%);
-    transition: transform 0.4s cubic-bezier(0.25, 1, 0.5, 1);
-    display: flex;
-    flex-direction: column;
-    z-index: 10;
+    position: absolute; right: 0; top: 0; bottom: 0; width: 420px;
+    background: rgba(20, 20, 22, 0.95); backdrop-filter: blur(20px);
+    border-left: 1px solid var(--border-color); box-shadow: -10px 0 50px rgba(0,0,0,0.5);
+    transform: translateX(100%); transition: transform 0.4s cubic-bezier(0.25, 1, 0.5, 1);
+    display: flex; flex-direction: column; z-index: 10; overflow: hidden;
 }
-.adm-right-panel.open {
-    transform: translateX(0);
+.adm-right-panel.open { transform: translateX(0); }
+
+/* Sticky Header Zone */
+.adm-ds-sticky-header {
+    flex-shrink: 0;
+    background: rgba(20, 20, 22, 1);
+    border-bottom: 1px solid rgba(255,255,255,0.05);
+    position: relative; z-index: 5;
 }
 
-.adm-dossier-scroll {
+/* Scrollable Body Zone */
+.adm-ds-scroll-body {
     flex: 1;
     overflow-y: auto;
-    padding: 24px;
+    padding: 20px;
     display: flex;
     flex-direction: column;
-    gap: 20px;
+    gap: 16px;
+    padding-bottom: 60px; /* Safe area снизу */
 }
-.adm-dossier-scroll::-webkit-scrollbar { width: 4px; }
-.adm-dossier-scroll::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.2); }
+.adm-ds-scroll-body::-webkit-scrollbar { width: 4px; }
+.adm-ds-scroll-body::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.2); border-radius: 4px; }
 
-/* Элементы Досье */
-.adm-section {
-    background: rgba(255,255,255,0.02);
-    border: 1px solid rgba(255,255,255,0.05);
-    border-radius: 12px;
-    padding: 16px;
-}
-.adm-sec-title {
-    font-size: 11px; text-transform: uppercase; color: var(--text-muted);
-    font-weight: 800; margin-bottom: 12px; letter-spacing: 1px;
-}
+/* Элементы внутри Header */
+.adm-ds-banner { height: 120px; background-size: cover; background-position: center; position: relative; }
+.adm-ds-banner::after { content: ''; position: absolute; inset: 0; background: linear-gradient(to top, rgba(20,20,22,1), transparent); }
+.adm-ds-close { position: absolute; top: 12px; right: 12px; background: rgba(0,0,0,0.5); color: #fff; z-index: 10; border: none; cursor: pointer; border-radius: 50%; width: 32px; height: 32px; transition: 0.2s; display: flex; align-items: center; justify-content: center;}
+.adm-ds-close:hover { background: rgba(255,69,58,0.8); }
+
+.adm-ds-avatar-row { display: flex; gap: 16px; padding: 0 16px 16px 16px; margin-top: -40px; position: relative; z-index: 2; align-items: flex-end; }
+.adm-ds-avatar { width: 80px; height: 80px; border-radius: 16px; object-fit: cover; border: 4px solid rgba(20, 20, 22, 1); background: #111; box-shadow: 0 4px 15px rgba(0,0,0,0.5); }
+.adm-ds-avatar.is-online { border-color: #44bd32; box-shadow: 0 0 20px rgba(68, 189, 50, 0.3); }
+
+.adm-ds-info { flex: 1; padding-bottom: 4px; min-width: 0; }
+.adm-ds-name { font-size: 20px; font-weight: 900; line-height: 1.1; color: #fff; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;}
+.adm-ds-username-row { display: flex; align-items: center; margin-top: 2px; gap: 6px; }
+.adm-ds-username { font-size: 13px; color: var(--text-muted); }
+.adm-copy-btn { background: transparent; border: none; color: var(--text-muted); cursor: pointer; transition: 0.2s; font-size: 12px; }
+.adm-copy-btn:hover { color: #fff; }
+
+.adm-ds-badges { display: flex; gap: 8px; padding: 0 16px 16px 16px; flex-wrap: wrap; }
+.adm-ds-profile-link { display: flex; align-items: center; justify-content: center; gap: 8px; margin: 0 16px 16px 16px; padding: 10px; background: rgba(255,255,255,0.05); color: #fff; border: 1px solid rgba(255,255,255,0.1); border-radius: 8px; font-size: 13px; font-weight: 600; text-decoration: none; transition: var(--transition-fast); }
+.adm-ds-profile-link:hover { background: rgba(255,255,255,0.1); }
+
+/* Статистика */
+.adm-ds-stats-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
+.adm-ds-stat-box { background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.05); border-radius: 12px; padding: 12px 6px; text-align: center; }
+.adm-ds-stat-value { font-size: 18px; font-weight: 800; color: #fff; margin-bottom: 4px; display: flex; align-items: center; justify-content: center; gap: 6px; }
+.adm-ds-stat-label { font-size: 11px; color: var(--text-muted); text-transform: uppercase; font-weight: 700; letter-spacing: 0.5px; }
+
+/* Внутренние карточки */
+.adm-ds-card { background: rgba(255, 255, 255, 0.02); border: 1px solid rgba(255, 255, 255, 0.05); border-radius: 16px; padding: 16px; display: flex; flex-direction: column; gap: 12px; }
+.adm-ds-card-title { font-size: 12px; text-transform: uppercase; color: var(--text-muted); font-weight: 800; letter-spacing: 0.5px; display: flex; align-items: center; gap: 8px; }
+.adm-ds-card-title i { color: #fff; opacity: 0.7; }
+.adm-ds-media-music { display: flex; align-items: center; gap: 12px; background: rgba(255,255,255,0.03); padding: 8px; border-radius: 10px; }
+.adm-ds-media-music.playing { border: 1px solid rgba(68, 189, 50, 0.3); }
+.adm-ds-media-music img { width: 44px; height: 44px; border-radius: 6px; object-fit: cover; }
+.adm-ds-media-games { display: flex; gap: 8px; overflow-x: auto; padding-bottom: 4px; scrollbar-width: none; }
+.adm-ds-media-games::-webkit-scrollbar { display: none; }
+.adm-ds-media-games img { width: 48px; height: 64px; border-radius: 6px; object-fit: cover; border: 1px solid rgba(255,255,255,0.1); flex-shrink: 0; }
+
+.adm-ds-input-group { display: flex; gap: 10px; align-items: center; }
+.adm-ds-input-icon { width: 24px; text-align: center; font-size: 16px; color: var(--text-muted); }
+.adm-ds-controls-row { display: flex; gap: 10px; flex-wrap: wrap; }
+
+.adm-ds-warn-item { background: rgba(255,255,255,0.03); padding: 10px 12px; border-radius: 8px; font-size: 13px; position: relative; border-left: 3px solid var(--danger); }
+.adm-ds-warn-meta { color: var(--text-muted); font-size: 11px; margin-bottom: 4px; }
+.adm-ds-warn-meta b { color: var(--danger); }
+.adm-ds-warn-text { color: #e0e0e0; padding-right: 16px; }
+.adm-ds-warn-del { position: absolute; top: 10px; right: 10px; color: var(--text-muted); cursor: pointer; transition: 0.2s; }
+.adm-ds-warn-del:hover { color: var(--danger); }
+
+.adm-ds-card.danger-zone { background: rgba(255, 69, 58, 0.05); border-color: rgba(255, 69, 58, 0.3); }
+.adm-ds-card.danger-zone .adm-ds-card-title { color: var(--danger); }
+.adm-ds-card.danger-zone .adm-ds-card-title i { color: var(--danger); opacity: 1; }
+
+.adm-badge { padding: 3px 10px; font-size: 10px; font-weight: 800; border-radius: 6px; text-transform: uppercase; letter-spacing: 0.5px; }
+.adm-badge.green { background: rgba(68, 189, 50, 0.2); color: #44bd32; border: 1px solid rgba(68, 189, 50, 0.4); }
+.adm-badge.red { background: rgba(255, 69, 58, 0.2); color: var(--danger); border: 1px solid rgba(255, 69, 58, 0.4); }
+.adm-badge.orange { background: rgba(240, 147, 43, 0.2); color: #f0932b; border: 1px solid rgba(240, 147, 43, 0.4); }
+.adm-badge.gray { background: rgba(255,255,255,0.1); color: var(--text-muted); }
 
 @media (max-width: 900px) {
-    .adm-left-panel { display: none; } /* На мобилках скрываем список, оставляем только радар */
+    .adm-left-panel { display: none; } 
     .adm-right-panel { width: 100%; }
-    .adm-topbar-stats { display: none; }
-}
-
-.adm-list-item img {
-    width: 36px;
-    height: 36px;
-    border-radius: 50%;
-    object-fit: cover;
-    flex-shrink: 0;
+    .adm-stats-row { display: none; }
 }

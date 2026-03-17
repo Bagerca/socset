@@ -6,7 +6,7 @@ const { isAdmin } = require('../middlewares/admin.middleware');
 
 router.use(authenticateToken, isAdmin);
 
-router.get('/data', AdminController.getAdminData); // Получает юзеров + связи (граф)
+router.get('/data', AdminController.getAdminData);
 router.post('/update_user', AdminController.updateUser);
 router.post('/toggle_block', AdminController.toggleBlock);
 router.post('/mute', AdminController.muteUser);
@@ -14,5 +14,8 @@ router.post('/warn', AdminController.warnUser);
 router.post('/remove_warn', AdminController.removeWarning);
 router.post('/nuke_user', AdminController.nukeUser);
 router.post('/delete_user', AdminController.deleteUser);
+// Новые роуты
+router.post('/reset_media', AdminController.resetMedia);
+router.post('/toggle_admin', AdminController.toggleAdmin);
 
 module.exports = router;

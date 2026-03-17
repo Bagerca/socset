@@ -1,4 +1,3 @@
-// public/js/api/AdminAPI.js
 import { httpClient } from './httpClient.js';
 
 export const AdminAPI = {
@@ -9,5 +8,7 @@ export const AdminAPI = {
     removeWarning: (targetUsername, warningId) => httpClient.post('/admin/remove_warn', { targetUsername, warningId }),
     updateUser: (payload) => httpClient.post('/admin/update_user', payload),
     nukeUser: (targetUsername) => httpClient.post('/admin/nuke_user', { targetUsername }),
-    deleteUser: (targetUsername) => httpClient.post('/admin/delete_user', { targetUsername })
+    deleteUser: (targetUsername) => httpClient.post('/admin/delete_user', { targetUsername }),
+    resetMedia: (targetUsername) => httpClient.post('/admin/reset_media', { targetUsername }),
+    toggleAdmin: (targetUsername) => httpClient.post('/admin/toggle_admin', { targetUsername })
 };
