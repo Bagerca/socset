@@ -1,7 +1,7 @@
 // server/services/AuthService.js
 const UserRepository = require('../repositories/UserRepository');
-const jwt = require('jsonwebtoken');
-const { v4: uuidv4 } = require('uuid');
+const jwt = require('../utils/jwt'); // <-- Подключаем наш собственный JWT
+const { randomUUID } = require('crypto'); // <-- Нативный генератор ID
 
 // Берем ключ из .env, так как мы его туда добавили
 const SECRET_KEY = process.env.JWT_SECRET || 'fallback_secret_key';
@@ -14,7 +14,7 @@ class AuthService {
         // 2. Логика регистрации, если пользователя нет
         if (!user) {
             const newUser = {
-                id: uuidv4(), 
+                id: randomUUID(), 
                 username, 
                 password, 
                 name: username, 
@@ -34,7 +34,7 @@ class AuthService {
             throw new Error('Неверный пароль'); 
         }
 
-        // 4. Генерация безопасного токена
+        // 4. Генерация безопасного токена (используем наш метод sign)
         const token = jwt.sign({ 
             username: user.username, 
             id: user.id,
@@ -50,9 +50,9 @@ class AuthService {
             isAdmin: user.isAdmin === 1,
             isVerified: user.isVerified === 1,
             modules: { music: true, games: true, socials: true },
-            favoriteTracks: [], 
+            favoriteTracks:[], 
             favoriteGames: [], 
-            customAlbums: []
+            customAlbums:[]
         };
         
         return { token, profile };

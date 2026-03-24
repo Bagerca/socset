@@ -2,7 +2,7 @@
 const multer = require('multer');
 const path = require('path');
 const fs = require('fs');
-const { v4: uuidv4 } = require('uuid');
+const { randomUUID } = require('crypto');
 
 // Правильный путь к папке uploads (на уровень выше server)
 const UPLOADS_DIR = path.join(__dirname, '../../uploads');
@@ -19,7 +19,7 @@ const storage = multer.diskStorage({
     filename: (req, file, cb) => {
         // Генерируем уникальное имя файла
         const ext = path.extname(file.originalname) || '.dat';
-        const name = uuidv4();
+        const name = randomUUID();
         cb(null, `${name}${ext}`);
     }
 });

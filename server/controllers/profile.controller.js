@@ -1,7 +1,7 @@
 // server/controllers/profile.controller.js
 const db = require('../database');
-const { v4: uuidv4 } = require('uuid');
-const NotificationService = require('../services/NotificationService');
+const { randomUUID } = require('crypto');
+const NotificationService = require('../services/NotificationService'); // <-- ИСПРАВЛЕНО: Путь был './' стал '../services/'
 
 class ProfileController {
     getOne(req, res) {
@@ -42,7 +42,7 @@ class ProfileController {
         user.modules = { music: true, games: true, socials: true };
         user.favoriteTracks = []; 
         user.favoriteGames = []; 
-        user.customAlbums = [];
+        user.customAlbums =[];
         
         res.json(user);
     }
@@ -72,7 +72,7 @@ class ProfileController {
                 banner, 
                 frameId, 
                 JSON.stringify(socials || {}), 
-                JSON.stringify(showcaseGames || []), 
+                JSON.stringify(showcaseGames ||[]), 
                 musicId || null, 
                 enableWall ? 1 : 0,
                 isVerified ? 1 : 0,      
@@ -114,7 +114,7 @@ class ProfileController {
         if (user.enableWall !== 1) return res.status(403).json({ error: 'Wall is disabled' });
 
         const newComment = {
-            id: uuidv4(),
+            id: randomUUID(),
             profile_username: targetUsername,
             author_username: req.user.username,
             content,

@@ -1,4 +1,4 @@
-const { v4: uuidv4 } = require('uuid');
+const { randomUUID } = require('crypto');
 const db = require('../database');
 
 class ShopController {
@@ -8,7 +8,7 @@ class ShopController {
         
         // Если магазин пуст — создадим пару дефолтных товаров (для теста)
         if (items.length === 0) {
-            const defaultItems = [
+            const defaultItems =[
                 { id: 'frame_cyber', type: 'frame', name: 'Cyberpunk Glow', price: 150, css: 'border: 2px solid #00f0ff; box-shadow: 0 0 15px #00f0ff;', author: 'System' },
                 { id: 'frame_demon', type: 'frame', name: 'Demon Aura', price: 300, css: 'border: 3px dashed #ff453a; box-shadow: 0 0 20px #ff453a;', author: 'System' }
             ];
@@ -70,7 +70,7 @@ class ShopController {
     create(req, res) {
         const { name, price, css } = req.body;
         const newItem = { 
-            id: 'shop_' + uuidv4(), 
+            id: 'shop_' + randomUUID(), 
             type: 'frame', 
             name, 
             price: Number(price), 

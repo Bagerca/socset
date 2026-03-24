@@ -2,7 +2,7 @@
 const Database = require('better-sqlite3');
 const path = require('path');
 const fs = require('fs');
-const { v4: uuidv4 } = require('uuid');
+const { randomUUID } = require('crypto');
 
 // --- 1. ПОДКЛЮЧЕНИЕ К БАЗЕ ---
 const DB_DIR = path.join(__dirname, 'db');
@@ -67,7 +67,7 @@ function seedInitialData() {
                 INSERT INTO users (id, username, password, name, bio, avatar, banner, coins, isVerified, verifiedBadgeType, isAdmin, created_at)
                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             `).run(
-                uuidv4(), 'TetlaBot', 'bot', 'TetlaBot', 'System Bot. I am watching you.',
+                randomUUID(), 'TetlaBot', 'bot', 'TetlaBot', 'System Bot. I am watching you.',
                 'https://placehold.co/150x150/000/0f0?text=BOT', 'https://placehold.co/800x250/000/000?text=SYSTEM',
                 0, 1, 'badge-8', 0, Date.now()
             );

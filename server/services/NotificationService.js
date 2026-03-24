@@ -1,6 +1,6 @@
 // server/services/NotificationService.js
 const db = require('../database');
-const { v4: uuidv4 } = require('uuid');
+const { randomUUID } = require('crypto');
 
 class NotificationService {
     create(io, recipient, sender, type, targetId = null, content = null) {
@@ -8,7 +8,7 @@ class NotificationService {
         if (recipient === sender) return;
 
         try {
-            const id = uuidv4();
+            const id = randomUUID();
             const timestamp = Date.now();
             
             db.prepare(`

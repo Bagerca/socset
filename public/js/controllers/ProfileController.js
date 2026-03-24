@@ -101,12 +101,9 @@ export class ProfileController {
 
         this.initEventListeners();
         
-        // Слушатель обновления постов (для своей ленты в профиле)
         document.addEventListener('cycle:posts_updated', () => this.renderPosts(), { signal: this.abortController.signal });
 
-        // Реал-тайм прослушка обновления стены (Socket.io)
         document.addEventListener('cycle:wall_updated', (e) => {
-            // Перерисовываем стену только если обновилась стена пользователя, которого мы сейчас смотрим
             if (e.detail === this.currentUser.username) {
                 this.renderWall();
             }
@@ -311,6 +308,12 @@ export class ProfileController {
                     followBtn.innerHTML = '<i class="fa-solid fa-user-plus"></i> Подписаться';
                     followBtn.style.background = 'var(--accent-games)';
                 }
+            }
+
+            // --- ССЫЛКА НА ЧАТ (Добавляем параметр с ником пользователя) ---
+            const messageBtn = document.getElementById('messageBtn');
+            if (messageBtn) {
+                messageBtn.href = `#/messages?user=${encodeURIComponent(p.username)}`;
             }
         }
 
@@ -633,7 +636,6 @@ export class ProfileController {
             }, { signal });
         }
 
-        // Контекстное меню для удаления комментариев
         this.postsContainer.addEventListener('contextmenu', (e) => { 
             const item = e.target.closest('.comment-item'); 
             if (item && item.dataset.author === this.stores.auth.user.username) { 

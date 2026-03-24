@@ -1,19 +1,26 @@
-const jwt = require('jsonwebtoken');
+// server/middlewares/auth.middleware.js
+const jwt = require('../utils/jwt');
 
-// Берем ключ из .env. Если его там нет (забыли создать файл) — используем запасной
 const SECRET_KEY = process.env.JWT_SECRET || 'fallback_secret_key';
 
 function authenticateToken(req, res, next) {
     const authHeader = req.headers['authorization'];
     const token = authHeader && authHeader.split(' ')[1]; 
     
-    if (!token) return res.sendStatus(401);
+    if (!token) {
+        res.statusCode = 401;
+        res.setHeader('Content-Type', 'application/json');
+        return res.end(JSON.stringify({ error: 'Unauthorized' }));
+    }
 
-    jwt.verify(token, SECRET_KEY, (err, user) => {
-        if (err) return res.sendStatus(403);
-        req.user = user; 
+    try {
+        req.user = jwt.verify(token, SECRET_KEY);
         next();
-    });
+    } catch (err) {
+        res.statusCode = 403;
+        res.setHeader('Content-Type', 'application/json');
+        return res.end(JSON.stringify({ error: 'Forbidden' }));
+    }
 }
 
 module.exports = { authenticateToken, SECRET_KEY };

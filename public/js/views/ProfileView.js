@@ -1,4 +1,4 @@
-// js/views/ProfileView.js
+// public/js/views/ProfileView.js
 
 import { ProfileController } from '../controllers/ProfileController.js';
 
@@ -24,6 +24,12 @@ export const ProfileView = {
                 <!-- КНОПКИ ДЛЯ ГОСТЕЙ -->
                 <div id="visitorActions" class="visitor-actions" style="display:none;">
                     <button id="followBtn" class="btn-post" style="background: var(--accent-games); color: #fff;"></button>
+                    
+                    <!-- НОВАЯ КНОПКА МЕССЕНДЖЕРА -->
+                    <a id="messageBtn" href="#/messages" class="btn-post" style="background: rgba(255,255,255,0.1); color: #fff; display: flex; align-items: center; justify-content: center; text-decoration: none;" title="Написать сообщение">
+                        <i class="fa-regular fa-paper-plane"></i>
+                    </a>
+
                     <button id="giftBtn" class="btn-post" style="background: var(--accent-shop); color: #000;" title="Подарить монеты"><i class="fa-solid fa-gift"></i></button>
                 </div>
 
@@ -41,7 +47,6 @@ export const ProfileView = {
                 <div class="profile-meta-row">
                     <span id="profileUsername" class="profile-username">@loading</span>
                     
-                    <!-- НОВЫЙ ЗНАЧОК СООБЩЕСТВ -->
                     <div id="profileCommunitiesBadge" class="comm-count-badge" style="display:none;" title="Сообщества">
                         <i class="fa-solid fa-users-rectangle"></i> <span id="commCountVal">0</span>
                     </div>

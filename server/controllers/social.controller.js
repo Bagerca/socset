@@ -1,6 +1,6 @@
 // server/controllers/social.controller.js
 const db = require('../database');
-const { v4: uuidv4 } = require('uuid');
+const { randomUUID } = require('crypto');
 const NotificationService = require('../services/NotificationService');
 
 class SocialController {
@@ -35,7 +35,7 @@ class SocialController {
         const transaction = db.transaction(() => {
             db.prepare('UPDATE users SET coins = coins - ? WHERE username = ?').run(amount, sender);
             db.prepare('UPDATE users SET coins = coins + ? WHERE username = ?').run(amount, receiver);
-            db.prepare('INSERT INTO coin_transactions (id, sender_username, receiver_username, amount, timestamp) VALUES (?, ?, ?, ?, ?)').run(uuidv4(), sender, receiver, amount, Date.now());
+            db.prepare('INSERT INTO coin_transactions (id, sender_username, receiver_username, amount, timestamp) VALUES (?, ?, ?, ?, ?)').run(randomUUID(), sender, receiver, amount, Date.now());
               
             const io = req.app.get('io');
             NotificationService.create(io, receiver, sender, 'gift', null, amount.toString());

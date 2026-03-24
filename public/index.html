@@ -26,7 +26,11 @@
                     <div class="nav-item" id="burgerMenuBtn" title="Сервисы"><i class="fa-solid fa-bars"></i></div>
                     <div class="nav-item" title="Поиск"><i class="fa-solid fa-magnifying-glass"></i></div>
                     
-                    <!-- ИСПРАВЛЕНО: Теперь это ссылка с id="bellIcon" и роутами -->
+                    <!-- КНОПКА МЕССЕНДЖЕРА -->
+                    <a href="#/messages" class="nav-item nav-link" data-route="/messages" title="Мессенджер">
+                        <i class="fa-regular fa-paper-plane"></i>
+                    </a>
+                    
                     <a href="#/notifications" id="bellIcon" class="nav-item nav-link" data-route="/notifications" title="Уведомления">
                         <i class="fa-solid fa-bell"></i>
                     </a>
@@ -101,8 +105,6 @@
     <audio id="globalAudioPlayer" crossorigin="anonymous"></audio>
 
     <!-- СКРИПТЫ -->
-    <!-- Socket.io клиент (автоматически отдается сервером) -->
-    <script src="/socket.io/socket.io.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/localforage/1.10.0/localforage.min.js"></script>
     <script type="module" src="js/app.js"></script>
 </body>

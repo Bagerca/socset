@@ -9,8 +9,8 @@ import { Router } from './Router.js';
 import { GlobalPlayer } from './components/GlobalPlayer.js';
 import { Toast } from './utils/Toast.js';
 
+// --- ИМПОРТЫ СТРАНИЦ (VIEWS) ---
 import { NotificationsView } from './views/NotificationsView.js';
-import { NotificationsAPI } from './api/NotificationsAPI.js';
 import { LoginView } from './views/LoginView.js';
 import { FeedView } from './views/FeedView.js';
 import { ProfileView } from './views/ProfileView.js';
@@ -20,14 +20,51 @@ import { MusicView } from './views/MusicView.js';
 import { GamesView } from './views/GamesView.js';
 import { ShopView } from './views/ShopView.js';
 import { AdminView } from './views/AdminView.js';
+import { MessagesView } from './views/MessagesView.js'; // <-- 1. ИМПОРТИРУЕМ VIEW ДЛЯ МЕССЕНДЖЕРА
 
 import { escapeHTML } from './utils/utils.js';
+import { NotificationsAPI } from './api/NotificationsAPI.js';
+
+
+class NativeSocket {
+    constructor(url) {
+        this.url = url;
+        this.listeners = {};
+        this.connect();
+    }
+    connect() {
+        this.ws = new WebSocket(this.url);
+        this.ws.onmessage = (e) => {
+            try {
+                const { event, payload } = JSON.parse(e.data);
+                if (this.listeners[event]) {
+                    this.listeners[event].forEach(cb => cb(payload));
+                }
+            } catch (err) {}
+        };
+        this.ws.onclose = () => setTimeout(() => this.connect(), 3000);
+    }
+    on(event, callback) {
+        if (!this.listeners[event]) this.listeners[event] = [];
+        this.listeners[event].push(callback);
+    }
+    emit(event, payload) {
+        if (this.ws.readyState === WebSocket.OPEN) {
+            this.ws.send(JSON.stringify({ event, payload }));
+        } else {
+            this.ws.addEventListener('open', () => {
+                this.ws.send(JSON.stringify({ event, payload }));
+            }, { once: true });
+        }
+    }
+}
 
 document.addEventListener('DOMContentLoaded', async () => {
     window.addEventListener('offline', () => { Toast.show('Оффлайн-режим.', 'warning'); document.body.classList.add('app-offline'); });
     window.addEventListener('online', () => { Toast.show('Соединение восстановлено!', 'success'); document.body.classList.remove('app-offline'); });
 
-    window.socket = io();
+    const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+    window.socket = new NativeSocket(`${protocol}//${window.location.host}`);
 
     const authStore = new AuthStore();
     const catalogStore = new CatalogStore();
@@ -49,7 +86,6 @@ document.addEventListener('DOMContentLoaded', async () => {
         return; 
     }
 
-    // --- РЕАЛ-ТАЙМ УВЕДОМЛЕНИЯ ---
     window.socket.emit('register', authStore.user.username);
 
     window.socket.on('new_notification', (notif) => {
@@ -84,7 +120,6 @@ document.addEventListener('DOMContentLoaded', async () => {
             bellIcon.classList.add('has-unread');
             bellIcon.setAttribute('data-count', data.count);
         } else if (bellIcon && window.location.hash.includes('/notifications')) {
-            // ИСПРАВЛЕНИЕ: Если мы уже на странице уведомлений при старте, сбрасываем в 0
             bellIcon.setAttribute('data-count', '0');
         }
     } catch(e) {}
@@ -94,7 +129,6 @@ document.addEventListener('DOMContentLoaded', async () => {
             const bell = document.getElementById('bellIcon');
             if (bell) {
                 bell.classList.remove('has-unread');
-                // ИСПРАВЛЕНИЕ: Сбрасываем счетчик в 0, чтобы он не суммировался дальше
                 bell.setAttribute('data-count', '0');
             }
         }
@@ -137,7 +171,8 @@ document.addEventListener('DOMContentLoaded', async () => {
         '/games': GamesView,
         '/shop': ShopView,
         '/admin': AdminView,
-        '/notifications': NotificationsView 
+        '/notifications': NotificationsView,
+        '/messages': MessagesView // <-- 2. ДОБАВЛЯЕМ РОУТ ДЛЯ МЕССЕНДЖЕРА
     };
 
     const router = new Router(routes, stores);

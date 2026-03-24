@@ -1,5 +1,5 @@
 const db = require('../database');
-const { v4: uuidv4 } = require('uuid');
+const { randomUUID } = require('crypto');
 
 class AdminController {
     getAdminData(req, res) {
@@ -94,7 +94,7 @@ class AdminController {
         try {
             const user = db.prepare('SELECT warnings FROM users WHERE username = ?').get(targetUsername);
             const warnings = JSON.parse(user.warnings || '[]');
-            const newWarn = { id: uuidv4(), reason, timestamp: Date.now(), admin: req.user.username };
+            const newWarn = { id: randomUUID(), reason, timestamp: Date.now(), admin: req.user.username };
             warnings.push(newWarn);
             db.prepare('UPDATE users SET warnings = ? WHERE username = ?').run(JSON.stringify(warnings), targetUsername);
             res.json({ success: true, warnings });

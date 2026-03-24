@@ -1,4 +1,4 @@
-const { v4: uuidv4 } = require('uuid');
+const { randomUUID } = require('crypto');
 const db = require('../database');
 
 class CommunitiesController {
@@ -81,7 +81,7 @@ class CommunitiesController {
             if (exists) return res.json({ success: false, error: 'Этот адрес уже занят' });
 
             const newCommunity = {
-                id: uuidv4(),
+                id: randomUUID(),
                 handle: handle,
                 name,
                 description: description ? description.slice(0, 200) : '',

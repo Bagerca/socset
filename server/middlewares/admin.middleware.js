@@ -1,12 +1,26 @@
-// server/middlewares/admin.middleware.js
+// server/middlewares/auth.middleware.js
+const jwt = require('../utils/jwt');
 
-function isAdmin(req, res, next) {
-    // Проверяем, есть ли пользователь и стоит ли у него флаг isAdmin
-    if (req.user && req.user.isAdmin) {
-        next(); // Пропускаем дальше
-    } else {
-        res.status(403).json({ error: 'Доступ разрешен только администраторам' });
+const SECRET_KEY = process.env.JWT_SECRET || 'fallback_secret_key';
+
+function authenticateToken(req, res, next) {
+    const authHeader = req.headers['authorization'];
+    const token = authHeader && authHeader.split(' ')[1]; 
+    
+    if (!token) {
+        res.statusCode = 401;
+        res.setHeader('Content-Type', 'application/json');
+        return res.end(JSON.stringify({ error: 'Unauthorized' }));
+    }
+
+    try {
+        req.user = jwt.verify(token, SECRET_KEY);
+        next();
+    } catch (err) {
+        res.statusCode = 403;
+        res.setHeader('Content-Type', 'application/json');
+        return res.end(JSON.stringify({ error: 'Forbidden' }));
     }
 }
 
-module.exports = { isAdmin };
+module.exports = { authenticateToken, SECRET_KEY };

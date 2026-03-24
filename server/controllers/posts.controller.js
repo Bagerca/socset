@@ -1,20 +1,28 @@
 // server/controllers/posts.controller.js
 const PostService = require('../services/PostService');
-const jwt = require('jsonwebtoken');
+const jwt = require('../utils/jwt'); // <-- ЗАМЕНЕНО: теперь используется наш локальный JWT
 
 const SECRET_KEY = process.env.JWT_SECRET || 'fallback_secret_key';
 
 class PostsController {
     
+    // Эта функция используется для неавторизованных запросов к ленте (чтобы знать, лайкнул ли пост гость)
     _getCurrentUser = (req) => {
         const authHeader = req.headers['authorization'];
         if (authHeader) {
             const token = authHeader.split(' ')[1];
-            try { return jwt.verify(token, SECRET_KEY); } catch (e) { return null; }
+            try { 
+                // Используем наш метод verify, который просто вернет payload или выбросит ошибку
+                return jwt.verify(token, SECRET_KEY); 
+            } catch (e) { 
+                // Ошибка означает, что токен невалиден
+                return null; 
+            }
         }
         return null;
     }
     
+    // Обертка для обработки ошибок в одном месте
     _handleRequest = (res, serviceCall) => {
         try {
             const result = serviceCall();
@@ -121,5 +129,4 @@ class PostsController {
     }
 }
 
-// ИСПРАВЛЕНО: возвращаем обычный инстанс!
 module.exports = new PostsController();

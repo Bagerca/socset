@@ -5,7 +5,7 @@ const UserRepository = require('../repositories/UserRepository');
 const CommunityRepository = require('../repositories/CommunityRepository');
 const NotificationService = require('./NotificationService'); 
 const db = require('../database'); 
-const { v4: uuidv4 } = require('uuid');
+const { randomUUID } = require('crypto');
 
 class PostService {
     _enrichPost(post, currentUser) {
@@ -50,7 +50,7 @@ class PostService {
     
     createPost(postData, user) {
         const newPost = {
-            id: uuidv4(), author_username: user.username, content: postData.content,
+            id: randomUUID(), author_username: user.username, content: postData.content,
             attachment_type: postData.attachment ? (postData.attachment.music ? 'music' : 'game') : null,
             attachment_data: postData.attachment ? JSON.stringify(postData.attachment) : null,
             poll_data: postData.poll ? JSON.stringify(postData.poll) : null,
@@ -125,7 +125,7 @@ class PostService {
 
     addComment(postId, commentData, user, io) {
         const newComment = {
-            id: uuidv4(), post_id: postId, author_username: user.username,
+            id: randomUUID(), post_id: postId, author_username: user.username,
             content: commentData.content, type: commentData.type,
             waveform: commentData.waveform ? JSON.stringify(commentData.waveform) : null,
             timestamp: Date.now()
