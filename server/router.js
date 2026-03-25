@@ -16,7 +16,7 @@ const AdminController = require('./controllers/admin.controller');
 const CommunitiesController = require('./controllers/communities.controller');
 const NotificationsController = require('./controllers/notifications.controller');
 const ConfigController = require('./controllers/config.controller');
-const MessagesController = require('./controllers/messages.controller'); // <-- ДОБАВЛЕНО
+const MessagesController = require('./controllers/messages.controller'); 
 
 const PUBLIC_DIR = path.join(__dirname, '../public');
 const UPLOADS_DIR = path.join(__dirname, '../uploads');
@@ -151,8 +151,6 @@ async function requestHandler(req, res, context) {
             if (pathname === '/api/messages/send' && method === 'POST') return authenticateToken(req, res, () => MessagesController.sendMessage(req, res, context.io));
             if (pathname === '/api/messages/read' && method === 'POST') return authenticateToken(req, res, () => MessagesController.markAsRead(req, res, context.io));
             if (pathname === '/api/messages/typing' && method === 'POST') return authenticateToken(req, res, () => MessagesController.typing(req, res, context.io));
-            
-            // Новые маршруты ПКМ
             if (pathname === '/api/messages/toggle_block' && method === 'POST') return authenticateToken(req, res, () => MessagesController.toggleBlock(req, res, context.io));
             if (pathname === '/api/messages/delete' && method === 'POST') return authenticateToken(req, res, () => MessagesController.deleteMessage(req, res, context.io));
             if (pathname === '/api/messages/edit' && method === 'POST') return authenticateToken(req, res, () => MessagesController.editMessage(req, res, context.io));
@@ -216,7 +214,8 @@ async function requestHandler(req, res, context) {
         
         let filePath = '';
         if (pathname.startsWith('/uploads/')) {
-            filePath = path.join(UPLOADS_DIR, safeSuffix.replace(/^uploads[\/\\]/, ''));
+            // ИСПРАВЛЕНО ДЛЯ WINDOWS: заменяем либо \uploads\ либо /uploads/
+            filePath = path.join(UPLOADS_DIR, safeSuffix.replace(/^[\/\\]?uploads[\/\\]/, ''));
         } else if (pathname !== '/') {
             filePath = path.join(PUBLIC_DIR, safeSuffix);
         }

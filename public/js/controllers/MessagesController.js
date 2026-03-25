@@ -15,7 +15,6 @@ export class MessagesController {
         this.activeTargetUsername = null;
         this.isDestroyed = false;
 
-        // Локальные состояния
         this.pinnedChats = JSON.parse(localStorage.getItem('cycle_pinned_chats')) || [];
         this.isPartnerTyping = false;
         this.typingTimeout = null;
@@ -24,7 +23,6 @@ export class MessagesController {
         this.audioService = new AudioService();
         this.editingMsgId = null;
 
-        // Элементы управления
         this.chatListContainer = document.getElementById('chatListContainer');
         this.messagesList = document.getElementById('messagesList');
         this.msgInput = document.getElementById('msgInput');
@@ -87,6 +85,7 @@ export class MessagesController {
     destroy() {
         this.abortController.abort();
         this.isDestroyed = true;
+        document.body.classList.remove('chat-active-mobile');
     }
 
     injectFeaturesStyles() {
@@ -94,10 +93,10 @@ export class MessagesController {
         const s = document.createElement('style');
         s.id = 'msgExtraStyles';
         s.textContent = `
-            .ms-send-btn.voice.recording { background: var(--danger); animation: pulseRec 1s infinite; }
+            .ms-send-btn.voice.recording { background: var(--danger); color: #fff; animation: pulseRec 1s infinite; }
             @keyframes pulseRec { 0% { transform: scale(1); } 50% { transform: scale(1.15); } 100% { transform: scale(1); } }
-            .stickers-panel { position: absolute; bottom: 80px; left: 10px; background: #1a1a1c; border: 1px solid var(--border-color); border-radius: 12px; padding: 10px; display: grid; grid-template-columns: repeat(4, 1fr); gap: 5px; z-index: 100; box-shadow: var(--shadow-lg); }
-            .sticker-item { font-size: 24px; cursor: pointer; padding: 5px; border-radius: 8px; transition: 0.2s; }
+            .stickers-panel { position: absolute; bottom: 80px; right: 20px; background: #1a1a1c; border: 1px solid var(--border-color); border-radius: 16px; padding: 10px; display: grid; grid-template-columns: repeat(4, 1fr); gap: 5px; z-index: 100; box-shadow: var(--shadow-lg); }
+            .sticker-item { font-size: 24px; cursor: pointer; padding: 5px; border-radius: 8px; transition: 0.2s; text-align: center; }
             .sticker-item:hover { background: rgba(255,255,255,0.1); transform: scale(1.2); }
             .ms-blocked-state { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; background: rgba(0,0,0,0.3); color: var(--text-muted); padding: 20px; text-align: center; }
             .msg-edited-tag { font-size: 10px; opacity: 0.5; margin-left: 5px; font-style: italic; }
@@ -185,6 +184,12 @@ export class MessagesController {
         this.emptyState.style.display = 'none';
         this.activeChatState.style.display = 'flex';
         this.renderChats();
+
+        if (window.innerWidth <= 768) {
+            document.getElementById('messengerChatArea').classList.add('active');
+            document.getElementById('messengerSidebar').classList.add('hidden');
+            document.body.classList.add('chat-active-mobile');
+        }
         
         try {
             const data = await httpClient.get(`/messages/${chatId}`);
@@ -211,16 +216,22 @@ export class MessagesController {
         this.emptyState.style.display = 'none';
         this.activeChatState.style.display = 'flex';
         this.messagesList.innerHTML = '<div style="text-align:center; padding:20px; color:var(--text-muted);">Напишите приветственное сообщение!</div>';
+
+        if (window.innerWidth <= 768) {
+            document.getElementById('messengerChatArea').classList.add('active');
+            document.getElementById('messengerSidebar').classList.add('hidden');
+            document.body.classList.add('chat-active-mobile');
+        }
     }
 
     renderMessageContent(msg) {
         if (msg.content.startsWith('[IMG:') && msg.content.endsWith(']')) {
             const url = msg.content.slice(5, -1);
-            return `<img src="${url}" style="max-width:250px; border-radius:12px; cursor:pointer;" onclick="window.open('${url}')">`;
+            return `<img src="${url}" class="msg-attached-img" onclick="window.open('${url}', '_blank')">`;
         }
         if (msg.content.startsWith('[AUDIO:') && msg.content.endsWith(']')) {
             const url = msg.content.slice(7, -1);
-            return `<audio controls src="${url}" style="height:36px;"></audio>`;
+            return `<audio controls src="${url}" class="msg-attached-audio"></audio>`;
         }
         return escapeHTML(msg.content);
     }
@@ -229,9 +240,14 @@ export class MessagesController {
         this.messagesList.innerHTML = this.messages.map(msg => {
             const isMe = msg.sender_username === this.stores.auth.user.username;
             const ticks = isMe ? (msg.id.startsWith('temp') ? '<i class="fa-regular fa-clock"></i>' : (msg.is_read ? '<i class="fa-solid fa-check-double read"></i>' : '<i class="fa-solid fa-check"></i>')) : '';
+            
+            const isImg = msg.content.startsWith('[IMG:') && msg.content.endsWith(']');
+            const isAudio = msg.content.startsWith('[AUDIO:') && msg.content.endsWith(']');
+            const extraClass = isImg ? 'is-img' : (isAudio ? 'is-audio' : '');
+
             return `
                 <div class="msg-row ${isMe ? 'me' : 'them'}">
-                    <div class="msg-bubble ${isMe ? 'me' : 'them'}" data-id="${msg.id}" data-sender="${msg.sender_username}" data-raw="${escapeHTML(msg.content)}">
+                    <div class="msg-bubble ${isMe ? 'me' : 'them'} ${extraClass}" data-id="${msg.id}" data-sender="${msg.sender_username}" data-raw="${escapeHTML(msg.content)}">
                         ${this.renderMessageContent(msg)}
                     </div>
                     <div class="msg-meta">${formatTime(msg.timestamp)} ${msg.is_edited ? '<span class="msg-edited-tag">изм.</span>' : ''} <span class="msg-ticks">${ticks}</span></div>
@@ -326,10 +342,24 @@ export class MessagesController {
 
     bindEvents() {
         const sig = this.abortController.signal;
+
         this.chatListContainer.addEventListener('click', (e) => {
             const item = e.target.closest('.ms-chat-item');
             if (item) this.openChat(item.dataset.id);
         }, { sig });
+
+        if (this.backBtn) {
+            this.backBtn.addEventListener('click', () => {
+                document.getElementById('messengerChatArea').classList.remove('active');
+                document.getElementById('messengerSidebar').classList.remove('hidden');
+                document.body.classList.remove('chat-active-mobile');
+                
+                this.activeChatId = null;
+                this.emptyState.style.display = 'flex';
+                this.activeChatState.style.display = 'none';
+                this.renderChats();
+            }, { sig });
+        }
 
         this.msgInput.addEventListener('input', () => {
             this.updateInputButtons();
@@ -400,7 +430,6 @@ export class MessagesController {
         this.msUnblockBtn.addEventListener('click', () => httpClient.post('/messages/toggle_block', { chatId: this.activeChatId }), { sig });
         this.optClearHistory.addEventListener('click', () => confirm('Очистить?') && httpClient.post('/messages/clear', { chatId: this.activeChatId }), { sig });
 
-        // ПКМ логика
         this.messagesList.addEventListener('contextmenu', (e) => {
             const b = e.target.closest('.msg-bubble');
             if (!b) return;

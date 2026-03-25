@@ -69,13 +69,16 @@ export const MessagesView = {
 
                         <input type="file" id="msgFileInput" style="display: none;" accept="image/*, audio/*">
 
-                        <button id="msgAttachBtn" class="icon-btn" title="Прикрепить файл"><i class="fa-solid fa-paperclip"></i></button>
-                        <button id="msgStickerBtn" class="icon-btn" title="Стикеры"><i class="fa-regular fa-face-smile"></i></button>
-
-                        <input type="text" id="msgInput" class="ms-input" placeholder="Написать сообщение..." autocomplete="off">
+                        <!-- НОВЫЙ ДИЗАЙН: Капсула ввода -->
+                        <div class="ms-input-pill">
+                            <button id="msgAttachBtn" class="icon-btn" title="Прикрепить файл"><i class="fa-solid fa-paperclip"></i></button>
+                            <input type="text" id="msgInput" class="ms-input" placeholder="Сообщение..." autocomplete="off">
+                            <button id="msgStickerBtn" class="icon-btn" title="Стикеры"><i class="fa-regular fa-face-smile"></i></button>
+                        </div>
                         
+                        <!-- Кнопка микрофона / отправки -->
                         <button id="msgVoiceBtn" class="ms-send-btn voice" title="Записать голосовое"><i class="fa-solid fa-microphone"></i></button>
-                        <button id="msgSendBtn" class="ms-send-btn" style="display:none;"><i class="fa-solid fa-paper-plane"></i></button>
+                        <button id="msgSendBtn" class="ms-send-btn" style="display:none;"><i class="fa-solid fa-arrow-up"></i></button>
                     </div>
                 </div>
             </div>
