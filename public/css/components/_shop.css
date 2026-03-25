@@ -5,7 +5,7 @@
 .shop-header { display: flex; justify-content: space-between; align-items: center; background: var(--surface); padding: var(--space-md) var(--space-lg); border-radius: var(--radius-xl); border: 1px solid var(--border-color); box-shadow: var(--shadow-sm); }
 .shop-tabs { display: flex; gap: var(--space-sm); flex-wrap: wrap; }
 .shop-tab-btn { background: transparent; border: 1px solid transparent; color: var(--text-muted); padding: 10px 20px; border-radius: var(--radius-pill); font-size: var(--font-sm); font-weight: 600; cursor: pointer; transition: var(--transition-fast); display: flex; align-items: center; gap: var(--space-sm); }
-.shop-tab-btn:hover { color: var(--text-main); background: rgba(255,255,255,0.05); }
+@media (hover: hover) { .shop-tab-btn:hover { color: var(--text-main); background: rgba(255,255,255,0.05); } }
 .shop-tab-btn.active { background: var(--accent-shop); color: #000; box-shadow: 0 0 15px rgba(255, 215, 0, 0.3); }
 
 .shop-balance { display: flex; align-items: center; gap: var(--space-sm); background: rgba(255, 215, 0, 0.1); border: 1px solid var(--accent-shop); padding: var(--space-sm) var(--space-md); border-radius: var(--radius-pill); font-weight: 700; color: var(--accent-shop); font-size: var(--font-base); flex-shrink: 0; box-shadow: 0 0 10px rgba(255, 215, 0, 0.1); }
@@ -13,15 +13,15 @@
 .shop-search-container { position: relative; width: 100%; margin-bottom: 4px; }
 .shop-search-input { width: 100%; padding: 14px 20px 14px 44px; background: #1a1a1c; border: 1px solid var(--border-color); border-radius: var(--radius-pill); color: var(--text-main); font-size: var(--font-base); outline: none; transition: var(--transition-fast); }
 .shop-search-input:focus { border-color: var(--accent-shop); box-shadow: 0 0 15px rgba(255, 215, 0, 0.1); }
-.shop-search-icon { position: absolute; left: 18px; top: 50%; transform: translateY(-50%); color: var(--text-muted); font-size: var(--font-base); }
+.shop-search-icon { position: absolute; left: 18px; top: 50%; transform: translateY(-50%); color: var(--text-muted); font-size: var(--font-base); z-index: 2; }
 .shop-search-dropdown { position: absolute; top: calc(100% + 8px); left: 0; width: 100%; background: #222224; border: 1px solid var(--border-color); border-radius: var(--radius-lg); box-shadow: 0 10px 40px rgba(0,0,0,0.6); z-index: 100; overflow: hidden; animation: slideDown 0.2s ease; }
 .shop-search-item { display: flex; align-items: center; gap: var(--space-12); padding: var(--space-12) var(--space-md); cursor: pointer; transition: background-color var(--transition-fast); border-bottom: 1px solid rgba(255,255,255,0.03); }
 .shop-search-item:last-child { border-bottom: none; }
-.shop-search-item:hover { background: rgba(255,255,255,0.08); }
+@media (hover: hover) { .shop-search-item:hover { background: rgba(255,255,255,0.08); } }
 
-.shop-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 20px; }
+.shop-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 16px; }
 .shop-card { background: var(--surface); border: 1px solid var(--border-color); border-radius: var(--radius-lg); padding: 20px; display: flex; flex-direction: column; align-items: center; text-align: center; gap: var(--space-12); transition: var(--transition-fast); box-shadow: 0 5px 15px rgba(0,0,0,0.2); position: relative; }
-.shop-card:hover { transform: translateY(-5px); box-shadow: var(--shadow-md); border-color: rgba(255,255,255,0.2); }
+@media (hover: hover) { .shop-card:hover { transform: translateY(-5px); box-shadow: var(--shadow-md); border-color: rgba(255,255,255,0.2); } }
 .shop-card.is-active { border-color: #5dade2; box-shadow: 0 0 20px rgba(93, 173, 226, 0.15); }
 
 .shop-preview-box { position: relative; width: 80px; height: 80px; margin-bottom: 10px; }
@@ -32,18 +32,18 @@
 .shop-item-author { font-size: 12px; color: var(--text-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; width: 100%; }
 
 .shop-buy-btn { width: 100%; padding: 10px; border-radius: var(--space-sm); border: none; font-weight: 700; cursor: pointer; transition: var(--transition-fast); display: flex; align-items: center; justify-content: center; gap: var(--space-sm); background: var(--accent-shop); color: #000; margin-top: var(--space-sm); }
-.shop-buy-btn:hover { background: #ffea00; transform: scale(1.05); box-shadow: 0 0 15px rgba(255, 215, 0, 0.4); }
+@media (hover: hover) { .shop-buy-btn:hover { background: #ffea00; transform: scale(1.05); box-shadow: 0 0 15px rgba(255, 215, 0, 0.4); } }
 .shop-buy-btn.bought { background: rgba(255,255,255,0.1); color: var(--text-muted); cursor: not-allowed; transform: none; box-shadow: none; }
 
 .shop-equip-btn { width: 100%; padding: 10px; border-radius: var(--space-sm); border: none; font-weight: 700; cursor: pointer; transition: var(--transition-fast); display: flex; align-items: center; justify-content: center; gap: var(--space-sm); background: #5dade2; color: #fff; margin-top: auto; }
-.shop-equip-btn:hover { background: #459bd5; }
+@media (hover: hover) { .shop-equip-btn:hover { background: #459bd5; } }
 .shop-equip-btn.equipped { background: rgba(255, 69, 58, 0.1); color: var(--danger); border: 1px solid rgba(255, 69, 58, 0.3); }
-.shop-equip-btn.equipped:hover { background: rgba(255, 69, 58, 0.2); }
+@media (hover: hover) { .shop-equip-btn.equipped:hover { background: rgba(255, 69, 58, 0.2); } }
 
 .shop-edit-btn { flex: 1; padding: var(--space-sm); border-radius: 6px; border: 1px solid rgba(255,255,255,0.2); background: transparent; color: var(--text-main); font-weight: 600; cursor: pointer; transition: var(--transition-fast); }
-.shop-edit-btn:hover { background: rgba(255,255,255,0.1); }
+@media (hover: hover) { .shop-edit-btn:hover { background: rgba(255,255,255,0.1); } }
 .shop-delete-btn { flex: 1; padding: var(--space-sm); border-radius: 6px; border: 1px solid rgba(255,69,58,0.3); background: rgba(255,69,58,0.1); color: var(--danger); font-weight: 600; cursor: pointer; transition: var(--transition-fast); }
-.shop-delete-btn:hover { background: rgba(255,69,58,0.2); }
+@media (hover: hover) { .shop-delete-btn:hover { background: rgba(255,69,58,0.2); } }
 
 .creator-studio { background: var(--surface); border: 1px solid var(--border-color); border-radius: var(--radius-lg); padding: var(--space-lg); gap: var(--space-lg); }
 .creator-studio.active { display: flex; flex-direction: column; }
@@ -54,8 +54,17 @@
 .css-editor { width: 100%; height: 150px; background: #0a0a0c; border: 1px solid var(--border-color); color: #5dade2; font-family: monospace; font-size: var(--font-sm); padding: var(--space-md); border-radius: var(--space-sm); resize: vertical; outline: none; transition: var(--transition-fast); }
 .css-editor:focus { border-color: rgba(255,255,255,0.4); }
 
-@media (max-width: 600px) {
+/* АДАПТАЦИЯ МАГАЗИНА ДЛЯ МОБИЛОК */
+@media (max-width: 768px) {
     .shop-header { flex-direction: column; align-items: stretch; gap: var(--space-md); }
     .shop-tabs { justify-content: center; }
-    .shop-balance { justify-content: center; }
+    .shop-tab-btn { flex: 1; justify-content: center; padding: 10px; font-size: 13px; }
+    .shop-balance { justify-content: center; width: 100%; }
+    .shop-grid { grid-template-columns: 1fr 1fr; /* 2 колонки на телефоне */ gap: 10px; }
+    .shop-card { padding: 12px; }
+    
+    /* Студия: ломаем флекс (в линию) в колонку */
+    .creator-studio > div[style*="display: flex"] { flex-direction: column !important; gap: 16px; }
+    .creator-preview-section { min-width: 0; padding: 20px; }
+    .creator-form-section { min-width: 0; }
 }

@@ -31,14 +31,15 @@ export const NotificationsView = {
             .notif-tabs { display: flex; gap: 16px; padding: 0 24px; border-bottom: 1px solid var(--border-color); margin-bottom: 24px; overflow-x: auto; scrollbar-width: none; }
             .notif-tabs::-webkit-scrollbar { display: none; }
             .n-tab-btn { background: transparent; border: none; color: var(--text-muted); font-size: 15px; font-weight: 600; padding: 12px 4px; cursor: pointer; position: relative; transition: color 0.2s; white-space: nowrap; }
-            .n-tab-btn:hover { color: #fff; }
+            @media (hover: hover) { .n-tab-btn:hover { color: #fff; } }
             .n-tab-btn.active { color: #fff; }
             .n-tab-btn.active::after { content: ''; position: absolute; bottom: -1px; left: 0; width: 100%; height: 3px; background: var(--accent-games); border-radius: 3px 3px 0 0; }
 
             .notifications-list { display: flex; flex-direction: column; gap: 12px; padding: 0 24px; }
             
             .notif-card { display: flex; gap: 16px; align-items: flex-start; }
-            .notif-card:hover .notif-card-inner { transform: translateY(-3px); border-color: rgba(255,255,255,0.2); box-shadow: var(--shadow-sm); }
+            @media (hover: hover) { .notif-card:hover .notif-card-inner { transform: translateY(-3px); border-color: rgba(255,255,255,0.2); box-shadow: var(--shadow-sm); } }
+            
             .notif-card-inner {
                 position: relative; background: var(--surface); border: 1px solid var(--border-color);
                 border-radius: 16px; padding: 16px; display: flex; gap: 16px; align-items: flex-start;
@@ -51,7 +52,7 @@ export const NotificationsView = {
             }
             
             .notif-avatar-wrapper { position: relative; width: 54px; height: 54px; flex-shrink: 0; text-decoration: none; cursor: pointer; transition: transform 0.2s; }
-            .notif-avatar-wrapper:hover { transform: scale(1.05); }
+            @media (hover: hover) { .notif-avatar-wrapper:hover { transform: scale(1.05); } }
             .notif-avatar { width: 100%; height: 100%; border-radius: 50%; object-fit: cover; box-shadow: 0 2px 8px rgba(0,0,0,0.3); }
             
             .notif-icon-badge { 
@@ -63,12 +64,12 @@ export const NotificationsView = {
             .notif-content { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 6px; justify-content: center; }
             .notif-text { font-size: 15px; color: #e0e0e0; line-height: 1.4; }
             .notif-text b { color: #fff; font-weight: 700; transition: color 0.2s; }
-            .notif-card:hover .notif-text b { color: var(--accent-games); }
+            @media (hover: hover) { .notif-card:hover .notif-text b { color: var(--accent-games); } }
             
             .notif-time { font-size: 13px; color: var(--text-muted); font-weight: 500; margin-top: 2px; }
             
             .notif-quote { 
-                margin-top: 6px; font-size: 15px; color: #b3b3b3; font-style: italic; 
+                margin-top: 6px; font-size: 14px; color: #b3b3b3; font-style: italic; 
                 border-left: 3px solid rgba(255,255,255,0.1); padding-left: 12px; 
                 display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; 
                 background: rgba(255,255,255,0.03); padding-top: 8px; padding-bottom: 8px; border-radius: 0 8px 8px 0;
@@ -78,6 +79,41 @@ export const NotificationsView = {
             .notif-empty i { font-size: 48px; margin-bottom: 16px; opacity: 0.5; color: var(--text-muted); }
             .notif-empty h3 { font-size: 20px; color: #fff; margin-bottom: 8px; }
             .notif-empty p { font-size: 15px; }
+
+            /* ======================================================= */
+            /* АДАПТАЦИЯ УВЕДОМЛЕНИЙ ДЛЯ ТЕЛЕФОНОВ                     */
+            /* ======================================================= */
+            @media (max-width: 768px) {
+                .notifications-container { padding: 12px 0; }
+                .notifications-header { padding: 0 12px; margin-bottom: 8px; }
+                .notifications-header h2 { font-size: 22px; } /* Уменьшили заголовок */
+                
+                .notif-tabs { padding: 0 12px; gap: 10px; margin-bottom: 16px; }
+                .n-tab-btn { font-size: 14px; padding: 10px 4px; }
+                
+                .notifications-list { padding: 0 12px; gap: 8px; } /* Уменьшили внешние отступы и зазор между карточками */
+                
+                .notif-card-inner {
+                    padding: 12px; /* Карточка стала тоньше */
+                    gap: 12px; /* Текст ближе к аватарке */
+                    border-radius: 12px;
+                }
+                
+                .notif-avatar-wrapper { 
+                    width: 44px; /* Уменьшили огромный аватар */
+                    height: 44px; 
+                }
+                
+                .notif-icon-badge {
+                    width: 22px; /* Уменьшили кружочек с иконкой */
+                    height: 22px;
+                    font-size: 10px;
+                    border-width: 2px;
+                }
+                
+                .notif-content { gap: 4px; } /* Уменьшили межстрочный интервал в тексте */
+                .notif-text { font-size: 14px; } /* Чуть уменьшили текст, чтобы не был как для слепых */
+            }
         </style>
     `,
     Manager: class {

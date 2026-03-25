@@ -22,9 +22,9 @@
 .fmp-time { font-size: 11px; color: rgba(255,255,255,0.5); font-variant-numeric: tabular-nums; width: 30px; text-align: center; pointer-events: none; }
 .fmp-buttons { display: flex; align-items: center; gap: var(--space-md); }
 .fmp-btn { background: transparent; border: none; color: #fff; font-size: var(--font-md); cursor: pointer; transition: var(--transition-fast); }
-.fmp-btn:hover { color: #44bd32; }
+@media (hover: hover) { .fmp-btn:hover { color: #44bd32; } }
 .fmp-btn.play { width: 36px; height: 36px; border-radius: 50%; background: #fff; color: #000; font-size: var(--font-sm); display: flex; align-items: center; justify-content: center; }
-.fmp-btn.play:hover { transform: scale(1.1); background: #e0e0e0; color: #000; }
+@media (hover: hover) { .fmp-btn.play:hover { transform: scale(1.1); background: #e0e0e0; color: #000; } }
 .fmp-btn.small { font-size: var(--font-sm); color: rgba(255,255,255,0.5); position: relative; }
 .fmp-btn.small.active { color: #44bd32; }
 .fmp-btn.small.active span { position: absolute; font-size: 8px; right: -6px; top: -4px; font-weight: 800; background: #222; border-radius: 50%; width: 12px; height: 12px; display: flex; align-items: center; justify-content: center; color: #fff; }
@@ -34,7 +34,7 @@
 #fmpVolumeIcon.muted { color: var(--danger); }
 .fmp-slider { -webkit-appearance: none; width: 100%; height: 4px; background: rgba(255,255,255,0.2); border-radius: 2px; outline: none; cursor: pointer; transition: height 0.2s; }
 .fmp-slider::-webkit-slider-thumb { -webkit-appearance: none; width: 0; height: 0; background: #fff; border-radius: 50%; transition: 0.2s; }
-.fmp-slider:hover::-webkit-slider-thumb { width: 10px; height: 10px; }
+@media (hover: hover) { .fmp-slider:hover::-webkit-slider-thumb { width: 10px; height: 10px; } }
 .fmp-slider.vol { width: 100px; height: 4px; }
 
 .floating-mini-player.docked-left .fmp-inner, .floating-mini-player.docked-right .fmp-inner { opacity: 0; pointer-events: none; }
@@ -44,3 +44,43 @@
 .floating-mini-player.docked-right .fmp-docked-overlay { justify-content: flex-start; padding-left: var(--space-12); }
 .fmp-docked-cover { position: absolute; top: 0; left: 0; width: 100%; height: 100%; object-fit: cover; opacity: 0.4; z-index: -1; pointer-events: none; }
 .docked-play { width: 44px; height: 44px; font-size: var(--font-md); box-shadow: 0 4px 10px rgba(0,0,0,0.5); }
+
+/* ======================================================= */
+/* АДАПТАЦИЯ ПЛЕЕРА ДЛЯ МОБИЛОК (ВОЗВРАЩАЕМ DRAG & DROP)   */
+/* ======================================================= */
+@media (max-width: 768px) {
+    .floating-mini-player {
+        /* Уменьшаем ширину, чтобы он влезал в мобильный экран и его можно было свайпнуть */
+        width: 320px; 
+        max-width: calc(100vw - 32px);
+        border-radius: 16px;
+        /* Теперь JS снова берет на себя управление позицией через transform, я удалил блокировки */
+    }
+    
+    .floating-mini-player.hidden {
+        opacity: 0;
+        pointer-events: none;
+    }
+
+    .fmp-drag-handle { 
+        display: flex; /* Возвращаем ручку! */
+        padding: 8px 0; /* Делаем зону захвата чуть больше для удобства пальца */
+    }
+    
+    .fmp-inner {
+        padding: 0 12px 12px 12px;
+        gap: 8px;
+    }
+
+    .fmp-cover {
+        width: 40px;
+        height: 40px;
+    }
+
+    .fmp-buttons { gap: 10px; }
+    .fmp-btn.play { width: 32px; height: 32px; font-size: 12px; }
+    
+    .fmp-volume-row { 
+        display: none; /* Убираем полоску громкости, на телефоне громкость меняется кнопками на корпусе */
+    }
+}

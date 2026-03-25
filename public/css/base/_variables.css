@@ -31,7 +31,7 @@
     /* --- ТИПОГРАФИКА (FONTS) --- */
     --font-xs: 12px;
     --font-sm: 14px;
-    --font-base: 15px; /* Твой любимый размер для текста постов */
+    --font-base: 15px;
     --font-md: 16px;
     --font-lg: 20px;
     --font-xl: 24px;
@@ -51,4 +51,23 @@
     
     --transition-fast: 0.2s ease;
     --transition-smooth: 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+}
+
+/* АДАПТАЦИЯ КОРНЕВЫХ ПЕРЕМЕННЫХ ДЛЯ МОБИЛОК */
+@media (max-width: 768px) {
+    :root {
+        /* Уменьшаем отступы */
+        --space-lg: 16px;
+        --space-xl: 20px;
+        --space-xxl: 32px;
+
+        /* Уменьшаем крупные шрифты */
+        --font-lg: 18px;
+        --font-xl: 20px;
+        --font-xxl: 26px;
+
+        /* Уменьшаем скругления, чтобы не съедали место */
+        --radius-lg: 12px;
+        --radius-xl: 16px;
+    }
 }
