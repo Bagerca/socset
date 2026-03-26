@@ -101,9 +101,11 @@ export class GlobalPlayer {
             this.timeCurrent.textContent = this.formatTime(this.progressBar.value);
             this.updateSliderBg(this.progressBar);
         });
+        
         this.progressBar.addEventListener('change', () => {
             this.isDragging = false;
-            this.audio.currentTime = this.progressBar.value;
+            // ИСПРАВЛЕНИЕ: Оборачиваем value в parseFloat для гарантии типа number
+            this.audio.currentTime = parseFloat(this.progressBar.value);
         });
 
         this.volumeBar.addEventListener('input', (e) => { this.audio.volume = e.target.value / 100; });
@@ -298,7 +300,6 @@ export class GlobalPlayer {
         document.dispatchEvent(new CustomEvent('cycle:play-state', { detail: isPlaying }));
         this.syncPostPlayButtons();
 
-        // Отправка состояния на Радар Админа
         if (window.socket) {
             const track = this.playlist[this.currentIndex];
             window.socket.emit('music_state', {

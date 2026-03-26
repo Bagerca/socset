@@ -3,8 +3,8 @@
 .profile-background-layer { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background-size: cover; background-position: center; background-attachment: fixed; z-index: -1; opacity: 0.3; pointer-events: none; transition: background 0.5s ease; }
 .profile-container { background: rgba(20, 20, 22, 0.95); backdrop-filter: blur(10px); border: 1px solid var(--border-color); border-radius: var(--radius-xl); box-shadow: var(--shadow-md); overflow: hidden; position: relative; }
 
-/* ИСПРАВЛЕННЫЙ БАННЕР: Теперь он всегда сохраняет пропорции 3:1 */
-.profile-banner { position: relative; aspect-ratio: 3 / 1; max-height: 240px; background-color: #333; }
+/* ИСПРАВЛЕННЫЙ БАННЕР: Добавлен width: 100%, чтобы он не сжимался справа */
+.profile-banner { position: relative; width: 100%; aspect-ratio: 3 / 1; max-height: 240px; background-color: #333; }
 .profile-banner img { width: 100%; height: 100%; object-fit: cover; display: block; }
 
 .profile-header { display: flex; justify-content: space-between; align-items: flex-end; padding: 0 var(--space-lg); margin-top: -60px; position: relative; z-index: 2; flex-wrap: wrap; gap: 16px; }

@@ -2,7 +2,7 @@
 
 .post { 
     background: var(--surface); border-radius: var(--radius-xl); 
-    padding: 20px var(--space-lg) 10px var(--space-lg); 
+    padding: 20px var(--space-lg) 4px var(--space-lg); /* Уменьшен отступ снизу с 10px до 4px */
     border: 1px solid var(--border-color); box-shadow: var(--shadow-md);
     display: flex; flex-direction: column; gap: var(--space-sm); 
     animation: slideDownPost 0.4s ease; position: relative; transition: opacity 0.3s;
@@ -29,7 +29,7 @@
 .post-frame-content { width: 100%; height: 100%; border-radius: 50%; box-sizing: border-box; background-size: cover; background-position: center; background-repeat: no-repeat; }
 
 .post-content { flex: 1; min-width: 0; }
-.post-header { display: flex; align-items: center; gap: var(--space-sm); margin-bottom: var(--space-sm); flex-wrap: wrap; }
+.post-header { display: flex; align-items: center; gap: var(--space-sm); margin-bottom: var(--space-sm); flex-wrap: wrap; padding-right: 40px; } /* Добавлен padding-right, чтобы текст не залезал под три точки */
 .post-name { font-weight: 600; font-size: var(--font-md); line-height: 1; }
 .post-username, .post-time { color: var(--text-muted); font-size: var(--font-sm); line-height: 1; }
 
@@ -63,7 +63,7 @@
 
 /* Исправлен блок кнопок поста */
 .post-actions { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; width: 100%; margin-top: var(--space-sm); }
-.action-btn { display: flex; align-items: center; justify-content: center; gap: var(--space-sm); cursor: pointer; transition: var(--transition-fast); user-select: none; font-size: var(--font-sm); color: var(--text-muted); padding: var(--space-sm) 10px; border-radius: 20px; }
+.action-btn { display: flex; align-items: center; justify-content: center; gap: var(--space-sm); cursor: pointer; transition: var(--transition-fast); user-select: none; font-size: var(--font-sm); color: var(--text-muted); padding: 6px 10px; border-radius: 20px; } /* Уменьшили высоту кнопок */
 @media (hover: hover) { .action-btn:hover { color: var(--text-main); background: rgba(255, 255, 255, 0.05); } }
 .action-btn.liked { color: var(--danger); }
 .action-btn.liked i { font-weight: 900; }
@@ -79,12 +79,12 @@ a.post-avatar-wrapper, a.post-name-link, a.post-username-link { text-decoration:
 
 /* АДАПТАЦИЯ ПОСТА ДЛЯ МОБИЛОК */
 @media (max-width: 768px) {
-    .post { padding: 16px 12px 10px 12px; }
+    .post { padding: 16px 12px 4px 12px; } /* Уменьшили нижний отступ на телефонах */
     .post-main-body { gap: 10px; }
     .post-avatar-wrapper { width: 40px; height: 40px; }
     .post-name { font-size: var(--font-base); }
     .post-text { font-size: 15px; }
-    .action-btn { font-size: 13px; padding: 6px 8px; }
+    .action-btn { font-size: 13px; padding: 4px 8px; } /* Сделали кнопки еще компактнее */
     .action-btn span { display: inline-block; } /* Оставляем цифры/текст видимыми, но компактными */
     .repost-btn span { display: none; } /* Слово "Репост" прячем на телефоне, оставляем только иконку */
     .options-menu { right: 0; left: auto; max-width: calc(100vw - 24px); }

@@ -9,7 +9,6 @@ import { Router } from './Router.js';
 import { GlobalPlayer } from './components/GlobalPlayer.js';
 import { Toast } from './utils/Toast.js';
 
-// --- ИМПОРТЫ СТРАНИЦ (VIEWS) ---
 import { NotificationsView } from './views/NotificationsView.js';
 import { LoginView } from './views/LoginView.js';
 import { FeedView } from './views/FeedView.js';
@@ -20,7 +19,7 @@ import { MusicView } from './views/MusicView.js';
 import { GamesView } from './views/GamesView.js';
 import { ShopView } from './views/ShopView.js';
 import { AdminView } from './views/AdminView.js';
-import { MessagesView } from './views/MessagesView.js'; // <-- 1. ИМПОРТИРУЕМ VIEW ДЛЯ МЕССЕНДЖЕРА
+import { MessagesView } from './views/MessagesView.js';
 
 import { escapeHTML } from './utils/utils.js';
 import { NotificationsAPI } from './api/NotificationsAPI.js';
@@ -87,6 +86,41 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
 
     window.socket.emit('register', authStore.user.username);
+    
+    // Переменная, хранящая ID открытого прямо сейчас чата
+    window.cycleActiveChatId = null;
+
+    // --- СОБЫТИЯ МЕССЕНДЖЕРА ---
+    window.socket.on('new_message', (msg) => {
+        const isCurrentChat = window.location.hash.includes('/messages') && window.cycleActiveChatId === msg.chat_id;
+        
+        if (!isCurrentChat) {
+            let preview = msg.content;
+            if (preview.startsWith('[IMG:')) preview = '🖼 Фотография';
+            else if (preview.startsWith('[AUDIO:')) preview = '🎤 Голосовое сообщение';
+            else preview = preview.substring(0, 30) + (preview.length > 30 ? '...' : '');
+
+            Toast.show(`<b>${escapeHTML(msg.authorName || msg.sender_username)}</b>: ${escapeHTML(preview)}`, 'info');
+            
+            const msgIcon = document.getElementById('msgIcon');
+            if (msgIcon) {
+                msgIcon.classList.add('has-unread');
+                msgIcon.setAttribute('data-count', ''); // Просто точка без числа
+            }
+            
+            document.dispatchEvent(new CustomEvent('cycle:chats_updated'));
+        }
+    });
+
+    window.socket.on('chat_invited', (data) => {
+        Toast.show(`Вас пригласили в чат: <b>${escapeHTML(data.name || 'Личная переписка')}</b>`, 'info');
+        const msgIcon = document.getElementById('msgIcon');
+        if (msgIcon) {
+            msgIcon.classList.add('has-unread');
+            msgIcon.setAttribute('data-count', '');
+        }
+        document.dispatchEvent(new CustomEvent('cycle:chats_updated'));
+    });
 
     window.socket.on('new_notification', (notif) => {
         const bellIcon = document.getElementById('bellIcon');
@@ -132,12 +166,21 @@ document.addEventListener('DOMContentLoaded', async () => {
                 bell.setAttribute('data-count', '0');
             }
         }
+        if (window.location.hash.includes('/messages')) {
+            const msgIcon = document.getElementById('msgIcon');
+            if (msgIcon) msgIcon.classList.remove('has-unread');
+        }
     });
 
     document.addEventListener('cycle:post_updated', (e) => {
-        const postData = e.detail;
-        const postElements = document.querySelectorAll(`.post[data-id="${postData.id}"]`);
+        const postData = e.detail.post || e.detail;
+        const searchId = e.detail.oldId || postData.id;
+        
+        const postElements = document.querySelectorAll(`.post[data-id="${searchId}"]`);
         postElements.forEach(el => {
+            if (e.detail.oldId) {
+                el.dataset.id = postData.id; 
+            }
             if (el.__component && typeof el.__component.updateUI === 'function') {
                 el.__component.updateUI(postData);
             }
@@ -172,7 +215,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         '/shop': ShopView,
         '/admin': AdminView,
         '/notifications': NotificationsView,
-        '/messages': MessagesView // <-- 2. ДОБАВЛЯЕМ РОУТ ДЛЯ МЕССЕНДЖЕРА
+        '/messages': MessagesView
     };
 
     const router = new Router(routes, stores);

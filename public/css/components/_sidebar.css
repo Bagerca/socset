@@ -11,13 +11,13 @@
 
 .nav-links { display: flex; flex-direction: column; gap: var(--space-lg); width: 100%; align-items: center; }
 
-.nav-item { width: var(--space-xxl); height: var(--space-xxl); border-radius: var(--radius-pill); display: flex; justify-content: center; align-items: center; font-size: var(--font-lg); color: var(--text-muted); cursor: pointer; transition: 0.3s cubic-bezier(0.4, 0, 0.2, 1); text-decoration: none; }
+.nav-item { width: var(--space-xxl); height: var(--space-xxl); border-radius: var(--radius-pill); display: flex; justify-content: center; align-items: center; font-size: var(--font-lg); color: var(--text-muted); cursor: pointer; transition: 0.3s cubic-bezier(0.4, 0, 0.2, 1); text-decoration: none; position: relative; }
 @media (hover: hover) { .nav-item:hover { color: var(--text-main); transform: translateY(-2px); } }
 .nav-item.active { background: var(--accent-bg); color: var(--accent-icon); box-shadow: 0 8px 16px rgba(255, 255, 255, 0.1); }
 #burgerMenuBtn.active { color: var(--text-main); background: rgba(255, 255, 255, 0.1); box-shadow: none; }
 
-#bellIcon { position: relative; }
-#bellIcon.has-unread::after {
+/* КРАСНЫЕ ТОЧКИ УВЕДОМЛЕНИЙ (И Мессенджер, и Колокольчик) */
+#bellIcon.has-unread::after, #msgIcon.has-unread::after {
     content: attr(data-count); 
     position: absolute; 
     top: 6px; 
@@ -40,87 +40,16 @@
 .sub-sidebar { position: absolute; right: 88px; left: auto; top: 50%; transform: translateY(-50%) translateX(20px) scale(0.95); opacity: 0; pointer-events: none; padding: var(--space-lg) 0; gap: 0; transition: all var(--transition-smooth); }
 .sub-sidebar.active { transform: translateY(-50%) translateX(0) scale(1); opacity: 1; pointer-events: auto; }
 
-/* ======================================================= */
-/* АДАПТАЦИЯ БОКОВОГО МЕНЮ (FLOATING CAPSULE ДЛЯ ТЕЛЕФОНОВ) */
-/* ======================================================= */
+/* АДАПТАЦИЯ БОКОВОГО МЕНЮ (МОБИЛКИ) */
 @media (max-width: 768px) {
-    .sidebar-wrapper { 
-        position: fixed; 
-        bottom: 16px; 
-        left: 16px; 
-        right: 16px; 
-        top: auto; 
-        width: auto; 
-        z-index: 1000;
-    }
-    
-    /* Главная нижняя панель */
-    .sidebar.glass-pill { 
-        height: 60px; 
-        flex-direction: row; 
-        padding: 0 8px; 
-        gap: 0; 
-        justify-content: space-between;
-        border-radius: 30px; 
-        border: 1px solid var(--border-color);
-        background: rgba(17, 17, 17, 0.85); 
-        backdrop-filter: blur(20px);
-        box-shadow: 0 10px 30px rgba(0,0,0,0.5);
-    }
-    
+    .sidebar-wrapper { position: fixed; bottom: 16px; left: 16px; right: 16px; top: auto; width: auto; z-index: 1000; }
+    .sidebar.glass-pill { height: 60px; flex-direction: row; padding: 0 8px; gap: 0; justify-content: space-between; border-radius: 30px; border: 1px solid var(--border-color); background: rgba(17, 17, 17, 0.85); backdrop-filter: blur(20px); box-shadow: 0 10px 30px rgba(0,0,0,0.5); }
     .logo-icon { display: none; }
-    
-    .sidebar.glass-pill > .nav-links { 
-        flex-direction: row; 
-        justify-content: space-around; 
-        gap: 0; 
-        width: 100%;
-    }
-    
-    .nav-item {
-        width: 42px; 
-        height: 42px;
-        font-size: 17px; 
-    }
-
+    .sidebar.glass-pill > .nav-links { flex-direction: row; justify-content: space-around; gap: 0; width: 100%; }
+    .nav-item { width: 42px; height: 42px; font-size: 17px; }
     .nav-item:hover { transform: none; }
-
-    /* ======================================================= */
-    /* ВЕРХНЯЯ "ТАБЛЕТКА" (УВЕЛИЧЕННЫЙ ВЕС СЕЛЕКТОРА)          */
-    /* ======================================================= */
-    .sidebar.glass-pill.sub-sidebar { 
-        left: 50%; 
-        right: auto; 
-        top: auto; 
-        bottom: 74px; 
-        transform: translateX(-50%) translateY(15px) scale(0.95); 
-        flex-direction: row; 
-        
-        /* ПЕРЕБИВАЕМ 100% ШИРИНУ: */
-        width: max-content; 
-        
-        height: auto; 
-        padding: 8px 16px; 
-        border-radius: 30px;
-        background: rgba(17, 17, 17, 0.85);
-        backdrop-filter: blur(20px);
-        border: 1px solid var(--border-color);
-        box-shadow: 0 10px 25px rgba(0,0,0,0.4);
-    }
-    
-    .sidebar.glass-pill.sub-sidebar.active { 
-        transform: translateX(-50%) translateY(0) scale(1); 
-    }
-    
-    .sidebar.glass-pill.sub-sidebar .nav-links { 
-        gap: 16px; 
-        justify-content: center; 
-        width: max-content; /* Контейнер кнопок тоже сжимаем */
-    }
-    
-    .sidebar.glass-pill.sub-sidebar .nav-item {
-        width: 38px;
-        height: 38px;
-        font-size: 15px;
-    }
+    .sidebar.glass-pill.sub-sidebar { left: 50%; right: auto; top: auto; bottom: 74px; transform: translateX(-50%) translateY(15px) scale(0.95); flex-direction: row; width: max-content; height: auto; padding: 8px 16px; border-radius: 30px; background: rgba(17, 17, 17, 0.85); backdrop-filter: blur(20px); border: 1px solid var(--border-color); box-shadow: 0 10px 25px rgba(0,0,0,0.4); }
+    .sidebar.glass-pill.sub-sidebar.active { transform: translateX(-50%) translateY(0) scale(1); }
+    .sidebar.glass-pill.sub-sidebar .nav-links { gap: 16px; justify-content: center; width: max-content; }
+    .sidebar.glass-pill.sub-sidebar .nav-item { width: 38px; height: 38px; font-size: 15px; }
 }

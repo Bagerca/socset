@@ -26,7 +26,6 @@ export class PostsStore {
                 const index = this.posts.findIndex(p => p.id === updatedPost.id);
                 if (index !== -1) {
                     this.posts[index] = this._personalize(updatedPost);
-                    // Вызываем точечное обновление конкретного поста!
                     document.dispatchEvent(new CustomEvent('cycle:post_updated', { detail: this.posts[index] }));
                 }
             });
@@ -65,7 +64,10 @@ export class PostsStore {
                         const index = this.posts.findIndex(p => p.id === task.tempId);
                         if (index !== -1) {
                             this.posts[index] = this._personalize(data.post);
-                            document.dispatchEvent(new CustomEvent('cycle:post_updated', { detail: this.posts[index] }));
+                            // Передаем oldId, чтобы app.js смог найти старый элемент и обновить его ID
+                            document.dispatchEvent(new CustomEvent('cycle:post_updated', { 
+                                detail: { oldId: task.tempId, post: this.posts[index] } 
+                            }));
                         }
                     }
                 } else if (task.action === 'addComment') {
@@ -161,7 +163,7 @@ export class PostsStore {
         const payload = { content, pollData, attachment, communityId };
         const optimisticPost = this.createOptimisticPostObj(tempId, payload);
         this.posts.unshift(this._personalize(optimisticPost));
-        document.dispatchEvent(new CustomEvent('cycle:posts_updated')); // Новый пост все же рендерит ленту, это ок
+        document.dispatchEvent(new CustomEvent('cycle:posts_updated')); // Новый пост все же рендерит ленту
 
         const task = { action: 'addPost', payload: { content, poll: optimisticPost.poll, attachment, communityId }, tempId, timestamp: Date.now() };
         PostsAPI.createPost(task.payload).then(data => {
@@ -169,7 +171,10 @@ export class PostsStore {
                 const index = this.posts.findIndex(p => p.id === tempId);
                 if (index !== -1) {
                     this.posts[index] = this._personalize(data.post);
-                    document.dispatchEvent(new CustomEvent('cycle:post_updated', { detail: this.posts[index] }));
+                    // Передаем oldId, чтобы найти старый HTML-элемент и обновить его
+                    document.dispatchEvent(new CustomEvent('cycle:post_updated', { 
+                        detail: { oldId: tempId, post: this.posts[index] } 
+                    }));
                 }
             }
         }).catch(() => { this.saveToQueue(task); });
@@ -210,7 +215,6 @@ export class PostsStore {
         const post = this.posts.find(p => p.id === postId);
         if (!post) return;
         
-        // Оптимистичное обновление
         post.isLiked ? (post.likes--, post.isLiked = false) : (post.likes++, post.isLiked = true);
         document.dispatchEvent(new CustomEvent('cycle:post_updated', { detail: post }));
         

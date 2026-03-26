@@ -26,7 +26,7 @@ const MIME_TYPES = {
     '.html': 'text/html', '.css': 'text/css', '.js': 'application/javascript',
     '.json': 'application/json', '.png': 'image/png', '.jpg': 'image/jpeg',
     '.jpeg': 'image/jpeg', '.gif': 'image/gif', '.svg': 'image/svg+xml',
-    '.mp3': 'audio/mpeg', '.ico': 'image/x-icon'
+    '.mp3': 'audio/mpeg', '.ico': 'image/x-icon', '.m4a': 'audio/mp4'
 };
 
 function enhanceResponse(res) {
@@ -58,16 +58,40 @@ function runMulter(req, res) {
     });
 }
 
-async function serveStaticFile(res, filePath) {
+// Поддержка Range (Перемотка аудио)
+async function serveStaticFile(req, res, filePath) {
     const ext = path.extname(filePath).toLowerCase();
     const contentType = MIME_TYPES[ext] || 'application/octet-stream';
     try {
         const stat = await fs.promises.stat(filePath);
         if (stat.isDirectory()) {
-            return serveStaticFile(res, path.join(filePath, 'index.html'));
+            return serveStaticFile(req, res, path.join(filePath, 'index.html'));
         }
-        if (!res.headersSent) {
-            res.writeHead(200, { 'Content-Type': contentType });
+
+        const fileSize = stat.size;
+        const range = req.headers.range;
+
+        if (range) {
+            const parts = range.replace(/bytes=/, "").split("-");
+            const start = parseInt(parts[0], 10);
+            const end = parts[1] ? parseInt(parts[1], 10) : fileSize - 1;
+            const chunksize = (end - start) + 1;
+            const fileStream = fs.createReadStream(filePath, { start, end });
+            const head = {
+                'Content-Range': `bytes ${start}-${end}/${fileSize}`,
+                'Accept-Ranges': 'bytes',
+                'Content-Length': chunksize,
+                'Content-Type': contentType,
+            };
+            res.writeHead(206, head);
+            fileStream.pipe(res);
+        } else {
+            const head = {
+                'Content-Length': fileSize,
+                'Content-Type': contentType,
+                'Accept-Ranges': 'bytes'
+            };
+            res.writeHead(200, head);
             fs.createReadStream(filePath).pipe(res);
         }
     } catch (error) {
@@ -148,6 +172,8 @@ async function requestHandler(req, res, context) {
 
             // -- MESSENGER --
             if (pathname === '/api/messages/chats' && method === 'GET') return authenticateToken(req, res, () => MessagesController.getChats(req, res));
+            if (pathname === '/api/messages/friends' && method === 'GET') return authenticateToken(req, res, () => MessagesController.getFriends(req, res));
+            if (pathname === '/api/messages/create' && method === 'POST') return authenticateToken(req, res, () => MessagesController.createChat(req, res, context.io));
             if (pathname === '/api/messages/send' && method === 'POST') return authenticateToken(req, res, () => MessagesController.sendMessage(req, res, context.io));
             if (pathname === '/api/messages/read' && method === 'POST') return authenticateToken(req, res, () => MessagesController.markAsRead(req, res, context.io));
             if (pathname === '/api/messages/typing' && method === 'POST') return authenticateToken(req, res, () => MessagesController.typing(req, res, context.io));
@@ -156,6 +182,12 @@ async function requestHandler(req, res, context) {
             if (pathname === '/api/messages/edit' && method === 'POST') return authenticateToken(req, res, () => MessagesController.editMessage(req, res, context.io));
             if (pathname === '/api/messages/clear' && method === 'POST') return authenticateToken(req, res, () => MessagesController.clearHistory(req, res, context.io));
             
+            const msgDetailsMatch = pathname.match(/^\/api\/messages\/details\/([^\/]+)$/);
+            if (msgDetailsMatch && method === 'GET') {
+                req.params.chatId = msgDetailsMatch[1];
+                return authenticateToken(req, res, () => MessagesController.getChatDetails(req, res));
+            }
+
             const msgMatch = pathname.match(/^\/api\/messages\/([^\/]+)$/);
             if (msgMatch && method === 'GET') {
                 req.params.chatId = msgMatch[1];
@@ -214,7 +246,6 @@ async function requestHandler(req, res, context) {
         
         let filePath = '';
         if (pathname.startsWith('/uploads/')) {
-            // ИСПРАВЛЕНО ДЛЯ WINDOWS: заменяем либо \uploads\ либо /uploads/
             filePath = path.join(UPLOADS_DIR, safeSuffix.replace(/^[\/\\]?uploads[\/\\]/, ''));
         } else if (pathname !== '/') {
             filePath = path.join(PUBLIC_DIR, safeSuffix);
@@ -223,11 +254,11 @@ async function requestHandler(req, res, context) {
         if (filePath) {
             try {
                 await fs.promises.access(filePath);
-                return serveStaticFile(res, filePath);
+                return serveStaticFile(req, res, filePath); 
             } catch (e) {}
         }
 
-        return serveStaticFile(res, path.join(PUBLIC_DIR, 'index.html'));
+        return serveStaticFile(req, res, path.join(PUBLIC_DIR, 'index.html')); 
 
     } catch (error) {
         console.error("Router Error:", error);

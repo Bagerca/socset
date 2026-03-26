@@ -66,6 +66,14 @@ export class PostComponent {
         if (toggleVisBtn) {
             toggleVisBtn.innerHTML = `<i class="fa-solid ${isPrivate ? 'fa-eye' : 'fa-eye-slash'}"></i><span>${isPrivate ? 'Сделать публичным' : 'Скрыть'}</span>`;
         }
+
+        // 6. ОБНОВЛЕНИЕ ВРЕМЕНИ И СНЯТИЕ ИКОНКИ ЧАСИКОВ
+        const timeEl = this.element.querySelector('.post-time');
+        if (timeEl) {
+            const formattedTime = formatTime(this.post.timestamp);
+            const pendingIcon = this.post.isPending ? `<i class="fa-regular fa-clock" title="Отправка..." style="color: var(--text-muted); font-size: 13px; margin-left: 6px;"></i>` : '';
+            timeEl.innerHTML = `· ${formattedTime} ${pendingIcon}`;
+        }
     }
 
     render() {
@@ -158,14 +166,12 @@ export class PostComponent {
     _renderComments() {
         const list = this.element.querySelector('.comments-list');
         if (list) {
-            // Запоминаем количество комментов и позицию скролла
             const prevCount = list.children.length;
             const newCount = this.post.comments ? this.post.comments.length : 0;
             const currentScroll = list.scrollTop;
 
             list.innerHTML = this.post.comments ? this.post.comments.map(c => this._createCommentHTML(c)).join('') : '';
             
-            // Если добавился новый коммент — прокручиваем вниз. Иначе оставляем скролл как был (чтобы не мешать читать)
             if (newCount > prevCount) {
                 list.scrollTop = list.scrollHeight; 
             } else {
@@ -335,7 +341,6 @@ export class PostComponent {
             if (activeMenu && !target.closest('.options-menu')) activeMenu.classList.remove('active');
         }
 
-        // Мы убрали логику ручного изменения UI (теперь этим занимается updateUI)
         if (target.closest('.like-btn')) { this.stores.posts.toggleLike(this.post.id); return; }
         if (target.closest('.delete-post-btn')) { this.handleDelete(); return; }
         if (target.closest('.toggle-visibility-btn')) { this.stores.posts.togglePostVisibility(this.post.id); return; }
