@@ -24,7 +24,6 @@ import { MessagesView } from './views/MessagesView.js';
 import { escapeHTML } from './utils/utils.js';
 import { NotificationsAPI } from './api/NotificationsAPI.js';
 
-
 class NativeSocket {
     constructor(url) {
         this.url = url;
@@ -46,6 +45,12 @@ class NativeSocket {
     on(event, callback) {
         if (!this.listeners[event]) this.listeners[event] = [];
         this.listeners[event].push(callback);
+    }
+    // ДОБАВЛЕН МЕТОД ОТПИСКИ ОТ СОБЫТИЙ (ДЛЯ АДМИНКИ)
+    off(event, callback) {
+        if (this.listeners[event]) {
+            this.listeners[event] = this.listeners[event].filter(cb => cb !== callback);
+        }
     }
     emit(event, payload) {
         if (this.ws.readyState === WebSocket.OPEN) {

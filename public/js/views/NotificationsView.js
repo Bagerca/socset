@@ -8,15 +8,12 @@ export const NotificationsView = {
             <div class="notifications-header">
                 <h2><i class="fa-regular fa-bell"></i> Уведомления</h2>
             </div>
-            
-            <!-- Вкладки фильтрации как в Twitter/VK -->
             <div class="notif-tabs" id="notifTabs">
                 <button class="n-tab-btn active" data-filter="all">Все</button>
                 <button class="n-tab-btn" data-filter="interactions">Реакции</button>
                 <button class="n-tab-btn" data-filter="comments">Комментарии и стена</button>
                 <button class="n-tab-btn" data-filter="other">Прочее</button>
             </div>
-
             <div id="notifList" class="notifications-list">
                 <div style="text-align:center; color:var(--text-muted); padding:40px;">Загрузка...</div>
             </div>
@@ -36,7 +33,6 @@ export const NotificationsView = {
             .n-tab-btn.active::after { content: ''; position: absolute; bottom: -1px; left: 0; width: 100%; height: 3px; background: var(--accent-games); border-radius: 3px 3px 0 0; }
 
             .notifications-list { display: flex; flex-direction: column; gap: 12px; padding: 0 24px; }
-            
             .notif-card { display: flex; gap: 16px; align-items: flex-start; }
             @media (hover: hover) { .notif-card:hover .notif-card-inner { transform: translateY(-3px); border-color: rgba(255,255,255,0.2); box-shadow: var(--shadow-sm); } }
             
@@ -45,7 +41,6 @@ export const NotificationsView = {
                 border-radius: 16px; padding: 16px; display: flex; gap: 16px; align-items: flex-start;
                 text-decoration: none; color: inherit; transition: transform 0.2s, border-color 0.2s, box-shadow 0.2s; width:100%;
             }
-
             .notif-card.unread .notif-card-inner { 
                 background: linear-gradient(145deg, rgba(124, 58, 237, 0.08) 0%, var(--surface) 100%); 
                 border-left: 4px solid var(--accent-games); 
@@ -65,7 +60,6 @@ export const NotificationsView = {
             .notif-text { font-size: 15px; color: #e0e0e0; line-height: 1.4; }
             .notif-text b { color: #fff; font-weight: 700; transition: color 0.2s; }
             @media (hover: hover) { .notif-card:hover .notif-text b { color: var(--accent-games); } }
-            
             .notif-time { font-size: 13px; color: var(--text-muted); font-weight: 500; margin-top: 2px; }
             
             .notif-quote { 
@@ -80,39 +74,18 @@ export const NotificationsView = {
             .notif-empty h3 { font-size: 20px; color: #fff; margin-bottom: 8px; }
             .notif-empty p { font-size: 15px; }
 
-            /* ======================================================= */
-            /* АДАПТАЦИЯ УВЕДОМЛЕНИЙ ДЛЯ ТЕЛЕФОНОВ                     */
-            /* ======================================================= */
             @media (max-width: 768px) {
                 .notifications-container { padding: 12px 0; }
                 .notifications-header { padding: 0 12px; margin-bottom: 8px; }
-                .notifications-header h2 { font-size: 22px; } /* Уменьшили заголовок */
-                
+                .notifications-header h2 { font-size: 22px; } 
                 .notif-tabs { padding: 0 12px; gap: 10px; margin-bottom: 16px; }
                 .n-tab-btn { font-size: 14px; padding: 10px 4px; }
-                
-                .notifications-list { padding: 0 12px; gap: 8px; } /* Уменьшили внешние отступы и зазор между карточками */
-                
-                .notif-card-inner {
-                    padding: 12px; /* Карточка стала тоньше */
-                    gap: 12px; /* Текст ближе к аватарке */
-                    border-radius: 12px;
-                }
-                
-                .notif-avatar-wrapper { 
-                    width: 44px; /* Уменьшили огромный аватар */
-                    height: 44px; 
-                }
-                
-                .notif-icon-badge {
-                    width: 22px; /* Уменьшили кружочек с иконкой */
-                    height: 22px;
-                    font-size: 10px;
-                    border-width: 2px;
-                }
-                
-                .notif-content { gap: 4px; } /* Уменьшили межстрочный интервал в тексте */
-                .notif-text { font-size: 14px; } /* Чуть уменьшили текст, чтобы не был как для слепых */
+                .notifications-list { padding: 0 12px; gap: 8px; } 
+                .notif-card-inner { padding: 12px; gap: 12px; border-radius: 12px; }
+                .notif-avatar-wrapper { width: 44px; height: 44px; }
+                .notif-icon-badge { width: 22px; height: 22px; font-size: 10px; border-width: 2px; }
+                .notif-content { gap: 4px; }
+                .notif-text { font-size: 14px; }
             }
         </style>
     `,
@@ -127,26 +100,20 @@ export const NotificationsView = {
             document.addEventListener('cycle:notifications_updated', () => this.init(), { signal: this.abortController.signal });
         }
 
-        destroy() {
-            this.abortController.abort();
-        }
+        destroy() { this.abortController.abort(); }
 
         async init() {
             this.listEl = document.getElementById('notifList');
             this.tabsEl = document.getElementById('notifTabs');
             if (!this.listEl) return;
 
-            // Загружаем все уведомления и сохраняем их локально
             this.allNotifications = await NotificationsAPI.getAll();
             await NotificationsAPI.markAsRead();
 
             const bell = document.getElementById('bellIcon');
-            if (bell) {
-                bell.classList.remove('has-unread');
-                bell.setAttribute('data-count', '0');
-            }
+            if (bell) { bell.classList.remove('has-unread'); bell.setAttribute('data-count', '0'); }
 
-            this.filterAndRender(); // Рендерим отфильтрованный список
+            this.filterAndRender(); 
             this.bindTabEvents();
         }
 
@@ -167,55 +134,22 @@ export const NotificationsView = {
             let filtered = this.allNotifications;
             const filterType = this.activeFilter;
 
-            if (filterType === 'interactions') {
-                filtered = this.allNotifications.filter(n => n.type === 'like');
-            } else if (filterType === 'comments') {
-                filtered = this.allNotifications.filter(n => n.type === 'comment' || n.type === 'wall');
-            } else if (filterType === 'other') {
-                filtered = this.allNotifications.filter(n => n.type === 'follow' || n.type === 'gift');
-            }
+            if (filterType === 'interactions') filtered = this.allNotifications.filter(n => n.type === 'like');
+            else if (filterType === 'comments') filtered = this.allNotifications.filter(n => n.type === 'comment' || n.type === 'wall');
+            else if (filterType === 'other') filtered = this.allNotifications.filter(n => n.type === 'follow' || n.type === 'gift');
 
             if (filtered.length === 0) {
-                this.listEl.innerHTML = `
-                    <div class="notif-empty">
-                        <i class="fa-regular fa-bell-slash"></i>
-                        <h3>Здесь пока пусто</h3>
-                        <p>Новые уведомления этой категории появятся тут.</p>
-                    </div>
-                `;
+                this.listEl.innerHTML = `<div class="notif-empty"><i class="fa-regular fa-bell-slash"></i><h3>Здесь пока пусто</h3><p>Новые уведомления этой категории появятся тут.</p></div>`;
                 return;
             }
 
             this.listEl.innerHTML = filtered.map(n => {
-                let text = '', quote = '', iconClass = '', iconBg = '';
-                let contentLink = '#/'; // Ссылка для клика по тексту
-
-                if (n.type === 'like') {
-                    text = `<b>${escapeHTML(n.sender_name)}</b> оценил(а) ваш пост`;
-                    iconClass = 'fa-solid fa-heart';
-                    iconBg = '#ff453a';
-                    if (n.target_id) contentLink = `/?post=${n.target_id}`; // Ссылка на пост в ленте
-                } else if (n.type === 'comment') {
-                    text = `<b>${escapeHTML(n.sender_name)}</b> прокомментировал(а) ваш пост`;
-                    quote = escapeHTML(n.content || '');
-                    iconClass = 'fa-solid fa-comment';
-                    iconBg = '#5dade2';
-                    if (n.target_id) contentLink = `/?post=${n.target_id}`;
-                } else if (n.type === 'follow') {
-                    text = `<b>${escapeHTML(n.sender_name)}</b> подписался(лась) на вас`;
-                    iconClass = 'fa-solid fa-user-plus';
-                    iconBg = '#44bd32';
-                } else if (n.type === 'gift') {
-                    text = `<b>${escapeHTML(n.sender_name)}</b> подарил(а) вам <b>${escapeHTML(n.content)}</b> <i class="fa-solid fa-coins" style="color:var(--accent-shop)"></i>`;
-                    iconClass = 'fa-solid fa-gift';
-                    iconBg = 'var(--accent-shop)';
-                } else if (n.type === 'wall') {
-                    text = `<b>${escapeHTML(n.sender_name)}</b> оставил(а) запись на вашей стене`;
-                    quote = escapeHTML(n.content || '');
-                    iconClass = 'fa-solid fa-pen';
-                    iconBg = 'var(--accent-games)';
-                    contentLink = `#/profile/${this.stores.auth.user.username}`; // Ведет на свою стену
-                }
+                let text = '', quote = '', iconClass = '', iconBg = '', contentLink = '#/';
+                if (n.type === 'like') { text = `<b>${escapeHTML(n.sender_name)}</b> оценил(а) ваш пост`; iconClass = 'fa-solid fa-heart'; iconBg = '#ff453a'; if (n.target_id) contentLink = `/?post=${n.target_id}`; } 
+                else if (n.type === 'comment') { text = `<b>${escapeHTML(n.sender_name)}</b> прокомментировал(а) ваш пост`; quote = escapeHTML(n.content || ''); iconClass = 'fa-solid fa-comment'; iconBg = '#5dade2'; if (n.target_id) contentLink = `/?post=${n.target_id}`; } 
+                else if (n.type === 'follow') { text = `<b>${escapeHTML(n.sender_name)}</b> подписался(лась) на вас`; iconClass = 'fa-solid fa-user-plus'; iconBg = '#44bd32'; } 
+                else if (n.type === 'gift') { text = `<b>${escapeHTML(n.sender_name)}</b> подарил(а) вам <b>${escapeHTML(n.content)}</b> <i class="fa-solid fa-coins" style="color:var(--accent-shop)"></i>`; iconClass = 'fa-solid fa-gift'; iconBg = 'var(--accent-shop)'; } 
+                else if (n.type === 'wall') { text = `<b>${escapeHTML(n.sender_name)}</b> оставил(а) запись на вашей стене`; quote = escapeHTML(n.content || ''); iconClass = 'fa-solid fa-pen'; iconBg = 'var(--accent-games)'; contentLink = `#/profile/${this.stores.auth.user.username}`; }
 
                 const avatarLink = `#/profile/${encodeURIComponent(n.sender_username)}`;
 
@@ -223,10 +157,8 @@ export const NotificationsView = {
                     <div class="notif-card">
                         <div class="notif-card-inner ${!n.is_read ? 'unread' : ''}">
                             <a href="${avatarLink}" class="notif-avatar-wrapper">
-                                <img src="${n.sender_avatar}" class="notif-avatar" onerror="this.src='https://placehold.co/54x54/333/fff?text=U'">
-                                <div class="notif-icon-badge" style="background: ${iconBg};">
-                                    <i class="${iconClass}"></i>
-                                </div>
+                                <img src="${n.sender_avatar}" class="notif-avatar" onerror="this.src='img/logo.svg'">
+                                <div class="notif-icon-badge" style="background: ${iconBg};"><i class="${iconClass}"></i></div>
                             </a>
                             <a href="${contentLink}" class="notif-content">
                                 <div class="notif-text">${text}</div>

@@ -4,7 +4,6 @@ import { MessagesController } from '../controllers/MessagesController.js';
 export const MessagesView = {
     html: `
         <div class="messenger-container">
-            <!-- САЙДБАР (СПИСОК ЧАТОВ) -->
             <div class="messenger-sidebar" id="messengerSidebar">
                 <div class="ms-header" style="display:flex; justify-content:space-between; align-items:center;">
                     <h2><i class="fa-regular fa-paper-plane"></i> Сообщения</h2>
@@ -18,7 +17,6 @@ export const MessagesView = {
                 </div>
             </div>
 
-            <!-- ОБЛАСТЬ ЧАТА -->
             <div class="messenger-chat-area" id="messengerChatArea">
                 <div class="ms-empty-state" id="msEmptyState">
                     <i class="fa-regular fa-comments"></i>
@@ -26,13 +24,14 @@ export const MessagesView = {
                 </div>
 
                 <div class="ms-active-chat" id="msActiveChat" style="display: none;">
-                    
-                    <!-- КЛИКАБЕЛЬНАЯ ШАПКА ЧАТА -->
                     <div class="ms-chat-header" id="msChatHeaderClickable" style="cursor:pointer; transition: background 0.2s;">
                         <button id="msBackBtn" class="icon-btn ms-back-btn"><i class="fa-solid fa-arrow-left"></i></button>
                         
                         <div style="display: flex; align-items: center; gap: 14px; flex: 1; min-width: 0;">
-                            <img id="msChatAvatar" src="" class="ms-header-avatar">
+                            <div style="position:relative; width:42px; height:42px; flex-shrink:0;">
+                                <img id="msChatAvatar" src="" style="width:100%;height:100%;border-radius:50%;object-fit:cover;">
+                                <div id="msChatFrameContainer"></div>
+                            </div>
                             <div class="ms-header-info">
                                 <div class="ms-header-name" id="msChatName">Имя</div>
                                 <div class="ms-header-status" id="msChatStatus">@username</div>
@@ -49,7 +48,6 @@ export const MessagesView = {
                         </div>
                     </div>
                     
-                    <!-- СООБЩЕНИЯ -->
                     <div class="ms-messages-list" id="messagesList"></div>
 
                     <div id="msBlockedState" class="ms-blocked-state" style="display:none;">
@@ -57,38 +55,23 @@ export const MessagesView = {
                         <button id="msUnblockBtn" class="btn-post" style="display:none; margin-top:10px;">Разблокировать</button>
                     </div>
 
-                    <!-- ПАНЕЛЬ ВВОДА -->
                     <div class="ms-input-area" id="msInputArea">
                         <div id="msEditIndicator" style="display:none; position:absolute; top:-30px; left:20px; background:#1c1c1e; padding:4px 12px; border-radius:10px 10px 0 0; font-size:12px; color:var(--accent-games); border:1px solid rgba(255,255,255,0.05); border-bottom:none;">
                             Редактирование... <i class="fa-solid fa-xmark" id="msCancelEditBtn" style="cursor:pointer; margin-left:8px; color:var(--text-muted);"></i>
                         </div>
-
-                        <div id="msStickersPanel" class="stickers-panel" style="display:none;">
-                            <div class="stickers-grid">
-                                <div class="sticker-item">😀</div><div class="sticker-item">😂</div><div class="sticker-item">🔥</div>
-                                <div class="sticker-item">❤️</div><div class="sticker-item">👍</div><div class="sticker-item">🎉</div>
-                            </div>
-                        </div>
-
                         <input type="file" id="msgFileInput" style="display: none;" accept="image/*, audio/*">
 
                         <div class="ms-input-pill">
                             <button id="msgAttachBtn" class="icon-btn"><i class="fa-solid fa-paperclip"></i></button>
                             <input type="text" id="msgInput" class="ms-input" placeholder="Сообщение..." autocomplete="off">
-                            <button id="msgStickerBtn" class="icon-btn"><i class="fa-regular fa-face-smile"></i></button>
                         </div>
-                        
                         <button id="msgVoiceBtn" class="ms-send-btn voice"><i class="fa-solid fa-microphone"></i></button>
                         <button id="msgSendBtn" class="ms-send-btn" style="display:none;"><i class="fa-solid fa-arrow-up"></i></button>
                     </div>
                 </div>
 
-                <!-- ВЫЕЗЖАЮЩАЯ ПАНЕЛЬ ИНФОРМАЦИИ О ЧАТЕ -->
                 <div id="chatDetailsPanel" class="chat-details-panel">
-                    <div class="cd-header">
-                        <button id="closeChatDetailsBtn" class="icon-btn"><i class="fa-solid fa-xmark"></i></button>
-                        <h3 style="margin:0; font-size:18px;">Информация</h3>
-                    </div>
+                    <button id="closeChatDetailsBtn" class="cd-floating-close"><i class="fa-solid fa-xmark"></i></button>
                     <div class="cd-body" id="chatDetailsBody">
                         <div style="text-align:center; color:var(--text-muted); padding:40px;">Загрузка...</div>
                     </div>
@@ -96,14 +79,12 @@ export const MessagesView = {
             </div>
         </div>
 
-        <!-- Контекстное меню сообщений -->
         <div id="msgContextMenu" class="options-menu" style="display:none; position:fixed; z-index:999999; width:150px;">
             <div class="menu-item" id="ctxMsgCopy"><i class="fa-regular fa-copy"></i><span>Копировать</span></div>
             <div class="menu-item" id="ctxMsgEdit" style="display:none;"><i class="fa-solid fa-pen"></i><span>Изменить</span></div>
             <div class="menu-item menu-item-danger" id="ctxMsgDelete" style="display:none;"><i class="fa-solid fa-trash"></i><span>Удалить</span></div>
         </div>
 
-        <!-- Модалка создания чата -->
         <div id="createChatModal" class="modal-overlay">
             <div class="modal-content" style="max-width: 400px;">
                 <div class="modal-header">
@@ -120,6 +101,17 @@ export const MessagesView = {
                     </div>
                     <div id="ccFriendsList" style="display: flex; flex-direction: column; gap: 8px; max-height: 250px; overflow-y: auto;"></div>
                     <button id="submitCreateChatBtn" class="btn-post" style="width: 100%; margin-top: 15px;" disabled>Создать</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- МОДАЛКА ПРОСМОТРА КАРТИНОК ИЗ ЧАТА -->
+        <div id="chatImageModal" class="modal-overlay" style="z-index: 9999999;">
+            <div class="modal-content" style="max-width: 95vw; max-height: 95vh; background: transparent; box-shadow: none; border: none; align-items: center; justify-content: center; padding: 0;">
+                <img id="chatFullImage" src="" style="max-width: 100%; max-height: 85vh; border-radius: 12px; box-shadow: 0 20px 80px rgba(0,0,0,0.8); object-fit: contain;">
+                <div style="margin-top: 20px; display: flex; gap: 16px; background: rgba(0,0,0,0.5); padding: 10px 20px; border-radius: 100px; backdrop-filter: blur(10px);">
+                    <button id="closeChatImageModal" class="icon-btn" style="width: 44px; height: 44px;"><i class="fa-solid fa-xmark"></i></button>
+                    <a id="downloadChatImageBtn" href="" download class="icon-btn" style="width: 44px; height: 44px;" title="Скачать"><i class="fa-solid fa-download"></i></a>
                 </div>
             </div>
         </div>

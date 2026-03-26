@@ -1,4 +1,4 @@
-// js/store/ShopStore.js
+// public/js/store/ShopStore.js
 import { ShopAPI } from '../api/ShopAPI.js';
 
 export class ShopStore {
@@ -11,6 +11,12 @@ export class ShopStore {
     async load() {
         try { this.items = await ShopAPI.getShop(); } 
         catch (e) { this.items = []; }
+    }
+
+    // НОВЫЙ МЕТОД: Получить любую рамку из магазина (даже если мы её не купили)
+    getFrameById(frameId) {
+        if (!frameId || frameId === 'frame_none') return null;
+        return this.items.find(i => i.id === frameId) || null;
     }
 
     getAvailableFrames() {

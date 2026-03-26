@@ -275,7 +275,8 @@ export class ProfileController {
             this.bgLayer.style.backgroundColor = bg ? bg.color : '#0a0a0c';
         }
 
-        const frame = this.stores.shop.getAvailableFrames().find(f => f.id === p.frameId);
+        // ИСПРАВЛЕНО НА getFrameById
+        const frame = this.stores.shop.getFrameById(p.frameId);
         ProfileRenderer.applyFrameToElement(this.avatarFrame, frame);
 
         const title = this.stores.catalogs.titles.find(t => t.id === p.titleId);
@@ -310,7 +311,6 @@ export class ProfileController {
                 }
             }
 
-            // --- ССЫЛКА НА ЧАТ (Добавляем параметр с ником пользователя) ---
             const messageBtn = document.getElementById('messageBtn');
             if (messageBtn) {
                 messageBtn.href = `#/messages?user=${encodeURIComponent(p.username)}`;
@@ -482,8 +482,9 @@ export class ProfileController {
         } catch (e) { console.error(e); }
     }
 
+    // ИСПРАВЛЕНО НА getFrameById
     _getFrameStyle(frameId) {
-        const frame = this.stores.shop.getAvailableFrames().find(f => f.id === frameId);
+        const frame = this.stores.shop.getFrameById(frameId);
         if (!frame) return '';
         if (frame.url) return `background-image: url('${frame.url}');`;
         if (frame.css) return frame.css;

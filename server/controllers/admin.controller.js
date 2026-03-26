@@ -12,7 +12,6 @@ class AdminController {
             const lastPosts = db.prepare('SELECT author_username, MAX(timestamp) as ts FROM posts GROUP BY author_username').all();
             const lastComments = db.prepare('SELECT author_username, MAX(timestamp) as ts FROM comments GROUP BY author_username').all();
 
-            // Статистика контента
             const postCounts = db.prepare('SELECT author_username, COUNT(*) as c FROM posts GROUP BY author_username').all();
             const commentCounts = db.prepare('SELECT author_username, COUNT(*) as c FROM comments GROUP BY author_username').all();
             
@@ -27,7 +26,6 @@ class AdminController {
                 }
             });
 
-            // Получаем глобальную карту онлайна из server.js
             const onlineMap = req.app.get('onlineUsers') || new Map();
 
             const safeUsers = users.map(u => {
@@ -42,7 +40,6 @@ class AdminController {
                     lastActive: activityMap[u.username] || u.created_at || Date.now(),
                     postCount: pMap[u.username] || 0,
                     commentCount: cMap[u.username] || 0,
-                    // Данные реального времени
                     isOnline: !!liveState,
                     playingMusicId: liveState ? liveState.currentTrack : null
                 };
@@ -120,7 +117,7 @@ class AdminController {
                 db.prepare('DELETE FROM posts WHERE author_username = ?').run(targetUsername);
                 db.prepare('DELETE FROM comments WHERE author_username = ?').run(targetUsername);
                 db.prepare('DELETE FROM profile_wall WHERE profile_username = ? OR author_username = ?').run(targetUsername, targetUsername);
-                db.prepare('UPDATE users SET bio = "Контент скрыт за нарушение правил.", avatar = "https://placehold.co/150/000/f00?text=BANNED", banner = "https://placehold.co/800x250/111/f00?text=BANNED" WHERE username = ?').run(targetUsername);
+                db.prepare('UPDATE users SET bio = "Контент скрыт за нарушение правил.", avatar = "img/logo.svg", banner = "img/logo.svg" WHERE username = ?').run(targetUsername);
             })();
             res.json({ success: true });
         } catch (e) { res.status(500).json({ error: 'Ошибка' }); }
@@ -148,7 +145,7 @@ class AdminController {
         const { targetUsername } = req.body;
         try {
             db.prepare('UPDATE users SET avatar = ?, banner = ? WHERE username = ?')
-              .run('https://placehold.co/150x150/333/fff?text=U', 'https://placehold.co/800x250/111/fff?text=Reset', targetUsername);
+              .run('img/logo.svg', 'img/logo.svg', targetUsername);
             res.json({ success: true });
         } catch (e) { res.status(500).json({ error: 'Ошибка' }); }
     }

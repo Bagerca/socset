@@ -7,28 +7,22 @@ export class PostComponent {
     constructor(post, stores) {
         this.post = post;
         this.stores = stores;
-        
         this.audioService = new AudioService();
         this.activeRecording = null;
         this.recordingTimer = null;
         this.previewAudio = null;
 
         this.element = document.createElement('article');
-        this.element.__component = this; // Привязываем инстанс класса к DOM-элементу для доступа извне
+        this.element.__component = this; 
         
         this.render();
         this.bindEvents();
     }
 
-    getElement() {
-        return this.element;
-    }
+    getElement() { return this.element; }
 
-    // --- УМНОЕ ОБНОВЛЕНИЕ DOM (БЕЗ ПОЛНОЙ ПЕРЕРИСОВКИ) ---
     updateUI(newPostData) {
         this.post = newPostData;
-
-        // 1. Обновляем лайки
         const likeBtn = this.element.querySelector('.like-btn');
         if (likeBtn) {
             likeBtn.classList.toggle('liked', this.post.isLiked);
@@ -38,36 +32,22 @@ export class PostComponent {
             if (count) count.textContent = this.post.likes;
         }
 
-        // 2. Обновляем количество комментариев в футере
         const commentsCount = this.element.querySelector('.comments-count');
-        if (commentsCount) {
-            commentsCount.textContent = this.post.comments ? this.post.comments.length : 0;
-        }
+        if (commentsCount) commentsCount.textContent = this.post.comments ? this.post.comments.length : 0;
         
-        // Перерисовываем список комментов (при этом поле ввода НЕ ТРОГАЕТСЯ!)
         this._renderComments();
 
-        // 3. Обновляем опрос (если он есть)
         const pollContainer = this.element.querySelector('.poll-wrapper-container');
-        if (pollContainer && this.post.poll) {
-            pollContainer.innerHTML = this._createPollHTML();
-        }
+        if (pollContainer && this.post.poll) pollContainer.innerHTML = this._createPollHTML();
 
-        // 4. Обновляем просмотры
         const viewsCount = this.element.querySelector('.views-btn span');
-        if (viewsCount) {
-            viewsCount.textContent = this.post.views || 0;
-        }
+        if (viewsCount) viewsCount.textContent = this.post.views || 0;
 
-        // 5. Обновляем видимость поста (Скрыт/Публичный)
         const isPrivate = this.post.visibility === 'private';
         this.element.classList.toggle('private-post', isPrivate);
         const toggleVisBtn = this.element.querySelector('.toggle-visibility-btn');
-        if (toggleVisBtn) {
-            toggleVisBtn.innerHTML = `<i class="fa-solid ${isPrivate ? 'fa-eye' : 'fa-eye-slash'}"></i><span>${isPrivate ? 'Сделать публичным' : 'Скрыть'}</span>`;
-        }
+        if (toggleVisBtn) toggleVisBtn.innerHTML = `<i class="fa-solid ${isPrivate ? 'fa-eye' : 'fa-eye-slash'}"></i><span>${isPrivate ? 'Сделать публичным' : 'Скрыть'}</span>`;
 
-        // 6. ОБНОВЛЕНИЕ ВРЕМЕНИ И СНЯТИЕ ИКОНКИ ЧАСИКОВ
         const timeEl = this.element.querySelector('.post-time');
         if (timeEl) {
             const formattedTime = formatTime(this.post.timestamp);
@@ -121,7 +101,7 @@ export class PostComponent {
             ${optionsMenuHTML}
             <div class="post-main-body">
                 <a href="${profileLink}" class="post-avatar-wrapper">
-                    <div class="avatar"><img src="${authorData.avatar}" alt="Аватар" onerror="this.src='https://placehold.co/48x48/333333/ffffff?text=U'"></div>
+                    <div class="avatar"><img src="${authorData.avatar}" alt="Аватар" onerror="this.src='img/logo.svg'"></div>
                     ${this._createFrameHTML(authorData.frameId)}
                 </a>
                 <div class="post-content">
@@ -159,7 +139,6 @@ export class PostComponent {
                 </div>
             </div>
         `;
-
         this._renderComments();
     }
 
@@ -169,14 +148,9 @@ export class PostComponent {
             const prevCount = list.children.length;
             const newCount = this.post.comments ? this.post.comments.length : 0;
             const currentScroll = list.scrollTop;
-
             list.innerHTML = this.post.comments ? this.post.comments.map(c => this._createCommentHTML(c)).join('') : '';
-            
-            if (newCount > prevCount) {
-                list.scrollTop = list.scrollHeight; 
-            } else {
-                list.scrollTop = currentScroll;
-            }
+            if (newCount > prevCount) list.scrollTop = list.scrollHeight; 
+            else list.scrollTop = currentScroll;
         }
     }
 
@@ -215,7 +189,7 @@ export class PostComponent {
         return `
             <div class="comment-item" data-id="${comment.id}" data-author="${authorData.username}">
                 <a href="${profileLink}" class="comment-avatar-wrapper">
-                    <img src="${authorData.avatar}" class="comment-avatar" onerror="this.src='https://placehold.co/36x36/333/fff?text=U'">
+                    <img src="${authorData.avatar}" class="comment-avatar" onerror="this.src='img/logo.svg'">
                     ${this._createFrameHTML(authorData.frameId)}
                 </a>
                 <div class="comment-content-wrapper">
@@ -312,9 +286,10 @@ export class PostComponent {
         return `<i class="fa-solid fa-circle-check post-badge badge-1" title="Подтвержденный"></i>`;
     }
 
+    // ИСПРАВЛЕНО НА getFrameById
     _createFrameHTML(frameId) {
         if (!frameId || frameId === 'frame_none') return '';
-        const frame = this.stores.shop.getAvailableFrames().find(f => f.id === frameId);
+        const frame = this.stores.shop.getFrameById(frameId);
         if (!frame) return '';
         if (frame.url) return `<div class="post-avatar-frame"><div class="post-frame-content" style="background-image: url('${frame.url}');"></div></div>`;
         if (frame.css) return `<div class="post-avatar-frame"><div class="post-frame-content" style="${frame.css}"></div></div>`;
@@ -329,7 +304,6 @@ export class PostComponent {
 
     handleClick(e) {
         const target = e.target;
-
         if (target.closest('.post-options-btn')) {
             const btn = target.closest('.post-options-btn');
             const menu = btn.nextElementSibling;
@@ -348,18 +322,15 @@ export class PostComponent {
         if (target.closest('.action-btn-comment')) { this.element.querySelector('.comments-section').classList.toggle('active'); return; }
         if (target.closest('.repost-btn')) { this.handleRepost(); return; }
         if (target.closest('.share-btn')) { this.handleShare(target.closest('.share-btn')); return; }
-
         if (target.closest('.send-comment-btn')) { this.handleSendTextComment(); return; }
         if (target.closest('.comment-action-btn')) { const btn = target.closest('.comment-action-btn'); this.stores.posts.toggleCommentReaction(this.post.id, btn.dataset.id, btn.dataset.type); return; }
         if (target.closest('.comment-reply-btn')) { this.handleCommentReply(target.closest('.comment-reply-btn')); return; }
-
         if (target.closest('.record-btn')) { this._startRecordingUI(); return; }
         if (target.closest('.rec-btn.stop')) { this._stopRecordingUI(); return; }
         if (target.closest('.rec-btn.cancel')) { this._cancelRecordingUI(); return; }
         if (target.closest('.rec-btn.send')) { this._sendAudioComment(); return; }
         if (target.closest('.rec-btn.play-preview')) { this._playPreview(target.closest('.rec-btn.play-preview')); return; }
         if (target.closest('.audio-control-btn')) { this._playAudioMessage(target.closest('.audio-control-btn')); return; }
-        
         if (target.closest('.post-music-play-btn')) { this.handlePlayMusic(target.closest('.post-music-play-btn').dataset.id); return; }
     }
 
@@ -370,11 +341,7 @@ export class PostComponent {
         }
     }
 
-    async handleRepost() {
-        if(confirm('Сделать репост этой записи к себе в ленту?')) {
-            await this.stores.posts.repostPost(this.post.id);
-        }
-    }
+    async handleRepost() { if(confirm('Сделать репост этой записи к себе в ленту?')) await this.stores.posts.repostPost(this.post.id); }
 
     handleShare(btn) {
         const postLink = `${window.location.origin}/#/?post=${this.post.id}`;
@@ -390,21 +357,14 @@ export class PostComponent {
     handlePlayMusic(trackId) {
         if (window.cyclePlayer) {
             const currentTrack = window.cyclePlayer.playlist[window.cyclePlayer.currentIndex];
-            if (currentTrack && currentTrack.id === trackId) {
-                window.cyclePlayer.togglePlay();
-            } else {
-                window.cyclePlayer.playlist = this.stores.catalogs.music;
-                window.cyclePlayer.playTrack(trackId);
-            }
+            if (currentTrack && currentTrack.id === trackId) window.cyclePlayer.togglePlay();
+            else { window.cyclePlayer.playlist = this.stores.catalogs.music; window.cyclePlayer.playTrack(trackId); }
         }
     }
 
     async handleSendTextComment() {
         const input = this.element.querySelector('.comment-input');
-        if (input && input.value.trim()) {
-            await this.stores.posts.addComment(this.post.id, input.value.trim(), 'text');
-            input.value = '';
-        }
+        if (input && input.value.trim()) { await this.stores.posts.addComment(this.post.id, input.value.trim(), 'text'); input.value = ''; }
     }
 
     handleCommentReply(btn) {
@@ -413,12 +373,10 @@ export class PostComponent {
         if (input) {
             const mention = `@${username}, `;
             if (input.value.length > 0 && !input.value.endsWith(' ')) input.value += ' ';
-            input.value += mention;
-            input.focus();
+            input.value += mention; input.focus();
         }
     }
 
-    // --- АУДИОСООБЩЕНИЯ ---
     async _startRecordingUI() {
         if (this.activeRecording) return;
         const container = this.element.querySelector('.comment-input-area');

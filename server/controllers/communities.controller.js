@@ -31,7 +31,6 @@ class CommunitiesController {
 
             res.json(enriched);
         } catch (e) {
-            console.error('GetAll Communities Error:', e);
             res.status(500).json({ error: 'Internal Server Error' });
         }
     }
@@ -60,7 +59,6 @@ class CommunitiesController {
 
             res.json({ ...community, membersCount, isMember, role, isCreator });
         } catch (e) {
-            console.error('GetOne Community Error:', e);
             res.status(500).json({ error: 'Internal Server Error' });
         }
     }
@@ -85,8 +83,8 @@ class CommunitiesController {
                 handle: handle,
                 name,
                 description: description ? description.slice(0, 200) : '',
-                avatar: `https://placehold.co/150x150/333/fff?text=${name.charAt(0).toUpperCase()}`,
-                banner: 'https://placehold.co/800x200/111/fff?text=Community',
+                avatar: 'img/logo.svg',
+                banner: 'img/logo.svg',
                 creator_username: req.user.username,
                 created_at: Date.now()
             };
@@ -105,7 +103,6 @@ class CommunitiesController {
             transaction();
             res.json({ success: true, community: newCommunity });
         } catch (e) {
-            console.error('Create Community Error:', e);
             res.status(500).json({ success: false, error: 'Ошибка создания' });
         }
     }
@@ -129,7 +126,6 @@ class CommunitiesController {
 
             res.json({ success: true });
         } catch (e) {
-            console.error('Update Community Error:', e);
             res.status(500).json({ success: false, error: 'Ошибка сохранения' });
         }
     }
@@ -158,12 +154,10 @@ class CommunitiesController {
             const newCount = db.prepare('SELECT COUNT(*) as count FROM community_members WHERE community_id = ?').get(communityId).count;
             res.json({ success: true, status, membersCount: newCount });
         } catch (e) {
-            console.error('ToggleJoin Error:', e);
             res.status(500).json({ success: false, error: 'Internal Server Error' });
         }
     }
 
-    // НОВОЕ: Полное удаление сообщества
     delete(req, res) {
         try {
             const { communityId } = req.body;
@@ -171,7 +165,6 @@ class CommunitiesController {
             
             if (!comm) return res.status(404).json({ error: 'Not found' });
             
-            // Только создатель или глобальный админ
             if (comm.creator_username !== req.user.username && !req.user.isAdmin) {
                 return res.status(403).json({ error: 'Forbidden' });
             }
@@ -180,7 +173,6 @@ class CommunitiesController {
                 db.prepare('DELETE FROM communities WHERE id = ?').run(communityId);
                 db.prepare('DELETE FROM community_members WHERE community_id = ?').run(communityId);
                 
-                // Находим все посты сообщества и каскадно удаляем их следы
                 const posts = db.prepare('SELECT id FROM posts WHERE community_id = ?').all(communityId);
                 for (const p of posts) {
                     db.prepare('DELETE FROM comments WHERE post_id = ?').run(p.id);
@@ -194,7 +186,6 @@ class CommunitiesController {
             transaction();
             res.json({ success: true });
         } catch (e) {
-            console.error('Delete Community Error:', e);
             res.status(500).json({ success: false, error: 'Internal Server Error' });
         }
     }
