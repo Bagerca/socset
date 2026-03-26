@@ -25,9 +25,8 @@
 .ms-search input { background: #111113; border-radius: 12px; border: 1px solid rgba(255,255,255,0.05); padding: 10px 14px; }
 .ms-search input:focus { border-color: var(--accent-games); }
 
-.ms-chat-list { flex: 1; overflow-y: auto; overflow-x: hidden; display: flex; flex-direction: column; }
-.ms-chat-list::-webkit-scrollbar { width: 4px; }
-.ms-chat-list::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.1); border-radius: 4px; }
+.ms-chat-list { flex: 1; overflow-y: auto; overflow-x: hidden; display: flex; flex-direction: column; scrollbar-width: none; -ms-overflow-style: none; }
+.ms-chat-list::-webkit-scrollbar { display: none; }
 
 .ms-chat-item { display: flex; align-items: center; gap: 14px; padding: 14px 20px; cursor: pointer; transition: 0.2s ease; border-bottom: 1px solid rgba(255,255,255,0.02); }
 .ms-chat-item:hover { background: rgba(255,255,255,0.03); }
@@ -58,9 +57,9 @@
     flex: 1; overflow-y: auto; overflow-x: hidden; 
     padding: 20px 20px 90px 20px; 
     display: flex; flex-direction: column; gap: 16px; scroll-behavior: smooth; 
+    scrollbar-width: none; -ms-overflow-style: none; 
 }
-.ms-messages-list::-webkit-scrollbar { width: 4px; }
-.ms-messages-list::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.1); border-radius: 4px; }
+.ms-messages-list::-webkit-scrollbar { display: none; }
 
 /* НОВАЯ СЕТКА СООБЩЕНИЙ С АВАТАРКАМИ */
 .msg-row { display: flex; flex-direction: row; gap: 10px; width: 100%; position: relative; align-items: flex-end; }

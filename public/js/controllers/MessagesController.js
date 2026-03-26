@@ -62,6 +62,16 @@ export class MessagesController {
             window.socket.on('new_message', (msg) => this.handleIncomingMessage(msg));
             window.socket.on('messages_read', (data) => this.handleMessagesRead(data));
             window.socket.on('typing', (data) => this.handleTyping(data));
+            window.socket.on('chat_blocked', (data) => {
+                if (data.chatId === this.activeChatId) this.updateChatStateUI(data.blocked_by);
+            });
+            window.socket.on('history_cleared', (data) => {
+                if (data.chatId === this.activeChatId) {
+                    this.messages = [];
+                    this.renderMessages();
+                    this.loadChats();
+                }
+            });
         }
 
         const urlParams = new URLSearchParams(window.location.hash.split('?')[1]);
@@ -79,7 +89,6 @@ export class MessagesController {
         }
     }
 
-    // Хелпер для получения HTML рамки
     _getFrameHTML(frameId) {
         if (!frameId || frameId === 'frame_none') return '';
         const frame = this.stores.shop.getFrameById(frameId);
@@ -205,11 +214,9 @@ export class MessagesController {
             
             if (msg.content.startsWith('[IMG:') && msg.content.endsWith(']')) {
                 const url = msg.content.slice(5, -1);
-                // ИЗМЕНЕНИЕ: Убрали onclick window.open, добавили data-url для модалки
                 content = `<img src="${url}" class="msg-attached-img" data-url="${url}">`;
                 extraClass = 'is-media';
             } else if (msg.content.startsWith('[AUDIO:') && msg.content.endsWith(']')) {
-                // ПАРСИНГ ГОЛОСОВОГО ФОРМАТА
                 const inner = msg.content.slice(7, -1);
                 const parts = inner.split('|');
                 const url = parts[0];
@@ -452,23 +459,37 @@ export class MessagesController {
 
     async sendMessage(content) {
         if (!content) return;
+        
         if (this.editingMsgId) {
-            await httpClient.post('/messages/edit', { messageId: this.editingMsgId, chatId: this.activeChatId, newContent: content });
+            const res = await httpClient.post('/messages/edit', { messageId: this.editingMsgId, chatId: this.activeChatId, newContent: content });
+            if (!res.success && res.error) {
+                Toast.show(res.error, 'error');
+                return;
+            }
             this.editingMsgId = null;
             this.msgInput.value = '';
             document.getElementById('msEditIndicator').style.display = 'none';
             this.updateInputButtons();
             return;
         }
+        
         if (this.activeChatId === 'new') {
             const res = await httpClient.post('/messages/create', { type: 'direct', members: [this.activeTargetUsername] });
-            if (res.success) this.activeChatId = res.chatId;
+            if (res.success) {
+                this.activeChatId = res.chatId;
+            } else {
+                Toast.show(res.error || 'Ошибка создания чата. Возможно, вы не друзья.', 'error');
+                return; // Прерываем отправку
+            }
         }
+        
         const res = await httpClient.post('/messages/send', { chatId: this.activeChatId, content });
         if (res.success) {
             this.msgInput.value = '';
             this.updateInputButtons();
             this.loadChats();
+        } else {
+            Toast.show(res.error || 'Ошибка отправки', 'error');
         }
     }
 
@@ -476,7 +497,18 @@ export class MessagesController {
         const isBlocked = !!blockedBy;
         this.msInputArea.style.display = isBlocked ? 'none' : 'flex';
         this.msBlockedState.style.display = isBlocked ? 'flex' : 'none';
-        document.getElementById('blockText').textContent = isBlocked ? 'Разблокировать' : 'Заблокировать';
+        
+        const blockTextEl = document.getElementById('blockText');
+        if (blockTextEl) blockTextEl.textContent = isBlocked ? 'Разблокировать' : 'Заблокировать';
+
+        const unblockBtn = document.getElementById('msUnblockBtn');
+        if (unblockBtn) {
+            if (isBlocked && blockedBy === this.stores.auth.user.username) {
+                unblockBtn.style.display = 'block';
+            } else {
+                unblockBtn.style.display = 'none';
+            }
+        }
     }
 
     updateInputButtons() {
@@ -592,11 +624,40 @@ export class MessagesController {
             this.msOptionsMenu.classList.toggle('active');
         }, { sig });
 
+        // --- ДЕЙСТВИЯ МЕНЮ ОПЦИЙ ---
+        document.getElementById('optBlockUser')?.addEventListener('click', async () => {
+            const res = await httpClient.post('/messages/toggle_block', { chatId: this.activeChatId });
+            if (res && res.error) Toast.show(res.error, 'error');
+            this.msOptionsMenu.classList.remove('active');
+        }, { sig });
+        
+        document.getElementById('msUnblockBtn')?.addEventListener('click', async () => {
+            const res = await httpClient.post('/messages/toggle_block', { chatId: this.activeChatId });
+            if (res && res.error) Toast.show(res.error, 'error');
+        }, { sig });
+
+        document.getElementById('optPinChat')?.addEventListener('click', () => {
+            if (this.pinnedChats.includes(this.activeChatId)) {
+                this.pinnedChats = this.pinnedChats.filter(id => id !== this.activeChatId);
+            } else {
+                this.pinnedChats.push(this.activeChatId);
+            }
+            localStorage.setItem('cycle_pinned_chats', JSON.stringify(this.pinnedChats));
+            this.renderChats();
+            this.msOptionsMenu.classList.remove('active');
+        }, { sig });
+        
+        document.getElementById('optClearHistory').addEventListener('click', () => {
+            if(confirm('Точно очистить историю?')) httpClient.post('/messages/clear', { chatId: this.activeChatId });
+            this.msOptionsMenu.classList.remove('active');
+        }, { sig });
+
+        // --- ГЛОБАЛЬНЫЙ КЛИК В ЧАТЕ ---
         document.addEventListener('click', (e) => {
             if (this.msOptionsMenu) this.msOptionsMenu.classList.remove('active');
             if (this.msgContextMenu) this.msgContextMenu.style.display = 'none';
             
-            // --- ОБРАБОТКА КЛИКА ПО КАРТИНКАМ (Для модалки) ---
+            // ОБРАБОТКА КЛИКА ПО КАРТИНКАМ (Модалка)
             const imgTarget = e.target.closest('.msg-attached-img') || e.target.closest('.cd-media-thumb');
             if (imgTarget) {
                 const url = imgTarget.dataset.url;
@@ -619,10 +680,6 @@ export class MessagesController {
                 }
             }
 
-        }, { sig });
-        
-        document.getElementById('optClearHistory').addEventListener('click', () => {
-            if(confirm('Точно очистить историю?')) httpClient.post('/messages/clear', { chatId: this.activeChatId });
         }, { sig });
 
         // --- ЗАПИСЬ ГОЛОСОВОГО ---

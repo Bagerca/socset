@@ -34,18 +34,30 @@ export class HttpClient {
         try {
             const response = await fetch(`${this.baseUrl}${endpoint}`, config);
             
-            if (response.status === 401 || response.status === 403) {
+            // Читаем JSON ответ сервера ДО проверки статуса
+            let data;
+            try {
+                data = await response.json();
+            } catch(e) {
+                data = {};
+            }
+            
+            // Если это реально ошибка токена (401 или 403 с текстом 'Forbidden')
+            if (response.status === 401 || (response.status === 403 && data.error === 'Forbidden')) {
                 console.warn('Unauthorized or Token Expired');
                 Toast.show('Сессия истекла. Пожалуйста, войдите снова.', 'warning');
                 throw new Error('AuthError');
             }
 
+            // Если сервер упал (500+)
             if (response.status >= 500) {
                 Toast.show('Ошибка сервера. Мы уже чиним!', 'error');
                 throw new Error('ServerError');
             }
 
-            return await response.json();
+            // Для статусов 400-404 просто возвращаем data (контроллеры сами разберутся с data.error)
+            return data;
+
         } catch (error) {
             // Перехват потери сети (Failed to fetch)
             if (error.message === 'Failed to fetch') {
