@@ -341,12 +341,27 @@ export class GameController {
 
     createGlobalContextMenu() {
         if (document.getElementById('customContextMenu')) document.getElementById('customContextMenu').remove();
-        const menu = document.createElement('div'); menu.id = 'customContextMenu'; menu.style.display = 'none';
-        menu.innerHTML = `<div class="context-menu-item danger" id="ctxDeleteComment"><i class="fa-solid fa-trash"></i> Удалить комментарий</div>`;
-        document.body.appendChild(menu); this.contextMenu = menu;
+        const menu = document.createElement('div');
+        menu.id = 'customContextMenu';
+        menu.className = 'options-menu';
+        menu.style.position = 'absolute';
+        menu.style.display = 'none';
+        menu.style.zIndex = '999999';
+        menu.innerHTML = `<div class="menu-item menu-item-danger" id="ctxDeleteComment"><i class="fa-solid fa-trash"></i> <span>Удалить комментарий</span></div>`;
+        document.body.appendChild(menu);
+        this.contextMenu = menu;
+        this.contextTargetCommentId = null;
+        this.contextTargetPostId = null;
+
         const signal = this.abortController.signal;
-        document.addEventListener('click', () => { if(this.contextMenu) this.contextMenu.style.display = 'none'; if(this.formatMenu) this.formatMenu.style.display = 'none'; }, { signal });
-        document.addEventListener('scroll', () => { if(this.contextMenu) this.contextMenu.style.display = 'none'; if(this.formatMenu) this.formatMenu.style.display = 'none'; }, { signal, capture: true });
+        document.addEventListener('click', () => { 
+            if(this.contextMenu) this.contextMenu.style.display = 'none'; 
+            if(this.formatMenu) this.formatMenu.style.display = 'none'; 
+        }, { signal });
+        document.addEventListener('scroll', () => { 
+            if(this.contextMenu) this.contextMenu.style.display = 'none'; 
+            if(this.formatMenu) this.formatMenu.style.display = 'none'; 
+        }, { signal, capture: true });
         
         const ctxDeleteBtn = document.getElementById('ctxDeleteComment');
         if (ctxDeleteBtn) {
@@ -365,9 +380,20 @@ export class GameController {
 
     createFormatContextMenu() {
         if (document.getElementById('formatContextMenu')) document.getElementById('formatContextMenu').remove();
-        const menu = document.createElement('div'); menu.id = 'formatContextMenu'; menu.style.position = 'absolute'; menu.style.display = 'none'; menu.style.zIndex = '999999'; menu.style.background = '#222224'; menu.style.border = '1px solid rgba(255,255,255,0.08)'; menu.style.borderRadius = '8px'; menu.style.padding = '6px 0'; menu.style.boxShadow = '0 10px 40px rgba(0,0,0,0.8)';
-        menu.innerHTML = `<div class="context-menu-item" id="fmtBold"><i class="fa-solid fa-bold"></i> Жирный</div><div class="context-menu-item" id="fmtQuote"><i class="fa-solid fa-quote-right"></i> Цитата</div><div class="context-menu-item" id="fmtSpoiler"><i class="fa-solid fa-eye-slash"></i> Спойлер</div>`;
-        document.body.appendChild(menu); this.formatMenu = menu;
+        const menu = document.createElement('div');
+        menu.id = 'formatContextMenu';
+        menu.className = 'options-menu';
+        menu.style.position = 'absolute';
+        menu.style.display = 'none';
+        menu.style.zIndex = '999999';
+        menu.innerHTML = `
+            <div class="menu-item" id="fmtBold"><i class="fa-solid fa-bold"></i> <span>Жирный</span></div>
+            <div class="menu-item" id="fmtQuote"><i class="fa-solid fa-quote-right"></i> <span>Цитата</span></div>
+            <div class="menu-item" id="fmtSpoiler"><i class="fa-solid fa-eye-slash"></i> <span>Спойлер</span></div>
+        `;
+        document.body.appendChild(menu);
+        this.formatMenu = menu;
+
         const signal = this.abortController.signal;
         document.getElementById('fmtBold').addEventListener('mousedown', (e) => { e.preventDefault(); this.applyFormat('bold'); }, { signal });
         document.getElementById('fmtQuote').addEventListener('mousedown', (e) => { e.preventDefault(); this.applyFormat('quote'); }, { signal });

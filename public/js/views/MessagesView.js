@@ -3,6 +3,9 @@ import { MessagesController } from '../controllers/MessagesController.js';
 
 export const MessagesView = {
     html: `
+        <style>
+            .ms-input:empty::before { content: attr(placeholder); color: var(--text-muted); cursor: text; }
+        </style>
         <div class="messenger-container">
             <div class="messenger-sidebar" id="messengerSidebar">
                 <div class="ms-header">
@@ -76,7 +79,6 @@ export const MessagesView = {
                         </div>
                     </div>
 
-                    <!-- ИЗМЕНЕННАЯ ЗОНА ВВОДА С ПРЕДПРОСМОТРОМ ФОТОГРАФИЙ -->
                     <div class="ms-input-container" id="msInputContainer">
                         <div id="msEditIndicator" style="display:none; position:absolute; top:-30px; left:20px; background:#1c1c1e; padding:4px 12px; border-radius:10px 10px 0 0; font-size:12px; color:var(--accent-games); border:1px solid rgba(255,255,255,0.05); border-bottom:none;">
                             Редактирование... <i class="fa-solid fa-xmark" id="msCancelEditBtn" style="cursor:pointer; margin-left:8px; color:var(--text-muted);"></i>
@@ -88,7 +90,7 @@ export const MessagesView = {
                             <input type="file" id="msgFileInput" style="display: none;" accept="image/*, audio/*" multiple>
                             <div class="ms-input-pill">
                                 <button id="msgAttachBtn" class="icon-btn"><i class="fa-solid fa-paperclip"></i></button>
-                                <input type="text" id="msgInput" class="ms-input" placeholder="Сообщение..." autocomplete="off">
+                                <div id="msgInput" class="ms-input" contenteditable="true" placeholder="Сообщение..." style="white-space: pre-wrap; word-break: break-word; min-height: 20px; max-height: 150px; overflow-y: auto;"></div>
                             </div>
                             <button id="msgVoiceBtn" class="ms-send-btn voice"><i class="fa-solid fa-microphone"></i></button>
                             <button id="msgSendBtn" class="ms-send-btn" style="display:none;"><i class="fa-solid fa-arrow-up"></i></button>
@@ -135,11 +137,14 @@ export const MessagesView = {
         </div>
 
         <div id="chatImageModal" class="modal-overlay" style="z-index: 9999999;">
-            <div class="modal-content" style="max-width: 95vw; max-height: 95vh; background: transparent; box-shadow: none; border: none; align-items: center; justify-content: center; padding: 0;">
+            <div class="modal-content" style="max-width: 95vw; max-height: 95vh; background: transparent; box-shadow: none; border: none; align-items: center; justify-content: center; padding: 0; position: relative;">
+                <div id="chatImageCounter" style="position: absolute; top: -30px; left: 50%; transform: translateX(-50%); color: #fff; background: rgba(0,0,0,0.5); padding: 4px 12px; border-radius: 12px; font-size: 14px; font-weight: 600; display: none;">1 / 1</div>
                 <img id="chatFullImage" src="" style="max-width: 100%; max-height: 85vh; border-radius: 12px; box-shadow: 0 20px 80px rgba(0,0,0,0.8); object-fit: contain;">
                 <div style="margin-top: 20px; display: flex; gap: 16px; background: rgba(0,0,0,0.5); padding: 10px 20px; border-radius: 100px; backdrop-filter: blur(10px);">
+                    <button id="prevChatImageBtn" class="icon-btn" style="width: 44px; height: 44px; display: none;"><i class="fa-solid fa-chevron-left"></i></button>
                     <button id="closeChatImageModal" class="icon-btn" style="width: 44px; height: 44px;"><i class="fa-solid fa-xmark"></i></button>
                     <a id="downloadChatImageBtn" href="" download class="icon-btn" style="width: 44px; height: 44px;" title="Скачать"><i class="fa-solid fa-download"></i></a>
+                    <button id="nextChatImageBtn" class="icon-btn" style="width: 44px; height: 44px; display: none;"><i class="fa-solid fa-chevron-right"></i></button>
                 </div>
             </div>
         </div>

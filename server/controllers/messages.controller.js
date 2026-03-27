@@ -47,13 +47,11 @@ try {
 
 class MessagesController {
     
-    // --- ВНУТРЕННИЙ МЕТОД ДЛЯ СИСТЕМНЫХ СООБЩЕНИЙ ---
     _sendSystemMessage(chatId, content, io, customTimestamp = null) {
         const timestamp = customTimestamp || Date.now();
         const msgId = randomUUID();
         
         db.transaction(() => {
-            // Системные сообщения всегда is_read = 1, чтобы не триггерить красные кружочки
             db.prepare('INSERT INTO messages (id, chat_id, sender_username, content, timestamp, is_read, is_edited) VALUES (?, ?, ?, ?, ?, 1, 0)')
               .run(msgId, chatId, 'TetlaBot', content, timestamp);
             db.prepare('UPDATE chats SET updated_at = ? WHERE id = ?').run(timestamp, chatId);
@@ -66,7 +64,6 @@ class MessagesController {
                 authorName: botUser.name, authorAvatar: botUser.avatar, frameId: botUser.frameId
             };
             
-            // Рассылаем ТОЛЬКО тем, кто в статусе joined или invited (остальных не дергаем)
             const members = db.prepare("SELECT username FROM chat_members WHERE chat_id = ? AND status IN ('joined', 'invited')").all(chatId);
             members.forEach(m => {
                 io.to(`user_${m.username}`).emit('new_message', enrichedMsg);
@@ -162,7 +159,6 @@ class MessagesController {
                 this._sendSystemMessage(chatId, `❌ Пользователь @${username} отклонил(а) приглашение.`, io);
                 if (io) io.to(`user_${username}`).emit('chat_deleted', { chatId });
 
-                // ПРОВЕРКА НА БРОШЕННЫЙ ЧАТ
                 const activeMembers = db.prepare("SELECT count(*) as c FROM chat_members WHERE chat_id = ? AND status NOT IN ('left', 'declined')").get(chatId).c;
                 if (activeMembers === 0) {
                     db.prepare('DELETE FROM chats WHERE id = ?').run(chatId);
@@ -288,8 +284,9 @@ class MessagesController {
             const memberRow = db.prepare('SELECT status, cleared_at FROM chat_members WHERE chat_id = ? AND username = ?').get(chatId, username);
             if (!memberRow || memberRow.status === 'left' || memberRow.status === 'declined') return res.status(403).json({ error: 'Доступ запрещен' });
 
+            // ИЗМЕНЕНИЕ ЗДЕСЬ: Добавлен выбор u.banner
             const members = db.prepare(`
-                SELECT u.username, u.name, u.avatar, u.isVerified, u.frameId, cm.role 
+                SELECT u.username, u.name, u.avatar, u.banner, u.isVerified, u.frameId, cm.role 
                 FROM chat_members cm 
                 JOIN users u ON cm.username = u.username 
                 WHERE cm.chat_id = ?
@@ -344,8 +341,6 @@ class MessagesController {
                 const members = db.prepare('SELECT username, status FROM chat_members WHERE chat_id = ?').all(chatId);
                 for (const m of members) {
                     if (m.username === sender) continue;
-                    
-                    // ЕСЛИ УДАЛИЛ (LEFT) ИЛИ ОТКЛОНИЛ (DECLINED) - ШЛЕМ НОВЫЙ ИНВАЙТ
                     if (m.status === 'left' || m.status === 'declined') {
                         if (chat.type === 'direct') {
                             db.prepare("UPDATE chat_members SET status = 'invited' WHERE chat_id = ? AND username = ?").run(chatId, m.username);
@@ -354,7 +349,6 @@ class MessagesController {
                     }
                 }
 
-                // Вставляем сообщение юзера
                 db.prepare('INSERT INTO messages (id, chat_id, sender_username, content, timestamp, is_read, is_edited) VALUES (@id, @chat_id, @sender_username, @content, @timestamp, @is_read, @is_edited)').run(newMsg);
                 db.prepare('UPDATE chats SET updated_at = ? WHERE id = ?').run(now, chatId);
             })();
@@ -364,14 +358,8 @@ class MessagesController {
 
             if (io) {
                 const members = db.prepare("SELECT username, status FROM chat_members WHERE chat_id = ? AND status IN ('joined', 'invited')").all(chatId);
-                
-                members.forEach(m => { 
-                    io.to(`user_${m.username}`).emit('new_message', enrichedMsg); 
-                });
-
-                reInvitedUsers.forEach(ru => {
-                    io.to(`user_${ru}`).emit('chat_invited', { chatId, type: chat.type, name: chat.name, sender });
-                });
+                members.forEach(m => { io.to(`user_${m.username}`).emit('new_message', enrichedMsg); });
+                reInvitedUsers.forEach(ru => { io.to(`user_${ru}`).emit('chat_invited', { chatId, type: chat.type, name: chat.name, sender }); });
             }
             res.json({ success: true, message: enrichedMsg, chatId });
         } catch (e) { console.error(e); res.status(500).json({ error: 'Ошибка отправки' }); }

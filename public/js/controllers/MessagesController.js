@@ -21,7 +21,15 @@ export class MessagesController {
         this.activeTargetUsername = null;
         this.pinnedChats = JSON.parse(localStorage.getItem('cycle_pinned_chats')) || [];
         this.editingMsgId = null;
-        this.pendingAttachments = []; // ОЧЕРЕДЬ ДЛЯ ФОТО
+        this.pendingAttachments = []; 
+        this.savedRange = null;
+        
+        this.currentGroupMembers = [];
+        this.displayedGroupMembers = [];
+        this.isGroupMembersExpanded = false;
+
+        this.currentImageGallery = [];
+        this.currentImageIndex = 0;
 
         this.chatSearchInput = document.getElementById('msChatSearch');
         this.searchDropdown = document.getElementById('msSearchDropdown');
@@ -71,6 +79,7 @@ export class MessagesController {
             }
         });
 
+        this.createFormatContextMenu();
         this.init();
     }
 
@@ -105,12 +114,87 @@ export class MessagesController {
 
     destroy() {
         this.abortController.abort();
+        if (this.formatMenu) this.formatMenu.remove();
         window.cycleActiveChatId = null;
         
         document.body.classList.remove('messenger-active-layout');
         document.body.classList.remove('chat-active-mobile');
         
         document.querySelectorAll('audio').forEach(a => { if (a.id !== 'globalAudioPlayer') a.pause(); });
+    }
+
+    createFormatContextMenu() {
+        if (document.getElementById('formatContextMenu')) document.getElementById('formatContextMenu').remove();
+        const menu = document.createElement('div');
+        menu.id = 'formatContextMenu';
+        menu.className = 'options-menu';
+        menu.style.position = 'absolute';
+        menu.style.display = 'none';
+        menu.style.zIndex = '999999';
+        menu.innerHTML = `
+            <div class="menu-item" id="fmtBold"><i class="fa-solid fa-bold"></i> <span>Жирный</span></div>
+            <div class="menu-item" id="fmtQuote"><i class="fa-solid fa-quote-right"></i> <span>Цитата</span></div>
+            <div class="menu-item" id="fmtSpoiler"><i class="fa-solid fa-eye-slash"></i> <span>Спойлер</span></div>
+        `;
+        document.body.appendChild(menu);
+        this.formatMenu = menu;
+
+        const signal = this.abortController.signal;
+        document.getElementById('fmtBold').addEventListener('mousedown', (e) => { e.preventDefault(); this.applyFormat('bold'); }, { signal });
+        document.getElementById('fmtQuote').addEventListener('mousedown', (e) => { e.preventDefault(); this.applyFormat('quote'); }, { signal });
+        document.getElementById('fmtSpoiler').addEventListener('mousedown', (e) => { e.preventDefault(); this.applyFormat('spoiler'); }, { signal });
+    }
+
+    applyFormat(type) {
+        this.formatMenu.style.display = 'none';
+        this.msgInput.focus();
+
+        if (this.savedRange) {
+            const selection = window.getSelection();
+            selection.removeAllRanges();
+            selection.addRange(this.savedRange);
+        }
+
+        const selection = window.getSelection();
+        if (!selection.rangeCount) return;
+        const range = selection.getRangeAt(0);
+
+        if (type === 'bold') {
+            document.execCommand('bold', false, null);
+        } else if (type === 'quote') {
+            const extracted = range.extractContents();
+            const div = document.createElement('div');
+            div.className = 'post-quote';
+            if (extracted.textContent.trim() === '') div.textContent = 'Цитата'; else div.appendChild(extracted);
+            range.insertNode(div);
+            const space = document.createTextNode('\u200B'); div.after(space);
+            range.setStartAfter(space); range.collapse(true);
+            selection.removeAllRanges(); selection.addRange(range);
+        } else if (type === 'spoiler') {
+            const extracted = range.extractContents();
+            const span = document.createElement('span');
+            span.className = 'editor-spoiler';
+            if (extracted.textContent.trim() === '') span.textContent = 'Спойлер'; else span.appendChild(extracted);
+            range.insertNode(span);
+            const space = document.createTextNode('\u00A0'); span.after(space);
+            range.setStartAfter(space); range.collapse(true);
+            selection.removeAllRanges(); selection.addRange(range);
+        }
+        this.updateInputButtons();
+    }
+
+    getFormattedContent() {
+        const clone = this.msgInput.cloneNode(true);
+        clone.querySelectorAll('.post-quote').forEach(q => { q.replaceWith(`\n> ${q.innerText.trim()}\n`); });
+        clone.querySelectorAll('b, strong, span[style*="font-weight: bold"]').forEach(b => { b.replaceWith(`**${b.innerText}**`); });
+        clone.querySelectorAll('.editor-spoiler').forEach(s => { s.replaceWith(`||${s.innerText}||`); });
+
+        let html = clone.innerHTML;
+        html = html.replace(/<div><br><\/div>/g, '\n').replace(/<div>/g, '\n').replace(/<\/div>/g, '').replace(/<br>/g, '\n'); 
+
+        const temp = document.createElement('div');
+        temp.innerHTML = html;
+        return temp.innerText.trim();
     }
 
     async loadChats() {
@@ -240,12 +324,101 @@ export class MessagesController {
                         this.detailsBody.innerHTML = this.renderer.renderDirectDetails(profile, res.media);
                         this._initGamesScrollLogic();
                     } else {
+                        // Отрисовка группы
+                        this.currentGroupMembers = res.members;
+                        this.displayedGroupMembers = res.members;
+                        this.isGroupMembersExpanded = false;
+
                         this.detailsBody.innerHTML = this.renderer.renderGroupDetails(res.members, res.media);
+                        
+                        this._renderGroupMembersList();
+                        this._initGroupSearchLogic();
                     }
                 }
             } catch (e) { this.detailsBody.innerHTML = '<div style="padding:20px; color:var(--danger); text-align:center;">Ошибка загрузки</div>'; }
         } else { 
             this.detailsPanel.classList.remove('open'); 
+        }
+    }
+
+    _renderGroupMembersList() {
+        const listContainer = document.getElementById('groupMembersScrollList');
+        const expandWrapper = document.getElementById('groupMembersExpandWrapper');
+        const toggleBtn = document.getElementById('btnToggleGroupMembers');
+
+        if (!listContainer) return;
+
+        let membersToShow = this.displayedGroupMembers;
+
+        // Логика сворачивания (разрешено только если список больше 4)
+        if (this.displayedGroupMembers.length > 4) {
+            expandWrapper.style.display = 'block';
+            if (!this.isGroupMembersExpanded) {
+                membersToShow = this.displayedGroupMembers.slice(0, 4);
+                toggleBtn.innerHTML = `Показать всех (${this.displayedGroupMembers.length}) <i class="fa-solid fa-chevron-down"></i>`;
+            } else {
+                toggleBtn.innerHTML = `Скрыть <i class="fa-solid fa-chevron-up"></i>`;
+            }
+        } else {
+            expandWrapper.style.display = 'none';
+        }
+
+        listContainer.innerHTML = this.renderer.renderGroupMembersList(membersToShow);
+    }
+
+    _initGroupSearchLogic() {
+        const searchInput = document.getElementById('groupMembersSearch');
+        const dropdown = document.getElementById('groupMembersDropdown');
+        const toggleBtn = document.getElementById('btnToggleGroupMembers');
+
+        if (!searchInput || !dropdown) return;
+
+        // Live-поиск (дропдаун)
+        const handleSearch = debounce((query) => {
+            if (!query) {
+                dropdown.style.display = 'none';
+                return;
+            }
+            const results = this.searchEngine.search(this.currentGroupMembers, query, [
+                { field: 'name', weight: 5 }, 
+                { field: 'username', weight: 3 }
+            ]);
+
+            if (results.length > 0) {
+                dropdown.innerHTML = results.slice(0, 5).map(m => this.renderer.renderGroupSearchDropdownItem(m)).join('');
+            } else {
+                dropdown.innerHTML = '<div style="padding:10px; text-align:center; color:var(--text-muted); font-size:13px;">Не найдено</div>';
+            }
+            dropdown.style.display = 'block';
+        }, 200);
+
+        searchInput.addEventListener('input', (e) => handleSearch(e.target.value.trim()), { signal: this.abortController.signal });
+
+        // Применение фильтра к сетке (по Enter)
+        searchInput.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') {
+                dropdown.style.display = 'none';
+                const query = e.target.value.trim();
+                
+                if (!query) {
+                    this.displayedGroupMembers = this.currentGroupMembers;
+                } else {
+                    this.displayedGroupMembers = this.searchEngine.search(this.currentGroupMembers, query, [
+                        { field: 'name', weight: 5 }, 
+                        { field: 'username', weight: 3 }
+                    ]);
+                }
+                this.isGroupMembersExpanded = false; // Сбрасываем развертку при новом поиске
+                this._renderGroupMembersList();
+            }
+        }, { signal: this.abortController.signal });
+
+        // Клик по кнопке Показать/Скрыть
+        if (toggleBtn) {
+            toggleBtn.addEventListener('click', () => {
+                this.isGroupMembersExpanded = !this.isGroupMembersExpanded;
+                this._renderGroupMembersList();
+            }, { signal: this.abortController.signal });
         }
     }
 
@@ -260,19 +433,16 @@ export class MessagesController {
         slider.addEventListener('wheel', (evt) => { if (evt.deltaY !== 0) { evt.preventDefault(); slider.scrollLeft += evt.deltaY; } }, { passive: false });
     }
 
-    // --- ЛОГИКА ОТПРАВКИ ФАЙЛОВ И ТЕКСТА ---
     async sendMessage(rawContent) {
         let finalContent = rawContent ? rawContent.trim() : '';
 
-        // 1. Если есть редактирование
         if (this.editingMsgId) {
             const res = await MessagesAPI.editMessage(this.editingMsgId, this.activeChatId, finalContent);
             if (!res.success && res.error) { Toast.show(res.error, 'error'); return; }
-            this.editingMsgId = null; this.msgInput.value = ''; document.getElementById('msEditIndicator').style.display = 'none'; this.updateInputButtons();
+            this.editingMsgId = null; this.msgInput.innerHTML = ''; document.getElementById('msEditIndicator').style.display = 'none'; this.updateInputButtons();
             return;
         }
         
-        // 2. Если есть файлы в предпросмотре
         if (this.pendingAttachments.length > 0) {
             this.msgSendBtn.disabled = true;
             this.msgSendBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i>';
@@ -280,7 +450,7 @@ export class MessagesController {
             for (const att of this.pendingAttachments) {
                 const res = await UploadAPI.uploadFile(att.file);
                 if (res && res.success) {
-                    finalContent += ` [IMG:${res.url}]`; // Приклеиваем картинки к тексту
+                    finalContent += ` [IMG:${res.url}]`; 
                 }
             }
 
@@ -291,13 +461,12 @@ export class MessagesController {
         }
 
         finalContent = finalContent.trim();
-        if (!finalContent) return; // Пустые сообщения не отправляем
+        if (!finalContent) return; 
         
-        // 3. Отправка (создание нового чата или обычная)
         if (this.activeChatId === 'new') {
             const res = await MessagesAPI.createChat({ type: 'direct', members: [this.activeTargetUsername], initialMessage: finalContent });
             if (res.success) {
-                this.msgInput.value = ''; 
+                this.msgInput.innerHTML = ''; 
                 this.updateInputButtons(); 
                 await this.openChat(res.chatId);
                 return;
@@ -306,7 +475,7 @@ export class MessagesController {
         
         const res = await MessagesAPI.sendMessage(this.activeChatId, finalContent);
         if (res.success) { 
-            this.msgInput.value = ''; 
+            this.msgInput.innerHTML = ''; 
             this.updateInputButtons(); 
             
             if (res.message && !this.messages.find(m => m.id === res.message.id)) {
@@ -362,7 +531,7 @@ export class MessagesController {
     }
 
     updateInputButtons() {
-        const hasText = this.msgInput.value.trim().length > 0;
+        const hasText = this.msgInput.innerText.trim().length > 0;
         const hasAtt = this.pendingAttachments.length > 0;
         if (hasText || hasAtt) {
             this.msgVoiceBtn.style.display = 'none';
@@ -371,6 +540,19 @@ export class MessagesController {
             this.msgVoiceBtn.style.display = 'flex';
             this.msgSendBtn.style.display = 'none';
         }
+    }
+
+    changeChatImage(direction) {
+        if (this.currentImageGallery.length <= 1) return;
+        const total = this.currentImageGallery.length;
+        this.currentImageIndex = (this.currentImageIndex + direction + total) % total;
+        const newUrl = this.currentImageGallery[this.currentImageIndex];
+        
+        document.getElementById('chatFullImage').src = newUrl;
+        document.getElementById('downloadChatImageBtn').href = newUrl;
+        
+        const counter = document.getElementById('chatImageCounter');
+        if (counter) counter.textContent = `${this.currentImageIndex + 1} / ${total}`;
     }
 
     bindEvents() {
@@ -440,6 +622,32 @@ export class MessagesController {
         }
 
         document.addEventListener('click', (e) => {
+            // Клик по результату поиска участника группы
+            const groupSearchItem = e.target.closest('.group-search-item');
+            if (groupSearchItem) {
+                const username = groupSearchItem.dataset.username;
+                const searchInput = document.getElementById('groupMembersSearch');
+                const dropdown = document.getElementById('groupMembersDropdown');
+
+                if (searchInput) searchInput.value = '';
+                if (dropdown) dropdown.style.display = 'none';
+
+                // Находим участника и отображаем только его в сетке
+                const member = this.currentGroupMembers.find(m => m.username === username);
+                if (member) {
+                    this.displayedGroupMembers = [member];
+                    this.isGroupMembersExpanded = false;
+                    this._renderGroupMembersList();
+                }
+                return;
+            }
+
+            // Скрытие dropdown участников группы при клике вне него
+            if (!e.target.closest('.cd-search-wrapper')) {
+                const grpDropdown = document.getElementById('groupMembersDropdown');
+                if (grpDropdown) grpDropdown.style.display = 'none';
+            }
+
             const dropItem = e.target.closest('#msSearchDropdown .search-dropdown-item');
             if (dropItem) {
                 const chatId = dropItem.dataset.id;
@@ -464,14 +672,42 @@ export class MessagesController {
             
             if (this.msOptionsMenu && !e.target.closest('#msOptionsBtn')) this.msOptionsMenu.classList.remove('active');
             if (this.msgContextMenu) this.msgContextMenu.style.display = 'none';
+            if (this.formatMenu) this.formatMenu.style.display = 'none';
             
             const imgTarget = e.target.closest('.cycle-media-img') || e.target.closest('.cd-media-thumb');
             if (imgTarget) { 
                 e.preventDefault();
                 const url = imgTarget.dataset.url || imgTarget.src; 
+                
+                const grid = imgTarget.closest('.msg-image-grid');
+                if (grid && grid.dataset.images) {
+                    this.currentImageGallery = grid.dataset.images.split(',');
+                    this.currentImageIndex = this.currentImageGallery.indexOf(url);
+                    if (this.currentImageIndex === -1) this.currentImageIndex = 0;
+                } else {
+                    this.currentImageGallery = [url];
+                    this.currentImageIndex = 0;
+                }
+
                 if (url) { 
-                    document.getElementById('chatFullImage').src = url; 
-                    document.getElementById('downloadChatImageBtn').href = url; 
+                    document.getElementById('chatFullImage').src = this.currentImageGallery[this.currentImageIndex]; 
+                    document.getElementById('downloadChatImageBtn').href = this.currentImageGallery[this.currentImageIndex]; 
+                    
+                    const prevBtn = document.getElementById('prevChatImageBtn');
+                    const nextBtn = document.getElementById('nextChatImageBtn');
+                    const counter = document.getElementById('chatImageCounter');
+
+                    if (this.currentImageGallery.length > 1) {
+                        prevBtn.style.display = 'flex';
+                        nextBtn.style.display = 'flex';
+                        counter.style.display = 'block';
+                        counter.textContent = `${this.currentImageIndex + 1} / ${this.currentImageGallery.length}`;
+                    } else {
+                        prevBtn.style.display = 'none';
+                        nextBtn.style.display = 'none';
+                        counter.style.display = 'none';
+                    }
+
                     document.getElementById('chatImageModal').classList.add('active'); 
                 } 
             }
@@ -484,10 +720,17 @@ export class MessagesController {
             }
         }, { signal: sig });
 
+        document.getElementById('prevChatImageBtn')?.addEventListener('click', (e) => { e.stopPropagation(); this.changeChatImage(-1); }, { signal: sig });
+        document.getElementById('nextChatImageBtn')?.addEventListener('click', (e) => { e.stopPropagation(); this.changeChatImage(1); }, { signal: sig });
+
         document.addEventListener('keydown', (e) => {
-            if (e.key === 'Escape') {
-                const chatImageModal = document.getElementById('chatImageModal');
-                if (chatImageModal) chatImageModal.classList.remove('active');
+            const chatImageModal = document.getElementById('chatImageModal');
+            if (chatImageModal && chatImageModal.classList.contains('active')) {
+                if (e.key === 'Escape') chatImageModal.classList.remove('active');
+                if (e.key === 'ArrowLeft') this.changeChatImage(-1);
+                if (e.key === 'ArrowRight') this.changeChatImage(1);
+            } else if (e.key === 'Escape') {
+                if (this.formatMenu) this.formatMenu.style.display = 'none';
             }
         }, { signal: sig });
 
@@ -524,8 +767,23 @@ export class MessagesController {
         document.getElementById('closeChatDetailsBtn')?.addEventListener('click', () => this.toggleDetails(false), { sig });
 
         this.msgInput.addEventListener('input', () => this.updateInputButtons(), { sig });
-        this.msgSendBtn.addEventListener('click', () => this.sendMessage(this.msgInput.value.trim()), { sig });
-        this.msgInput.addEventListener('keydown', (e) => { if(e.key==='Enter') this.sendMessage(this.msgInput.value.trim()); }, { sig });
+        this.msgSendBtn.addEventListener('click', () => this.sendMessage(this.getFormattedContent()), { sig });
+        
+        this.msgInput.addEventListener('keydown', (e) => { 
+            if(e.key === 'Enter' && !e.shiftKey) {
+                e.preventDefault();
+                this.sendMessage(this.getFormattedContent());
+            }
+        }, { sig });
+
+        this.msgInput.addEventListener('contextmenu', (e) => {
+            e.preventDefault();
+            const selection = window.getSelection();
+            if(selection.rangeCount > 0) this.savedRange = selection.getRangeAt(0).cloneRange();
+            this.formatMenu.style.display = 'block';
+            this.formatMenu.style.top = `${e.pageY}px`;
+            this.formatMenu.style.left = `${e.pageX}px`;
+        });
 
         document.getElementById('msBackBtn')?.addEventListener('click', (e) => {
             e.stopPropagation(); this.chatAreaEl.classList.remove('active'); this.sidebarEl.classList.remove('hidden'); document.body.classList.remove('chat-active-mobile');
@@ -545,7 +803,6 @@ export class MessagesController {
                             url: URL.createObjectURL(f)
                         });
                     } else if (f.type.startsWith('audio/')) {
-                        // Аудио файлы с компьютера грузим и отправляем сразу
                         const up = await UploadAPI.uploadFile(f);
                         if (up.success) this.sendMessage(`[AUDIO:${up.url}|[]]`);
                     }
@@ -565,8 +822,8 @@ export class MessagesController {
         }, { sig });
         
         document.getElementById('ctxMsgDelete').addEventListener('click', () => { MessagesAPI.deleteMessage(this.contextTargetId, this.activeChatId); this.msgContextMenu.style.display = 'none'; }, { sig });
-        document.getElementById('ctxMsgEdit').addEventListener('click', () => { this.editingMsgId = this.contextTargetId; this.msgInput.value = this.contextTargetRaw.replace(/\[IMG:[^\]]+\]/g, '').trim(); document.getElementById('msEditIndicator').style.display = 'block'; this.msgInput.focus(); this.updateInputButtons(); this.msgContextMenu.style.display = 'none'; }, { sig });
-        document.getElementById('msCancelEditBtn').addEventListener('click', () => { this.editingMsgId = null; this.msgInput.value = ''; document.getElementById('msEditIndicator').style.display = 'none'; this.updateInputButtons(); }, { sig });
+        document.getElementById('ctxMsgEdit').addEventListener('click', () => { this.editingMsgId = this.contextTargetId; this.msgInput.innerText = this.contextTargetRaw.replace(/\[IMG:[^\]]+\]/g, '').trim(); document.getElementById('msEditIndicator').style.display = 'block'; this.msgInput.focus(); this.updateInputButtons(); this.msgContextMenu.style.display = 'none'; }, { sig });
+        document.getElementById('msCancelEditBtn').addEventListener('click', () => { this.editingMsgId = null; this.msgInput.innerHTML = ''; document.getElementById('msEditIndicator').style.display = 'none'; this.updateInputButtons(); }, { sig });
         
         document.getElementById('msOptionsBtn').addEventListener('click', (e) => { e.stopPropagation(); this.msOptionsMenu.classList.toggle('active'); }, { sig });
         

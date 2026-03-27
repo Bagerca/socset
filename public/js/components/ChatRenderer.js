@@ -1,5 +1,5 @@
 // public/js/components/ChatRenderer.js
-import { escapeHTML, formatTime } from '../utils/utils.js';
+import { escapeHTML, formatTime, parseFormatting } from '../utils/utils.js';
 import { MessageBuilder } from '../utils/MessageBuilder.js';
 
 export class ChatRenderer {
@@ -86,35 +86,31 @@ export class ChatRenderer {
 
             const isMe = msg.sender_username === currentUserUsername;
             
-            // --- ПАРСИНГ СОДЕРЖИМОГО ---
             let rawContent = msg.content || '';
             let images = [];
             let audios = [];
 
-            // Извлекаем все изображения
             const imgRegex = /\[IMG:([^\]]+)\]/g;
             let match;
             while ((match = imgRegex.exec(rawContent)) !== null) { images.push(match[1]); }
-            rawContent = rawContent.replace(imgRegex, ''); // Удаляем теги из текста
+            rawContent = rawContent.replace(imgRegex, '');
 
-            // Извлекаем все аудио
-            const audioRegex = /\[AUDIO:([^\]]+)\|([^\]]+)\]/g;
+            const audioRegex = /\[AUDIO:([^|]+)\|(\[.*?\])\]/g;
             while ((match = audioRegex.exec(rawContent)) !== null) { audios.push({ url: match[1], waveform: match[2] }); }
-            rawContent = rawContent.replace(audioRegex, ''); // Удаляем теги из текста
+            rawContent = rawContent.replace(audioRegex, '');
 
             let textContent = rawContent.trim();
             let contentHTML = '';
             let extraClass = '';
 
-            // 1. РЕНДЕР ТЕКСТА
             if (textContent) {
-                contentHTML += `<div class="msg-text">${escapeHTML(textContent)}</div>`;
+                contentHTML += `<div class="msg-text">${parseFormatting(textContent)}</div>`;
             }
 
-            // 2. РЕНДЕР ИЗОБРАЖЕНИЙ (МОДУЛЬНАЯ УМНАЯ СЕТКА)
             if (images.length > 0) {
                 let gridClass = '';
                 let imgsHTML = '';
+                const imagesAttr = escapeHTML(images.join(',')); 
 
                 if (images.length === 1) {
                     gridClass = 'msg-grid-1';
@@ -139,22 +135,14 @@ export class ChatRenderer {
                     `;
                 }
                 
-                contentHTML += `<div class="msg-image-grid ${gridClass}">${imgsHTML}</div>`;
-                
-                // Если НЕТ текста и аудио — делаем прозрачный фон пузыря
-                if (!textContent && audios.length === 0) {
-                    extraClass = 'is-media';
-                }
+                contentHTML += `<div class="msg-image-grid ${gridClass}" data-images="${imagesAttr}">${imgsHTML}</div>`;
+                if (!textContent && audios.length === 0) extraClass = 'is-media';
             }
 
-            // 3. РЕНДЕР АУДИО
             if (audios.length > 0) {
                 let audiosHTML = audios.map(a => MessageBuilder.buildAudioPlayer(a.url, a.waveform)).join('');
                 contentHTML += `<div class="msg-audio-list">${audiosHTML}</div>`;
-                // Для чистого аудио тоже применяем прозрачный фон
-                if (!textContent && images.length === 0) {
-                    extraClass = 'is-custom-audio';
-                }
+                if (!textContent && images.length === 0) extraClass = 'is-custom-audio';
             }
 
             let statusIcon = '';
@@ -208,8 +196,10 @@ export class ChatRenderer {
             const games = profile.showcaseGames.map(id => this.stores.catalogs.getGameById(id)).filter(Boolean);
             if (games.length > 0) {
                 gamesHtml = `
-                    <div class="cd-mp-section">
-                        <div class="cd-mp-title">Витрина игр</div>
+                    <div class="cd-panel-section">
+                        <div class="cd-section-header">
+                            <div class="cd-section-title">Витрина игр</div>
+                        </div>
                         <div class="cd-mp-games-scroll" id="miniProfileGamesScroll">
                             ${games.map(g => `<a href="#/game/${g.id}" class="cd-mp-game-card" draggable="false"><img src="${g.icon}" class="cd-mp-game-img" title="${escapeHTML(g.title)}" draggable="false"></a>`).join('')}
                         </div>
@@ -224,7 +214,9 @@ export class ChatRenderer {
             else badgeHTML = `<i class="fa-solid fa-circle-check badge-1" title="Подтвержденный" style="color: #1da1f2; font-size: 24px;"></i>`;
         }
 
-        const mediaHTML = media.length > 0 ? `<div class="cd-media-grid">${media.map(url => `<img src="${url}" class="cd-media-thumb" data-url="${url}">`).join('')}</div>` : '<div style="color:var(--text-muted); font-size:14px; text-align:center; padding: 20px;">Нет медиафайлов</div>';
+        const mediaHTML = media.length > 0 
+            ? `<div class="cd-media-grid" style="padding: 0 20px;">${media.map(url => `<img src="${url}" class="cd-media-thumb" data-url="${url}">`).join('')}</div>` 
+            : '<div style="color:var(--text-muted); font-size:14px; text-align:center; padding: 20px;">Нет медиафайлов</div>';
         const bannerUrl = profile.banner || 'https://placehold.co/800x250/111/fff?text=Banner';
 
         return `
@@ -246,36 +238,103 @@ export class ChatRenderer {
                     </div>
                 </div>
                 ${gamesHtml}
-                <div class="cd-mp-tabs"><div class="cd-mp-tab active">ВЛОЖЕНИЯ <span style="opacity:0.5; margin-left:6px;">${media.length}</span></div></div>
-                <div class="cd-mp-content">${mediaHTML}</div>
+                
+                <div class="cd-divider"></div>
+
+                <div class="cd-panel-section">
+                    <div class="cd-section-header" style="margin-bottom: 12px;">
+                        <div class="cd-section-title">Медиафайлы <span class="cd-section-count">${media.length}</span></div>
+                    </div>
+                    ${mediaHTML}
+                </div>
             </div>
         `;
     }
 
     renderGroupDetails(members, media) {
-        const membersHTML = members.map(m => `
-            <div class="cd-member-card msg-system-mention" data-username="${escapeHTML(m.username)}" style="cursor:pointer;">
-                <div style="position:relative; width:40px; height:40px; flex-shrink:0;">
-                    <img src="${m.avatar}" style="width:100%;height:100%;border-radius:50%;object-fit:cover;" onerror="this.src='img/logo.svg'">
-                    ${this._getFrameHTML(m.frameId)}
-                </div>
-                <div class="cd-member-info">
-                    <div class="cd-member-name">${escapeHTML(m.name)}</div>
-                    <div class="cd-member-status">@${escapeHTML(m.username)}</div>
-                </div>
-                ${m.role === 'admin' ? '<i class="fa-solid fa-crown" style="color:gold; font-size:14px;" title="Создатель"></i>' : ''}
-            </div>
-        `).join('');
-
-        const mediaHTML = media.length > 0 ? `<div class="cd-media-grid">${media.map(url => `<img src="${url}" class="cd-media-thumb" data-url="${url}">`).join('')}</div>` : '<div style="color:var(--text-muted); font-size:14px; text-align:center; padding: 20px;">Фотографий нет</div>';
+        const mediaHTML = media.length > 0 
+            ? `<div class="cd-media-grid" style="padding: 0 20px;">${media.map(url => `<img src="${url}" class="cd-media-thumb" data-url="${url}">`).join('')}</div>` 
+            : '<div style="color:var(--text-muted); font-size:14px; text-align:center; padding: 30px 20px;">Фотографий нет</div>';
 
         return `
-            <div class="cd-mp-section" style="border-top: none; padding-top: 10px;">
-                <div class="cd-mp-title">Участники группы (${members.length})</div>
-                <div class="cd-members-grid">${membersHTML}</div>
+            <div class="cd-panel-section" style="padding-top: 20px;">
+                <div class="cd-section-header">
+                    <div class="cd-section-title">Участники <span class="cd-section-count">${members.length}</span></div>
+                    
+                    <div class="cd-search-wrapper">
+                        <div class="cd-search-mini">
+                            <i class="fa-solid fa-magnifying-glass"></i>
+                            <input type="text" id="groupMembersSearch" placeholder="Поиск (Enter)..." autocomplete="off">
+                        </div>
+                        <div id="groupMembersDropdown" class="search-dropdown-menu" style="display: none; top: calc(100% + 5px);"></div>
+                    </div>
+                </div>
+
+                <div class="cd-members-grid" id="groupMembersScrollList">
+                    <!-- Заполняется через JS в контроллере -->
+                </div>
+                
+                <div id="groupMembersExpandWrapper" style="padding: 0 20px; display: none;">
+                    <button id="btnToggleGroupMembers" class="cd-members-expand-btn">Показать всех</button>
+                </div>
             </div>
-            <div class="cd-mp-tabs"><div class="cd-mp-tab active">МЕДИАФАЙЛЫ <span style="opacity:0.5; margin-left:6px;">${media.length}</span></div></div>
-            <div class="cd-mp-content">${mediaHTML}</div>
+            
+            <div class="cd-divider"></div>
+            
+            <div class="cd-panel-section">
+                <div class="cd-section-header" style="margin-bottom: 12px; padding-right: 20px;">
+                    <div class="cd-section-title">Медиафайлы <span class="cd-section-count">${media.length}</span></div>
+                </div>
+                ${mediaHTML}
+            </div>
         `;
+    }
+
+    renderGroupSearchDropdownItem(member) {
+        return `
+            <div class="search-dropdown-item group-search-item" data-username="${escapeHTML(member.username)}">
+                <img src="${member.avatar}" onerror="this.src='img/logo.svg'" style="width:28px;height:28px;border-radius:50%;object-fit:cover;">
+                <span style="font-size:14px; font-weight:600; color:#fff; margin-left:10px;">${escapeHTML(member.name)}</span>
+            </div>
+        `;
+    }
+
+    renderGroupMembersList(members) {
+        if (members.length === 0) return '<div style="padding: 20px; color: var(--text-muted); width: 100%; text-align: center; grid-column: 1 / -1;">Ничего не найдено</div>';
+
+        const roleWeight = { 'admin': 3, 'moderator': 2, 'member': 1 };
+        const sortedMembers = [...members].sort((a, b) => (roleWeight[b.role] || 0) - (roleWeight[a.role] || 0));
+
+        return sortedMembers.map(m => {
+            let roleBadge = '';
+            let extraClass = '';
+            
+            if (m.role === 'admin') {
+                roleBadge = '<i class="fa-solid fa-crown" style="color:gold; font-size:12px;" title="Создатель/Админ"></i>';
+                extraClass = 'role-admin';
+            } else if (m.role === 'moderator') {
+                roleBadge = '<i class="fa-solid fa-shield" style="color:#5dade2; font-size:12px;" title="Модератор"></i>';
+                extraClass = 'role-moderator';
+            }
+
+            const bannerUrl = m.banner || 'https://placehold.co/400x150/111/fff?text=Banner';
+
+            return `
+                <div class="cd-member-card msg-system-mention ${extraClass}" data-username="${escapeHTML(m.username)}" style="--bg-url: url('${bannerUrl}'); cursor: pointer;">
+                    
+                    <div class="cd-member-avatar-box">
+                        <img src="${m.avatar}" onerror="this.src='img/logo.svg'">
+                        ${this._getFrameHTML(m.frameId)}
+                    </div>
+                    
+                    <div class="cd-member-info">
+                        <div class="cd-member-name">${escapeHTML(m.name)}</div>
+                        <div class="cd-member-status">@${escapeHTML(m.username)}</div>
+                    </div>
+                    
+                    <div class="cd-member-role-badge">${roleBadge}</div>
+                </div>
+            `;
+        }).join('');
     }
 }
