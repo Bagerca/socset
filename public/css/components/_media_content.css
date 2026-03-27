@@ -1,3 +1,5 @@
+--- START OF FILE _media_content.css ---
+
 /* css/components/_media_content.css */
 
 /* ========================================= */
@@ -68,7 +70,7 @@
 /* ВОЛНА */
 .cycle-audio-waveform { 
     flex: 1; 
-    min-width: 60px; 
+    min-width: 120px; 
     height: 28px; 
     display: flex; 
     align-items: center; 
@@ -80,20 +82,19 @@
     inset: 0;
     display: flex; 
     align-items: center; 
-    justify-content: space-between; 
+    justify-content: flex-start; 
     gap: 2px; 
 }
-/* CLIP-PATH МАГИЯ: Режет волну пиксель в пиксель */
+
 .wave-active {
     clip-path: inset(0 calc(100% - var(--progress, 0%)) 0 0);
-    transition: clip-path 0.1s linear;
 }
 
-/* САМА ПОЛОСОЧКА */
 .wave-bar { 
+    flex: 1; 
+    min-width: 2px; 
+    max-width: 6px; 
     border-radius: 4px; 
-    width: 6px; 
-    min-width: 3px; 
     transition: background-color 0.2s ease, box-shadow 0.2s ease; 
     background: rgba(255, 255, 255, 0.1); 
     transform-origin: center; 
@@ -103,7 +104,9 @@
     box-shadow: 0 0 8px rgba(124, 58, 237, 0.8); 
 }
 
-/* КАРТИНКИ */
+/* ========================================= */
+/* ОДИНОЧНЫЕ КАРТИНКИ (Как было)             */
+/* ========================================= */
 .cycle-media-img {
     display: block; 
     max-width: 100%; 
@@ -116,3 +119,43 @@
     transition: filter 0.2s; 
 }
 .cycle-media-img:hover { filter: brightness(1.1); }
+
+
+/* ========================================= */
+/* УНИВЕРСАЛЬНАЯ СЕТКА МЕДИА ДЛЯ ПОСТОВ      */
+/* (Модульная сетка для будущих фото в ленте)*/
+/* ========================================= */
+.universal-media-grid {
+    display: grid;
+    gap: 4px; /* Зазор между картинками */
+    width: 100%;
+    border-radius: 16px; /* Закругление всего блока фотографий в ленте */
+    overflow: hidden;
+    margin-top: 12px;
+}
+
+.universal-media-grid.grid-1 { grid-template-columns: 1fr; }
+.universal-media-grid.grid-2 { grid-template-columns: 1fr 1fr; }
+.universal-media-grid.grid-3 { grid-template-columns: 1fr 1fr; }
+.universal-media-grid.grid-4 { grid-template-columns: 1fr 1fr; }
+
+/* Картинки внутри сетки жестко квадратные, родитель сам обрежет углы */
+.universal-media-grid img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+    border: none !important;
+    box-shadow: none !important;
+    border-radius: 0 !important; 
+    cursor: zoom-in;
+    transition: filter 0.2s ease;
+}
+
+.universal-media-grid img:hover { filter: brightness(1.1); }
+
+.universal-media-grid.grid-1 img { max-height: 400px; aspect-ratio: auto; }
+.universal-media-grid.grid-2 img, 
+.universal-media-grid.grid-4 img, 
+.universal-media-grid.grid-3 img:not(:first-child) { aspect-ratio: 1/1; }
+.universal-media-grid.grid-3 img:first-child { grid-column: span 2; aspect-ratio: 2/1; }

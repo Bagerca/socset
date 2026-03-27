@@ -36,7 +36,14 @@ export class AudioPlayerHandler {
             let lastSec = -1;
             
             audio.ontimeupdate = () => { 
-                if (waveformContainer) waveformContainer.style.setProperty('--progress', `${(audio.currentTime / audio.duration) * 100}%`); 
+                // ЗАЩИТА ОТ ДЕЛЕНИЯ НА 0 ИЛИ NaN
+                const duration = audio.duration && !isNaN(audio.duration) ? audio.duration : 1;
+                const progressPercentage = (audio.currentTime / duration) * 100;
+
+                if (waveformContainer) {
+                    waveformContainer.style.setProperty('--progress', `${progressPercentage}%`); 
+                }
+
                 if (timeDisplay) {
                     const sec = Math.floor(audio.currentTime);
                     if (sec !== lastSec) {

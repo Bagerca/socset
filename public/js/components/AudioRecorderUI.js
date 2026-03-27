@@ -47,7 +47,9 @@ export class AudioRecorderUI {
                     <button class="rec-btn cancel" title="Отмена"><i class="fa-solid fa-trash"></i></button>
                 </div>
             `;
-            this.containerEl.insertBefore(widget, this.voiceBtnEl);
+            
+            // ИСПРАВЛЕНИЕ: Вставляем виджет строго в родителя кнопки микрофона
+            this.voiceBtnEl.parentNode.insertBefore(widget, this.voiceBtnEl);
 
             this.activeRecording = { widget, startTime: Date.now(), data: null };
             

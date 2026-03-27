@@ -43,7 +43,7 @@ export class ChatRenderer {
     renderChatList(chats, activeChatId, pinnedChats) {
         return chats.map(chat => {
             const lastText = chat.lastMessage?.content || '...';
-            const displayMsg = lastText.startsWith('[IMG:') ? '🖼 Фотография' : lastText.startsWith('[AUDIO:') ? '🎤 Голосовое' : lastText;
+            const displayMsg = lastText.includes('[IMG:') ? '🖼 Фотография' : lastText.includes('[AUDIO:') ? '🎤 Голосовое' : lastText;
             const isPinned = pinnedChats.includes(chat.id);
             const frameId = chat.type === 'direct' ? chat.targetUser?.frameId : null;
             const inviteDot = chat.myStatus === 'invited' ? `<div style="width:10px;height:10px;border-radius:50%;background:#44bd32;margin-right:5px;" title="Новое приглашение"></div>` : '';
@@ -85,18 +85,76 @@ export class ChatRenderer {
             }
 
             const isMe = msg.sender_username === currentUserUsername;
-            let content = escapeHTML(msg.content);
-            let extraClass = '';
             
-            if (msg.content.startsWith('[IMG:') && msg.content.endsWith(']')) {
-                const url = msg.content.slice(5, -1);
-                content = `<img src="${url}" class="cycle-media-img" data-url="${url}">`;
-                extraClass = 'is-media';
-            } else if (msg.content.startsWith('[AUDIO:') && msg.content.endsWith(']')) {
-                const inner = msg.content.slice(7, -1);
-                const parts = inner.split('|');
-                content = MessageBuilder.buildAudioPlayer(parts[0], parts[1]);
-                extraClass = 'is-custom-audio';
+            // --- ПАРСИНГ СОДЕРЖИМОГО ---
+            let rawContent = msg.content || '';
+            let images = [];
+            let audios = [];
+
+            // Извлекаем все изображения
+            const imgRegex = /\[IMG:([^\]]+)\]/g;
+            let match;
+            while ((match = imgRegex.exec(rawContent)) !== null) { images.push(match[1]); }
+            rawContent = rawContent.replace(imgRegex, ''); // Удаляем теги из текста
+
+            // Извлекаем все аудио
+            const audioRegex = /\[AUDIO:([^\]]+)\|([^\]]+)\]/g;
+            while ((match = audioRegex.exec(rawContent)) !== null) { audios.push({ url: match[1], waveform: match[2] }); }
+            rawContent = rawContent.replace(audioRegex, ''); // Удаляем теги из текста
+
+            let textContent = rawContent.trim();
+            let contentHTML = '';
+            let extraClass = '';
+
+            // 1. РЕНДЕР ТЕКСТА
+            if (textContent) {
+                contentHTML += `<div class="msg-text">${escapeHTML(textContent)}</div>`;
+            }
+
+            // 2. РЕНДЕР ИЗОБРАЖЕНИЙ (МОДУЛЬНАЯ УМНАЯ СЕТКА)
+            if (images.length > 0) {
+                let gridClass = '';
+                let imgsHTML = '';
+
+                if (images.length === 1) {
+                    gridClass = 'msg-grid-1';
+                    imgsHTML = `<img src="${images[0]}" class="cycle-media-img" data-url="${images[0]}">`;
+                } else if (images.length === 2) {
+                    gridClass = 'msg-grid-2';
+                    imgsHTML = images.map(url => `<img src="${url}" class="cycle-media-img" data-url="${url}">`).join('');
+                } else if (images.length === 3) {
+                    gridClass = 'msg-grid-3';
+                    imgsHTML = images.map(url => `<img src="${url}" class="cycle-media-img" data-url="${url}">`).join('');
+                } else {
+                    gridClass = 'msg-grid-4';
+                    const extraCount = images.length - 4;
+                    imgsHTML = `
+                        <img src="${images[0]}" class="cycle-media-img" data-url="${images[0]}">
+                        <img src="${images[1]}" class="cycle-media-img" data-url="${images[1]}">
+                        <img src="${images[2]}" class="cycle-media-img" data-url="${images[2]}">
+                        <div class="msg-grid-more-wrapper cycle-media-img" data-url="${images[3]}">
+                            <img src="${images[3]}">
+                            ${extraCount > 0 ? `<div class="msg-grid-overlay">+${extraCount}</div>` : ''}
+                        </div>
+                    `;
+                }
+                
+                contentHTML += `<div class="msg-image-grid ${gridClass}">${imgsHTML}</div>`;
+                
+                // Если НЕТ текста и аудио — делаем прозрачный фон пузыря
+                if (!textContent && audios.length === 0) {
+                    extraClass = 'is-media';
+                }
+            }
+
+            // 3. РЕНДЕР АУДИО
+            if (audios.length > 0) {
+                let audiosHTML = audios.map(a => MessageBuilder.buildAudioPlayer(a.url, a.waveform)).join('');
+                contentHTML += `<div class="msg-audio-list">${audiosHTML}</div>`;
+                // Для чистого аудио тоже применяем прозрачный фон
+                if (!textContent && images.length === 0) {
+                    extraClass = 'is-custom-audio';
+                }
             }
 
             let statusIcon = '';
@@ -120,7 +178,7 @@ export class ChatRenderer {
                     ${avatarHTML}
                     <div class="msg-content-col ${isMe ? 'me' : 'them'}">
                         <div class="msg-bubble ${isMe ? 'me' : 'them'} ${extraClass}" data-id="${msg.id}" data-sender="${msg.sender_username}" data-raw="${escapeHTML(msg.content)}">
-                            ${content}
+                            ${contentHTML}
                         </div>
                         <div class="msg-meta">${formatTime(msg.timestamp)} ${msg.is_edited ? '<i>(изм.)</i>' : ''} ${statusIcon}</div>
                     </div>

@@ -21,14 +21,13 @@ export class MessagesController {
         this.activeTargetUsername = null;
         this.pinnedChats = JSON.parse(localStorage.getItem('cycle_pinned_chats')) || [];
         this.editingMsgId = null;
+        this.pendingAttachments = []; // ОЧЕРЕДЬ ДЛЯ ФОТО
 
-        // Элементы поиска
         this.chatSearchInput = document.getElementById('msChatSearch');
         this.searchDropdown = document.getElementById('msSearchDropdown');
         this.searchWrapper = document.getElementById('msSearchWrapper');
         this.activeSearchQuery = ''; 
 
-        // Элементы
         this.sidebarEl = document.getElementById('messengerSidebar');
         this.chatAreaEl = document.getElementById('messengerChatArea');
         this.chatListContainer = document.getElementById('chatListContainer');
@@ -40,7 +39,7 @@ export class MessagesController {
         this.msgAttachBtn = document.getElementById('msgAttachBtn');
         this.msgFileInput = document.getElementById('msgFileInput');
         
-        this.msInputArea = document.getElementById('msInputArea');
+        this.msInputContainer = document.getElementById('msInputContainer');
         this.msOptionsMenu = document.getElementById('msOptionsMenu');
         this.msBlockedState = document.getElementById('msBlockedState');
         this.msInviteState = document.getElementById('msInviteState');
@@ -57,8 +56,8 @@ export class MessagesController {
         this.chatType = 'direct';
 
         this.audioRecorder = new AudioRecorderUI(
-            this.msInputArea, 
-            this.msInputArea.querySelector('.ms-input-pill'), 
+            this.msInputContainer, 
+            this.msInputContainer.querySelector('.ms-input-pill'), 
             this.msgVoiceBtn
         );
         this.audioRecorder.onSend(async (blob, waveform) => {
@@ -76,6 +75,8 @@ export class MessagesController {
     }
 
     async init() {
+        document.body.classList.add('messenger-active-layout');
+
         this.bindEvents();
         await this.loadChats();
 
@@ -105,7 +106,10 @@ export class MessagesController {
     destroy() {
         this.abortController.abort();
         window.cycleActiveChatId = null;
+        
+        document.body.classList.remove('messenger-active-layout');
         document.body.classList.remove('chat-active-mobile');
+        
         document.querySelectorAll('audio').forEach(a => { if (a.id !== 'globalAudioPlayer') a.pause(); });
     }
 
@@ -256,18 +260,42 @@ export class MessagesController {
         slider.addEventListener('wheel', (evt) => { if (evt.deltaY !== 0) { evt.preventDefault(); slider.scrollLeft += evt.deltaY; } }, { passive: false });
     }
 
-    async sendMessage(content) {
-        if (!content) return;
-        
+    // --- ЛОГИКА ОТПРАВКИ ФАЙЛОВ И ТЕКСТА ---
+    async sendMessage(rawContent) {
+        let finalContent = rawContent ? rawContent.trim() : '';
+
+        // 1. Если есть редактирование
         if (this.editingMsgId) {
-            const res = await MessagesAPI.editMessage(this.editingMsgId, this.activeChatId, content);
+            const res = await MessagesAPI.editMessage(this.editingMsgId, this.activeChatId, finalContent);
             if (!res.success && res.error) { Toast.show(res.error, 'error'); return; }
             this.editingMsgId = null; this.msgInput.value = ''; document.getElementById('msEditIndicator').style.display = 'none'; this.updateInputButtons();
             return;
         }
         
+        // 2. Если есть файлы в предпросмотре
+        if (this.pendingAttachments.length > 0) {
+            this.msgSendBtn.disabled = true;
+            this.msgSendBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i>';
+
+            for (const att of this.pendingAttachments) {
+                const res = await UploadAPI.uploadFile(att.file);
+                if (res && res.success) {
+                    finalContent += ` [IMG:${res.url}]`; // Приклеиваем картинки к тексту
+                }
+            }
+
+            this.pendingAttachments = [];
+            this.renderAttachmentPreview();
+            this.msgSendBtn.disabled = false;
+            this.msgSendBtn.innerHTML = '<i class="fa-solid fa-arrow-up"></i>';
+        }
+
+        finalContent = finalContent.trim();
+        if (!finalContent) return; // Пустые сообщения не отправляем
+        
+        // 3. Отправка (создание нового чата или обычная)
         if (this.activeChatId === 'new') {
-            const res = await MessagesAPI.createChat({ type: 'direct', members: [this.activeTargetUsername], initialMessage: content });
+            const res = await MessagesAPI.createChat({ type: 'direct', members: [this.activeTargetUsername], initialMessage: finalContent });
             if (res.success) {
                 this.msgInput.value = ''; 
                 this.updateInputButtons(); 
@@ -276,7 +304,7 @@ export class MessagesController {
             } else { Toast.show(res.error || 'Ошибка', 'error'); return; }
         }
         
-        const res = await MessagesAPI.sendMessage(this.activeChatId, content);
+        const res = await MessagesAPI.sendMessage(this.activeChatId, finalContent);
         if (res.success) { 
             this.msgInput.value = ''; 
             this.updateInputButtons(); 
@@ -285,18 +313,41 @@ export class MessagesController {
                 this.messages.push(res.message);
                 this.renderMessages();
             }
-
             this.loadChats(); 
         } else {
             Toast.show(res.error || 'Ошибка', 'error');
         }
     }
 
+    renderAttachmentPreview() {
+        const container = document.getElementById('msgAttachmentPreview');
+        if (this.pendingAttachments.length === 0) {
+            container.style.display = 'none';
+            container.innerHTML = '';
+            return;
+        }
+        container.style.display = 'flex';
+        container.innerHTML = this.pendingAttachments.map(att => `
+            <div class="msg-att-item">
+                <img src="${att.url}">
+                <button class="remove-att-btn" data-id="${att.id}"><i class="fa-solid fa-xmark"></i></button>
+            </div>
+        `).join('');
+
+        container.querySelectorAll('.remove-att-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                this.pendingAttachments = this.pendingAttachments.filter(a => a.id !== btn.dataset.id);
+                this.renderAttachmentPreview();
+                this.updateInputButtons();
+            });
+        });
+    }
+
     updateChatStateUI(blockedBy = null, myStatus = 'joined') {
         const isBlocked = !!blockedBy;
         const isInvited = myStatus === 'invited';
 
-        this.msInputArea.style.display = 'none'; this.msBlockedState.style.display = 'none'; this.msInviteState.style.display = 'none';
+        this.msInputContainer.style.display = 'none'; this.msBlockedState.style.display = 'none'; this.msInviteState.style.display = 'none';
         
         if (isInvited) this.msInviteState.style.display = 'flex';
         else if (isBlocked) {
@@ -305,15 +356,21 @@ export class MessagesController {
             const unblockBtn = document.getElementById('msUnblockBtn');
             if (unblockBtn) unblockBtn.style.display = blockedBy === this.stores.auth.user.username ? 'block' : 'none';
         } else {
-            this.msInputArea.style.display = 'flex';
+            this.msInputContainer.style.display = 'flex';
             document.getElementById('blockText').textContent = 'Заблокировать';
         }
     }
 
     updateInputButtons() {
         const hasText = this.msgInput.value.trim().length > 0;
-        this.msgVoiceBtn.style.display = hasText ? 'none' : 'flex';
-        this.msgSendBtn.style.display = hasText ? 'flex' : 'none';
+        const hasAtt = this.pendingAttachments.length > 0;
+        if (hasText || hasAtt) {
+            this.msgVoiceBtn.style.display = 'none';
+            this.msgSendBtn.style.display = 'flex';
+        } else {
+            this.msgVoiceBtn.style.display = 'flex';
+            this.msgSendBtn.style.display = 'none';
+        }
     }
 
     bindEvents() {
@@ -404,8 +461,35 @@ export class MessagesController {
                 this.openUserMiniProfile(avatarWrapper.dataset.username);
                 return;
             }
+            
+            if (this.msOptionsMenu && !e.target.closest('#msOptionsBtn')) this.msOptionsMenu.classList.remove('active');
+            if (this.msgContextMenu) this.msgContextMenu.style.display = 'none';
+            
+            const imgTarget = e.target.closest('.cycle-media-img') || e.target.closest('.cd-media-thumb');
+            if (imgTarget) { 
+                e.preventDefault();
+                const url = imgTarget.dataset.url || imgTarget.src; 
+                if (url) { 
+                    document.getElementById('chatFullImage').src = url; 
+                    document.getElementById('downloadChatImageBtn').href = url; 
+                    document.getElementById('chatImageModal').classList.add('active'); 
+                } 
+            }
+            
+            const chatImageModal = document.getElementById('chatImageModal');
+            if (chatImageModal && chatImageModal.classList.contains('active')) { 
+                if (e.target.closest('#closeChatImageModal') || e.target === chatImageModal || e.target.classList.contains('modal-content')) { 
+                    chatImageModal.classList.remove('active'); 
+                } 
+            }
+        }, { signal: sig });
 
-        }, { sig });
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape') {
+                const chatImageModal = document.getElementById('chatImageModal');
+                if (chatImageModal) chatImageModal.classList.remove('active');
+            }
+        }, { signal: sig });
 
         const headerClickable = document.getElementById('msChatHeaderClickable');
         if (headerClickable) {
@@ -449,11 +533,26 @@ export class MessagesController {
         }, { sig });
 
         this.msgAttachBtn.addEventListener('click', () => this.msgFileInput.click(), { sig });
+        
         this.msgFileInput.addEventListener('change', async () => {
-            if (this.msgFileInput.files[0]) {
-                const f = this.msgFileInput.files[0];
-                const up = await UploadAPI.uploadFile(f);
-                if (up.success) this.sendMessage(`[${f.type.startsWith('image/') ? 'IMG' : 'AUDIO'}:${up.url}]`);
+            if (this.msgFileInput.files.length > 0) {
+                const files = Array.from(this.msgFileInput.files);
+                for (const f of files) {
+                    if (f.type.startsWith('image/')) {
+                        this.pendingAttachments.push({
+                            id: Math.random().toString(36).substr(2, 9),
+                            file: f,
+                            url: URL.createObjectURL(f)
+                        });
+                    } else if (f.type.startsWith('audio/')) {
+                        // Аудио файлы с компьютера грузим и отправляем сразу
+                        const up = await UploadAPI.uploadFile(f);
+                        if (up.success) this.sendMessage(`[AUDIO:${up.url}|[]]`);
+                    }
+                }
+                this.msgFileInput.value = '';
+                this.renderAttachmentPreview();
+                this.updateInputButtons();
             }
         }, { sig });
 
@@ -466,7 +565,7 @@ export class MessagesController {
         }, { sig });
         
         document.getElementById('ctxMsgDelete').addEventListener('click', () => { MessagesAPI.deleteMessage(this.contextTargetId, this.activeChatId); this.msgContextMenu.style.display = 'none'; }, { sig });
-        document.getElementById('ctxMsgEdit').addEventListener('click', () => { this.editingMsgId = this.contextTargetId; this.msgInput.value = this.contextTargetRaw; document.getElementById('msEditIndicator').style.display = 'block'; this.msgInput.focus(); this.updateInputButtons(); this.msgContextMenu.style.display = 'none'; }, { sig });
+        document.getElementById('ctxMsgEdit').addEventListener('click', () => { this.editingMsgId = this.contextTargetId; this.msgInput.value = this.contextTargetRaw.replace(/\[IMG:[^\]]+\]/g, '').trim(); document.getElementById('msEditIndicator').style.display = 'block'; this.msgInput.focus(); this.updateInputButtons(); this.msgContextMenu.style.display = 'none'; }, { sig });
         document.getElementById('msCancelEditBtn').addEventListener('click', () => { this.editingMsgId = null; this.msgInput.value = ''; document.getElementById('msEditIndicator').style.display = 'none'; this.updateInputButtons(); }, { sig });
         
         document.getElementById('msOptionsBtn').addEventListener('click', (e) => { e.stopPropagation(); this.msOptionsMenu.classList.toggle('active'); }, { sig });
@@ -550,22 +649,11 @@ export class MessagesController {
         }, { sig });
 
         this.msgVoiceBtn.addEventListener('click', () => this.audioRecorder.start(), { sig });
-        this.msInputArea.addEventListener('click', (e) => {
+        this.msInputContainer.addEventListener('click', (e) => {
             if (e.target.closest('.rec-btn.stop')) this.audioRecorder.stop();
             if (e.target.closest('.rec-btn.cancel')) this.audioRecorder.cancel();
             if (e.target.closest('.rec-btn.send')) this.audioRecorder.send();
             if (e.target.closest('.rec-btn.play-preview')) this.audioRecorder.playPreview(e.target.closest('.rec-btn.play-preview'));
-        }, { sig });
-
-        document.addEventListener('click', (e) => {
-            if (this.msOptionsMenu) this.msOptionsMenu.classList.remove('active');
-            if (this.msgContextMenu) this.msgContextMenu.style.display = 'none';
-            const imgTarget = e.target.closest('.msg-attached-img') || e.target.closest('.cd-media-thumb');
-            if (imgTarget) { const url = imgTarget.dataset.url; if (url) { document.getElementById('chatFullImage').src = url; document.getElementById('downloadChatImageBtn').href = url; document.getElementById('chatImageModal').classList.add('active'); } }
-            const chatImageModal = document.getElementById('chatImageModal');
-            if (chatImageModal && chatImageModal.classList.contains('active')) { if (e.target.closest('#closeChatImageModal') || e.target === chatImageModal) chatImageModal.classList.remove('active'); }
-            
-            // Клик по плееру теперь обрабатывается глобально в AudioPlayerHandler
         }, { sig });
     }
 

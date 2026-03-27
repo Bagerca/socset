@@ -5,8 +5,6 @@ export const MessagesView = {
     html: `
         <div class="messenger-container">
             <div class="messenger-sidebar" id="messengerSidebar">
-                
-                <!-- ОБНОВЛЕННАЯ ШАПКА САЙДБАРА -->
                 <div class="ms-header">
                     <h2><i class="fa-regular fa-paper-plane"></i> Сообщения</h2>
                     <div class="ms-header-actions">
@@ -15,7 +13,6 @@ export const MessagesView = {
                     </div>
                 </div>
                 
-                <!-- СКРЫТЫЙ ПОИСК (ВЫЕЗЖАЕТ ПРИ КЛИКЕ) -->
                 <div class="ms-search-wrapper" id="msSearchWrapper">
                     <div class="ms-search-inner">
                         <i class="fa-solid fa-magnifying-glass"></i>
@@ -24,7 +21,6 @@ export const MessagesView = {
                     <div id="msSearchDropdown" class="search-dropdown-menu" style="display: none; top: calc(100% + 5px);"></div>
                 </div>
 
-                <!-- СПИСОК ЧАТОВ -->
                 <div class="ms-chat-list" id="chatListContainer">
                     <div style="text-align:center; color:var(--text-muted); margin-top: 20px;">Загрузка...</div>
                 </div>
@@ -37,8 +33,6 @@ export const MessagesView = {
                 </div>
 
                 <div class="ms-active-chat" id="msActiveChat" style="display: none;">
-                    
-                    <!-- ШАПКА ЧАТА (Выровнена с левой) -->
                     <div class="ms-chat-header" id="msChatHeaderClickable">
                         <button id="msBackBtn" class="icon-btn ms-back-btn"><i class="fa-solid fa-arrow-left"></i></button>
                         
@@ -71,34 +65,34 @@ export const MessagesView = {
                         <button id="msUnblockBtn" class="btn-post" style="display:none; margin-top:10px;">Разблокировать</button>
                     </div>
                     
-                    <!-- ИНТЕРФЕЙС ИНВАЙТА -->
                     <div id="msInviteState" class="ms-invite-panel" style="display:none;">
                         <div class="ms-invite-header">
                             <i class="fa-solid fa-envelope-open-text"></i>
                             <span>Вас пригласили в этот чат</span>
                         </div>
                         <div class="ms-invite-buttons">
-                            <button id="msDeclineInviteBtn" class="btn-post ms-btn-decline">
-                                <i class="fa-solid fa-xmark"></i> Отклонить
-                            </button>
-                            <button id="msAcceptInviteBtn" class="btn-post ms-btn-accept">
-                                <i class="fa-solid fa-check"></i> Принять
-                            </button>
+                            <button id="msDeclineInviteBtn" class="btn-post ms-btn-decline"><i class="fa-solid fa-xmark"></i> Отклонить</button>
+                            <button id="msAcceptInviteBtn" class="btn-post ms-btn-accept"><i class="fa-solid fa-check"></i> Принять</button>
                         </div>
                     </div>
 
-                    <div class="ms-input-area" id="msInputArea">
+                    <!-- ИЗМЕНЕННАЯ ЗОНА ВВОДА С ПРЕДПРОСМОТРОМ ФОТОГРАФИЙ -->
+                    <div class="ms-input-container" id="msInputContainer">
                         <div id="msEditIndicator" style="display:none; position:absolute; top:-30px; left:20px; background:#1c1c1e; padding:4px 12px; border-radius:10px 10px 0 0; font-size:12px; color:var(--accent-games); border:1px solid rgba(255,255,255,0.05); border-bottom:none;">
                             Редактирование... <i class="fa-solid fa-xmark" id="msCancelEditBtn" style="cursor:pointer; margin-left:8px; color:var(--text-muted);"></i>
                         </div>
-                        <input type="file" id="msgFileInput" style="display: none;" accept="image/*, audio/*">
-
-                        <div class="ms-input-pill">
-                            <button id="msgAttachBtn" class="icon-btn"><i class="fa-solid fa-paperclip"></i></button>
-                            <input type="text" id="msgInput" class="ms-input" placeholder="Сообщение..." autocomplete="off">
+                        
+                        <div id="msgAttachmentPreview" class="msg-attachment-preview" style="display:none;"></div>
+                        
+                        <div class="ms-input-row" id="msInputRow">
+                            <input type="file" id="msgFileInput" style="display: none;" accept="image/*, audio/*" multiple>
+                            <div class="ms-input-pill">
+                                <button id="msgAttachBtn" class="icon-btn"><i class="fa-solid fa-paperclip"></i></button>
+                                <input type="text" id="msgInput" class="ms-input" placeholder="Сообщение..." autocomplete="off">
+                            </div>
+                            <button id="msgVoiceBtn" class="ms-send-btn voice"><i class="fa-solid fa-microphone"></i></button>
+                            <button id="msgSendBtn" class="ms-send-btn" style="display:none;"><i class="fa-solid fa-arrow-up"></i></button>
                         </div>
-                        <button id="msgVoiceBtn" class="ms-send-btn voice"><i class="fa-solid fa-microphone"></i></button>
-                        <button id="msgSendBtn" class="ms-send-btn" style="display:none;"><i class="fa-solid fa-arrow-up"></i></button>
                     </div>
                 </div>
 
