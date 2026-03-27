@@ -6,7 +6,6 @@ export class AudioService {
         this.audioChunks = [];
         this.stream = null;
         
-        // Для визуализации в реальном времени
         this.audioContext = null;
         this.analyser = null;
         this.source = null;
@@ -18,16 +17,14 @@ export class AudioService {
             this.mediaRecorder = new MediaRecorder(this.stream);
             this.audioChunks = [];
             
-            // --- НАСТРОЙКА ВИЗУАЛИЗАТОРА ---
             const AudioContext = window.AudioContext || window.webkitAudioContext;
             this.audioContext = new AudioContext();
             this.analyser = this.audioContext.createAnalyser();
-            this.analyser.fftSize = 64; // Маленький размер для плавности (32 столбика)
-            this.analyser.smoothingTimeConstant = 0.5; // Плавное затухание
+            this.analyser.fftSize = 64; 
+            this.analyser.smoothingTimeConstant = 0.5; 
             
             this.source = this.audioContext.createMediaStreamSource(this.stream);
             this.source.connect(this.analyser);
-            // -------------------------------
 
             this.mediaRecorder.ondataavailable = event => this.audioChunks.push(event.data);
             this.mediaRecorder.start();
@@ -39,7 +36,6 @@ export class AudioService {
         }
     }
 
-    // Метод для получения текущей громкости (массив байт)
     getRealTimeData() {
         if (!this.analyser) return new Uint8Array(0);
         const dataArray = new Uint8Array(this.analyser.frequencyBinCount);
@@ -59,7 +55,6 @@ export class AudioService {
                 const audioUrl = URL.createObjectURL(audioBlob);
                 const waveform = await this.analyzeAudioWaveform(audioBlob);
                 
-                // Чистка ресурсов
                 this.stream.getTracks().forEach(track => track.stop());
                 if(this.audioContext && this.audioContext.state !== 'closed') {
                     this.audioContext.close();
@@ -72,18 +67,9 @@ export class AudioService {
         });
     }
 
-    async blobToBase64(blob) {
-        return new Promise((resolve) => {
-            const reader = new FileReader();
-            reader.readAsDataURL(blob);
-            reader.onloadend = () => resolve(reader.result);
-        });
-    }
-
     async analyzeAudioWaveform(audioBlob) {
         try {
             const arrayBuffer = await audioBlob.arrayBuffer();
-            // Новый контекст для анализа готового файла (не путать с real-time)
             const offlineCtx = new (window.AudioContext || window.webkitAudioContext)();
             const audioBuffer = await offlineCtx.decodeAudioData(arrayBuffer);
             const rawData = audioBuffer.getChannelData(0);
@@ -92,19 +78,29 @@ export class AudioService {
             const blockSize = Math.floor(rawData.length / samples);
             const waveform = [];
             
+            // Шаг 1: Ищем пиковую громкость для нормализации
+            let maxPeak = 0;
+            const blockMeans = [];
             for (let i = 0; i < samples; i++) {
                 let sum = 0;
                 for (let j = 0; j < blockSize; j++) {
                     sum += Math.abs(rawData[i * blockSize + j]);
                 }
-                let avg = sum / blockSize;
-                // Нормализация для красоты (умножаем, чтобы было видно лучше)
-                let val = Math.min(100, Math.round(avg * 500)); 
-                waveform.push(Math.max(10, val)); // Минимум 10% высоты
+                const mean = sum / blockSize;
+                blockMeans.push(mean);
+                if (mean > maxPeak) maxPeak = mean;
             }
+
+            // Шаг 2: Нормализуем значения (от 15% до 100%)
+            for (let i = 0; i < samples; i++) {
+                let percent = maxPeak > 0 ? (blockMeans[i] / maxPeak) * 100 : 15;
+                waveform.push(Math.max(15, Math.min(100, Math.round(percent))));
+            }
+            
             return waveform;
         } catch (e) {
-            return Array(30).fill(20);
+            // Красивый дефолтный паттерн волны, если анализ сломался
+            return [15, 20, 35, 50, 75, 60, 40, 20, 15, 25, 45, 80, 95, 70, 35, 20, 15, 30, 55, 85, 65, 40, 25, 15, 20, 35, 50, 35, 20, 15];
         }
     }
 }

@@ -2,6 +2,7 @@
 import { escapeHTML, formatTime, parseFormatting } from '../utils/utils.js';
 import { AudioService } from '../services/AudioService.js';
 import { UploadAPI } from '../api/UploadAPI.js';
+import { MessageBuilder } from '../utils/MessageBuilder.js';
 
 export class PostComponent {
     constructor(post, stores) {
@@ -148,9 +149,23 @@ export class PostComponent {
             const prevCount = list.children.length;
             const newCount = this.post.comments ? this.post.comments.length : 0;
             const currentScroll = list.scrollTop;
+            
             list.innerHTML = this.post.comments ? this.post.comments.map(c => this._createCommentHTML(c)).join('') : '';
+            
             if (newCount > prevCount) list.scrollTop = list.scrollHeight; 
             else list.scrollTop = currentScroll;
+
+            // Загрузка метаданных для подсчета длительности ложится на AudioPlayerHandler (глобально)
+            list.querySelectorAll('audio').forEach(audio => {
+                audio.addEventListener('loadedmetadata', () => {
+                    const timeSpan = audio.parentElement.querySelector('.cycle-audio-time');
+                    if (timeSpan) {
+                        const m = Math.floor(audio.duration / 60);
+                        const s = Math.floor(audio.duration % 60);
+                        timeSpan.textContent = `${m}:${s < 10 ? '0' : ''}${s}`;
+                    }
+                });
+            });
         }
     }
 
@@ -164,17 +179,7 @@ export class PostComponent {
 
         let contentHTML = '';
         if (comment.type === 'audio') {
-            const heights = comment.waveform || Array(20).fill(20);
-            const barsHTML = heights.map(h => `<div class="wave-bar" style="transform: scaleY(${h / 100});"></div>`).join('');
-            contentHTML = `
-                <div class="audio-message">
-                    <button class="audio-control-btn"><i class="fa-solid fa-play"></i></button>
-                    <audio src="${comment.content}" style="display:none;"></audio>
-                    <div class="audio-waveform-new">
-                        <div class="wave-bg">${barsHTML}</div>
-                        <div class="wave-progress"><div class="wave-progress-inner">${barsHTML}</div></div>
-                    </div>
-                </div>`;
+            contentHTML = MessageBuilder.buildAudioPlayer(comment.content, comment.waveform);
         } else {
             let text = parseFormatting(comment.content);
             text = text.replace(/@(\w+)/g, '<a href="#/profile/$1" class="comment-mention">@$1</a>');
@@ -286,7 +291,6 @@ export class PostComponent {
         return `<i class="fa-solid fa-circle-check post-badge badge-1" title="Подтвержденный"></i>`;
     }
 
-    // ИСПРАВЛЕНО НА getFrameById
     _createFrameHTML(frameId) {
         if (!frameId || frameId === 'frame_none') return '';
         const frame = this.stores.shop.getFrameById(frameId);
@@ -330,7 +334,7 @@ export class PostComponent {
         if (target.closest('.rec-btn.cancel')) { this._cancelRecordingUI(); return; }
         if (target.closest('.rec-btn.send')) { this._sendAudioComment(); return; }
         if (target.closest('.rec-btn.play-preview')) { this._playPreview(target.closest('.rec-btn.play-preview')); return; }
-        if (target.closest('.audio-control-btn')) { this._playAudioMessage(target.closest('.audio-control-btn')); return; }
+        // Клик по '.cycle-audio-btn' теперь обрабатывается глобально в AudioPlayerHandler
         if (target.closest('.post-music-play-btn')) { this.handlePlayMusic(target.closest('.post-music-play-btn').dataset.id); return; }
     }
 
@@ -408,7 +412,7 @@ export class PostComponent {
                 const data = this.audioService.getRealTimeData();
                 for (let i = 0; i < bars.length; i++) {
                     const percent = Math.max(10, ((data[i] || 0) / 255) * 100); 
-                    bars[i].style.transform = `scaleY(${percent / 100})`;
+                    bars[i].style.height = `${percent}%`;
                     bars[i].style.backgroundColor = percent > 50 ? '#fff' : 'var(--text-muted)';
                 }
                 requestAnimationFrame(animateWave);
@@ -433,7 +437,7 @@ export class PostComponent {
         const widget = this.element.querySelector('.recording-widget');
         if (widget) {
             widget.style.border = '1px solid #44bd32';
-            const barsHTML = result.waveform.slice(0, 20).map(h => `<div class="rec-bar" style="transform: scaleY(${h / 100}); background: var(--text-muted);"></div>`).join('');
+            const barsHTML = result.waveform.slice(0, 20).map(h => `<div class="rec-bar" style="height: ${Math.max(15, h)}%; background: var(--text-muted);"></div>`).join('');
             widget.innerHTML = `
                 <button class="rec-btn play-preview"><i class="fa-solid fa-play"></i></button>
                 <div class="rec-visualizer" style="opacity: 1;">${barsHTML}</div>
@@ -488,22 +492,5 @@ export class PostComponent {
         if (container && this.activeRecording) container.innerHTML = this.activeRecording.originalHTML;
         this.activeRecording = null;
         if (this.previewAudio) { this.previewAudio.pause(); this.previewAudio = null; }
-    }
-
-    _playAudioMessage(btn) {
-        const audio = btn.nextElementSibling;
-        const progressBar = btn.parentElement.querySelector('.wave-progress');
-        if (audio.paused) {
-            if (window.cyclePlayer && !window.cyclePlayer.audio.paused) window.cyclePlayer.audio.pause();
-            document.querySelectorAll('audio').forEach(a => { if (a !== audio && a.id !== 'globalAudioPlayer') { a.pause(); a.currentTime = 0; } });
-            document.querySelectorAll('.audio-control-btn').forEach(b => b.innerHTML = '<i class="fa-solid fa-play"></i>');
-            audio.play();
-            btn.innerHTML = '<i class="fa-solid fa-pause"></i>';
-            audio.ontimeupdate = () => { if(progressBar) progressBar.style.width = `${(audio.currentTime / audio.duration) * 100}%`; };
-            audio.onended = () => { btn.innerHTML = '<i class="fa-solid fa-play"></i>'; if(progressBar) progressBar.style.width = '0%'; };
-        } else {
-            audio.pause();
-            btn.innerHTML = '<i class="fa-solid fa-play"></i>';
-        }
     }
 }

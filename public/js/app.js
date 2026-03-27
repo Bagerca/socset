@@ -8,6 +8,7 @@ import { CommunitiesStore } from './store/CommunitiesStore.js';
 import { Router } from './Router.js';
 import { GlobalPlayer } from './components/GlobalPlayer.js';
 import { Toast } from './utils/Toast.js';
+import { AudioPlayerHandler } from './utils/AudioPlayerHandler.js'; // <--- НОВЫЙ ИМПОРТ
 
 import { NotificationsView } from './views/NotificationsView.js';
 import { LoginView } from './views/LoginView.js';
@@ -46,7 +47,6 @@ class NativeSocket {
         if (!this.listeners[event]) this.listeners[event] = [];
         this.listeners[event].push(callback);
     }
-    // ДОБАВЛЕН МЕТОД ОТПИСКИ ОТ СОБЫТИЙ (ДЛЯ АДМИНКИ)
     off(event, callback) {
         if (this.listeners[event]) {
             this.listeners[event] = this.listeners[event].filter(cb => cb !== callback);
@@ -91,12 +91,18 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
 
     window.socket.emit('register', authStore.user.username);
-    
-    // Переменная, хранящая ID открытого прямо сейчас чата
     window.cycleActiveChatId = null;
+
+    // Инициализация единого мозга аудио плеера
+    AudioPlayerHandler.init(); // <--- АКТИВАЦИЯ
 
     // --- СОБЫТИЯ МЕССЕНДЖЕРА ---
     window.socket.on('new_message', (msg) => {
+        if (msg.sender_username === authStore.user.username) {
+            document.dispatchEvent(new CustomEvent('cycle:chats_updated'));
+            return;
+        }
+
         const isCurrentChat = window.location.hash.includes('/messages') && window.cycleActiveChatId === msg.chat_id;
         
         if (!isCurrentChat) {
@@ -110,7 +116,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             const msgIcon = document.getElementById('msgIcon');
             if (msgIcon) {
                 msgIcon.classList.add('has-unread');
-                msgIcon.setAttribute('data-count', ''); // Просто точка без числа
+                msgIcon.setAttribute('data-count', ''); 
             }
             
             document.dispatchEvent(new CustomEvent('cycle:chats_updated'));

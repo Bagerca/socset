@@ -1,0 +1,118 @@
+/* css/components/_media_content.css */
+
+/* ========================================= */
+/* УНИВЕРСАЛЬНЫЙ АУДИО-ПЛЕЕР (ЧАТЫ И КОММЕНТЫ)*/
+/* ========================================= */
+
+.cycle-audio-player { 
+    display: flex; 
+    align-items: center; 
+    gap: 12px; 
+    width: fit-content; 
+    max-width: 100%; 
+    min-width: 240px;
+    background: linear-gradient(135deg, rgba(30,30,35,0.8) 0%, rgba(20,20,24,0.9) 100%);
+    border: 1px solid rgba(255,255,255,0.05); 
+    padding: 8px 12px; 
+    border-radius: 20px; 
+    margin-top: 6px;
+}
+.cycle-audio-btn { 
+    width: 40px; 
+    height: 40px; 
+    border-radius: 50%; 
+    border: none; 
+    display: flex; 
+    align-items: center; 
+    justify-content: center; 
+    cursor: pointer; 
+    transition: transform 0.2s cubic-bezier(0.4, 0, 0.2, 1), box-shadow 0.2s; 
+    flex-shrink: 0; 
+    font-size: 15px; 
+    background: var(--accent-games); 
+    color: #fff; 
+    box-shadow: 0 4px 15px rgba(124, 58, 237, 0.4); 
+}
+.cycle-audio-btn:active { 
+    transform: scale(0.9); 
+}
+
+/* МОНОШИРИННЫЙ ШРИФТ И АНИМАЦИЯ */
+.cycle-audio-time { 
+    font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+    font-size: 12px; 
+    font-weight: 600; 
+    letter-spacing: 0.5px; 
+    margin-left: 4px; 
+    min-width: 45px; 
+    text-align: right; 
+    flex-shrink: 0; 
+    color: var(--text-muted); 
+    background: transparent;
+    padding: 0;
+    box-shadow: none;
+    border-radius: 0;
+    transition: color 0.3s ease; 
+}
+
+/* АНИМАЦИЯ ТИКА */
+@keyframes digitTick {
+    0% { transform: scale(1); filter: brightness(1); }
+    50% { transform: scale(1.1); filter: brightness(1.5); color: #fff; }
+    100% { transform: scale(1); filter: brightness(1); }
+}
+.cycle-audio-time.tick { 
+    animation: digitTick 0.3s ease-out; 
+}
+
+/* ВОЛНА */
+.cycle-audio-waveform { 
+    flex: 1; 
+    min-width: 60px; 
+    height: 28px; 
+    display: flex; 
+    align-items: center; 
+    position: relative; 
+    width: auto !important; 
+}
+.wave-bg, .wave-active { 
+    position: absolute; 
+    inset: 0;
+    display: flex; 
+    align-items: center; 
+    justify-content: space-between; 
+    gap: 2px; 
+}
+/* CLIP-PATH МАГИЯ: Режет волну пиксель в пиксель */
+.wave-active {
+    clip-path: inset(0 calc(100% - var(--progress, 0%)) 0 0);
+    transition: clip-path 0.1s linear;
+}
+
+/* САМА ПОЛОСОЧКА */
+.wave-bar { 
+    border-radius: 4px; 
+    width: 6px; 
+    min-width: 3px; 
+    transition: background-color 0.2s ease, box-shadow 0.2s ease; 
+    background: rgba(255, 255, 255, 0.1); 
+    transform-origin: center; 
+}
+.wave-active .wave-bar { 
+    background: var(--accent-games); 
+    box-shadow: 0 0 8px rgba(124, 58, 237, 0.8); 
+}
+
+/* КАРТИНКИ */
+.cycle-media-img {
+    display: block; 
+    max-width: 100%; 
+    max-height: 350px; 
+    border-radius: 16px; 
+    cursor: zoom-in; 
+    object-fit: cover; 
+    border: 1px solid rgba(255,255,255,0.1); 
+    box-shadow: 0 5px 20px rgba(0,0,0,0.3); 
+    transition: filter 0.2s; 
+}
+.cycle-media-img:hover { filter: brightness(1.1); }

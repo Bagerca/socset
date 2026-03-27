@@ -52,9 +52,9 @@
 @keyframes slideInRight { from { opacity: 0; transform: translateX(20px); } to { opacity: 1; transform: translateX(0); } }
 .rec-indicator { width: 10px; height: 10px; border-radius: 50%; background: var(--danger); box-shadow: 0 0 10px var(--danger); animation: pulseRed 1s infinite; flex-shrink: 0; }
 @keyframes pulseRed { 0% { transform: scale(1); opacity: 1; } 50% { transform: scale(1.2); opacity: 0.7; } 100% { transform: scale(1); opacity: 1; } }
-.rec-timer { font-family: monospace; font-size: var(--font-sm); color: var(--danger); font-weight: 700; min-width: 40px; }
+.rec-timer { font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace; font-size: var(--font-sm); color: var(--danger); font-weight: 700; min-width: 40px; }
 .rec-visualizer { flex: 1; display: flex; align-items: center; justify-content: center; gap: 3px; height: 100%; padding: 6px 0; overflow: hidden; }
-.rec-bar { width: 4px; background: var(--text-muted); border-radius: 10px; height: 100%; min-height: 4px; transform-origin: bottom; will-change: transform; transition: transform 0.1s linear, background-color 0.2s; }
+.rec-bar { width: 4px; background: var(--text-muted); border-radius: 10px; min-height: 4px; transition: background-color 0.2s; }
 .rec-controls { display: flex; align-items: center; gap: var(--space-sm); flex-shrink: 0; }
 .rec-btn { width: 32px; height: 32px; border-radius: 50%; border: none; display: flex; align-items: center; justify-content: center; cursor: pointer; transition: var(--transition-fast); font-size: var(--font-sm); }
 .rec-btn.stop { background: rgba(255, 69, 58, 0.2); color: var(--danger); }
@@ -62,29 +62,117 @@
 .rec-btn.send { background: #44bd32; color: #fff; }
 .rec-btn.play-preview { background: var(--text-main); color: var(--bg-base); }
 
-.audio-message { margin-top: 6px; display: flex; align-items: center; gap: var(--space-12); background: linear-gradient(90deg, #1f1f22 0%, #252528 100%); border: 1px solid var(--border-color); padding: var(--space-sm) var(--space-md) var(--space-sm) var(--space-sm); border-radius: var(--radius-md); width: fit-content; max-width: 100%; }
-.audio-control-btn { width: 36px; height: 36px; background: var(--text-main); color: #000; border-radius: 50%; display: flex; align-items: center; justify-content: center; cursor: pointer; transition: var(--transition-fast); border: none; flex-shrink: 0; font-size: var(--font-sm); }
-@media (hover: hover) { .audio-control-btn:hover { transform: scale(1.05); box-shadow: 0 0 10px rgba(255,255,255,0.3); } }
-.audio-waveform-new { position: relative; width: 140px; height: 28px; display: flex; align-items: center; flex-shrink: 1; }
-.wave-bg, .wave-progress-inner { display: flex; align-items: center; gap: 2px; width: 140px; height: 100%; }
-.wave-progress { position: absolute; left: 0; top: 0; height: 100%; width: 0%; overflow: hidden; transition: width 0.1s linear; }
-.wave-bar { flex: 1; border-radius: 2px; background: rgba(255, 255, 255, 0.2); min-width: 3px; height: 100%; transform-origin: bottom; will-change: transform; }
-.wave-progress-inner .wave-bar { background: var(--text-main); }
+
+/* ========================================= */
+/* ПЛЕЕР ГОЛОСОВЫХ (ЕДИНЫЙ ФУТУРИСТИЧНЫЙ ВИД)*/
+/* ========================================= */
+
+.cycle-audio-player { 
+    display: flex; 
+    align-items: center; 
+    gap: 12px; 
+    width: fit-content; 
+    max-width: 100%; 
+    min-width: 240px;
+    background: linear-gradient(135deg, rgba(30,30,35,0.8) 0%, rgba(20,20,24,0.9) 100%);
+    border: 1px solid rgba(255,255,255,0.05); 
+    padding: 8px 12px; 
+    border-radius: 20px; 
+    margin-top: 6px;
+}
+.cycle-audio-btn { 
+    width: 40px; 
+    height: 40px; 
+    border-radius: 50%; 
+    border: none; 
+    display: flex; 
+    align-items: center; 
+    justify-content: center; 
+    cursor: pointer; 
+    transition: transform 0.2s cubic-bezier(0.4, 0, 0.2, 1), box-shadow 0.2s; 
+    flex-shrink: 0; 
+    font-size: 15px; 
+    background: var(--accent-games); 
+    color: #fff; 
+    box-shadow: 0 4px 15px rgba(124, 58, 237, 0.4); 
+}
+.cycle-audio-btn:active { 
+    transform: scale(0.9); 
+}
+
+/* Таймер */
+.cycle-audio-time { 
+    font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+    font-size: 12px; 
+    font-weight: 600; 
+    letter-spacing: 0.5px; 
+    margin-left: 4px; 
+    min-width: 45px; 
+    text-align: right; 
+    flex-shrink: 0; 
+    color: var(--text-muted); 
+    background: transparent;
+    padding: 0;
+    box-shadow: none;
+    border-radius: 0;
+    transition: color 0.3s ease; 
+}
+
+/* Пульс-анимация при смене секунд */
+@keyframes digitTick {
+    0% { transform: scale(1); filter: brightness(1); }
+    50% { transform: scale(1.1); filter: brightness(1.5); color: #fff; }
+    100% { transform: scale(1); filter: brightness(1); }
+}
+.cycle-audio-time.tick { 
+    animation: digitTick 0.3s ease-out; 
+}
+
+/* Контейнер волны с clip-path */
+.cycle-audio-waveform { 
+    flex: 1; 
+    min-width: 100px; 
+    height: 28px; 
+    position: relative; 
+}
+.wave-bg, .wave-active { 
+    position: absolute; 
+    inset: 0;
+    display: flex; 
+    align-items: center; 
+    justify-content: space-between; /* Равномерно распределяем полоски */
+    gap: 2px; 
+}
+/* Скрываем часть цветной волны через clip-path */
+.wave-active {
+    clip-path: inset(0 calc(100% - var(--progress, 0%)) 0 0);
+    transition: clip-path 0.1s linear;
+}
+
+/* Сама полосочка */
+.wave-bar { 
+    border-radius: 4px; 
+    width: 3px; 
+    background: rgba(255, 255, 255, 0.1); 
+    transition: background-color 0.2s ease, box-shadow 0.2s ease;
+}
+.wave-active .wave-bar { 
+    background: var(--accent-games); 
+    box-shadow: 0 0 8px rgba(124, 58, 237, 0.8); 
+}
 
 /* АДАПТАЦИЯ КОММЕНТАРИЕВ ДЛЯ МОБИЛОК */
 @media (max-width: 768px) {
-    .comments-section {
-        /* На мобилке внутренний отступ (padding) родителя меньше, поэтому margin должен быть меньше */
-        width: calc(100% + 24px); 
-        margin-left: -12px; 
-    }
+    .comments-section { width: calc(100% + 24px); margin-left: -12px; }
     .comments-section-inner { padding: 0 12px; }
     .comment-item { gap: 10px; }
     .comment-avatar-wrapper { width: 32px; height: 32px; }
     .comment-input-area { padding: var(--space-sm); gap: 6px; }
     
-    /* Сожмем волну аудио, если экран слишком узкий */
-    .audio-waveform-new { width: 100px; }
-    .wave-bg, .wave-progress-inner { width: 100px; }
-    .rec-timer { display: none; /* Прячем время на телефоне, чтобы влезли кнопки */ }
+    .cycle-audio-player { min-width: 180px; width: 100%; padding: 6px 10px; gap: 8px; }
+    .cycle-audio-btn { width: 32px; height: 32px; font-size: 12px; }
+    .cycle-audio-waveform { min-width: 80px; height: 24px; }
+    .cycle-audio-time { font-size: 10px; min-width: 36px; }
+    
+    .rec-timer { display: none; }
 }

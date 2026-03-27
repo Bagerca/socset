@@ -58,7 +58,6 @@ function runMulter(req, res) {
     });
 }
 
-// Поддержка Range (Перемотка аудио)
 async function serveStaticFile(req, res, filePath) {
     const ext = path.extname(filePath).toLowerCase();
     const contentType = MIME_TYPES[ext] || 'application/octet-stream';
@@ -102,7 +101,6 @@ async function serveStaticFile(req, res, filePath) {
     }
 }
 
-// ГЛАВНЫЙ РОУТЕР
 async function requestHandler(req, res, context) {
     if (req.url.startsWith('/socket.io/')) return;
 
@@ -132,11 +130,9 @@ async function requestHandler(req, res, context) {
                 catch(e) { return res.status(400).json({error: 'Invalid JSON'}); }
             }
 
-            // -- AUTH & CONFIG --
             if (pathname === '/api/login' && method === 'POST') return AuthController.login(req, res);
             if (pathname === '/api/config/db' && method === 'GET') return ConfigController.getDbConfig(req, res);
 
-            // -- UPLOADS --
             if (pathname === '/api/upload' && method === 'POST') {
                 return authenticateToken(req, res, async () => {
                     try {
@@ -147,13 +143,11 @@ async function requestHandler(req, res, context) {
                 });
             }
 
-            // -- SHOP --
             if (pathname === '/api/shop' && method === 'GET') return ShopController.getAll(req, res);
             if (pathname === '/api/shop/buy' && method === 'POST') return authenticateToken(req, res, () => ShopController.buy(req, res));
             if (pathname === '/api/shop/equip' && method === 'POST') return authenticateToken(req, res, () => ShopController.equip(req, res));
             if (pathname === '/api/shop/create' && method === 'POST') return authenticateToken(req, res, () => ShopController.create(req, res));
 
-            // -- COMMUNITIES --
             if (pathname === '/api/communities' && method === 'GET') return authenticateToken(req, res, () => CommunitiesController.getAll(req, res));
             if (pathname === '/api/communities/create' && method === 'POST') return authenticateToken(req, res, () => CommunitiesController.create(req, res));
             if (pathname === '/api/communities/join' && method === 'POST') return authenticateToken(req, res, () => CommunitiesController.toggleJoin(req, res));
@@ -165,12 +159,11 @@ async function requestHandler(req, res, context) {
                 return authenticateToken(req, res, () => CommunitiesController.getOne(req, res));
             }
 
-            // -- NOTIFICATIONS --
             if (pathname === '/api/notifications' && method === 'GET') return authenticateToken(req, res, () => NotificationsController.getNotifications(req, res));
             if (pathname === '/api/notifications/read' && method === 'POST') return authenticateToken(req, res, () => NotificationsController.markAsRead(req, res));
             if (pathname === '/api/notifications/unread' && method === 'GET') return authenticateToken(req, res, () => NotificationsController.getUnreadCount(req, res));
 
-            // -- MESSENGER --
+            // --- НОВЫЕ И ОБНОВЛЕННЫЕ РОУТЫ ЧАТОВ ---
             if (pathname === '/api/messages/chats' && method === 'GET') return authenticateToken(req, res, () => MessagesController.getChats(req, res));
             if (pathname === '/api/messages/friends' && method === 'GET') return authenticateToken(req, res, () => MessagesController.getFriends(req, res));
             if (pathname === '/api/messages/create' && method === 'POST') return authenticateToken(req, res, () => MessagesController.createChat(req, res, context.io));
@@ -181,6 +174,10 @@ async function requestHandler(req, res, context) {
             if (pathname === '/api/messages/delete' && method === 'POST') return authenticateToken(req, res, () => MessagesController.deleteMessage(req, res, context.io));
             if (pathname === '/api/messages/edit' && method === 'POST') return authenticateToken(req, res, () => MessagesController.editMessage(req, res, context.io));
             if (pathname === '/api/messages/clear' && method === 'POST') return authenticateToken(req, res, () => MessagesController.clearHistory(req, res, context.io));
+            
+            // Новые роуты
+            if (pathname === '/api/messages/invite_respond' && method === 'POST') return authenticateToken(req, res, () => MessagesController.respondInvite(req, res, context.io));
+            if (pathname === '/api/messages/delete_chat' && method === 'POST') return authenticateToken(req, res, () => MessagesController.deleteChat(req, res, context.io));
             
             const msgDetailsMatch = pathname.match(/^\/api\/messages\/details\/([^\/]+)$/);
             if (msgDetailsMatch && method === 'GET') {
@@ -194,7 +191,6 @@ async function requestHandler(req, res, context) {
                 return authenticateToken(req, res, () => MessagesController.getMessages(req, res, context.io));
             }
 
-            // -- ADMIN --
             if (pathname.startsWith('/api/admin/')) {
                 return authenticateToken(req, res, () => {
                     isAdmin(req, res, () => {
@@ -213,7 +209,6 @@ async function requestHandler(req, res, context) {
                 });
             }
 
-            // -- POSTS --
             if (pathname === '/api/posts' && method === 'GET') return PostsController.getFeed(req, res);
             if (pathname === '/api/posts' && method === 'POST') return authenticateToken(req, res, () => PostsController.create(req, res, context.io));
             if (pathname === '/api/posts/repost' && method === 'POST') return authenticateToken(req, res, () => PostsController.repost(req, res, context.io));
@@ -225,7 +220,6 @@ async function requestHandler(req, res, context) {
             if (pathname === '/api/posts/comment/delete' && method === 'POST') return authenticateToken(req, res, () => PostsController.deleteComment(req, res));
             if (pathname === '/api/posts/comment/react' && method === 'POST') return authenticateToken(req, res, () => PostsController.reactComment(req, res));
 
-            // -- PROFILE --
             if (pathname === '/api/profile' && method === 'POST') return authenticateToken(req, res, () => ProfileController.update(req, res));
             if (pathname === '/api/profile/follow' && method === 'POST') return authenticateToken(req, res, () => SocialController.toggleFollow(req, res));
             if (pathname === '/api/profile/gift' && method === 'POST') return authenticateToken(req, res, () => SocialController.giftCoins(req, res));
@@ -243,7 +237,6 @@ async function requestHandler(req, res, context) {
         }
 
         const safeSuffix = path.normalize(decodeURIComponent(pathname)).replace(/^(\.\.[\/\\])+/, '');
-        
         let filePath = '';
         if (pathname.startsWith('/uploads/')) {
             filePath = path.join(UPLOADS_DIR, safeSuffix.replace(/^[\/\\]?uploads[\/\\]/, ''));
@@ -257,15 +250,11 @@ async function requestHandler(req, res, context) {
                 return serveStaticFile(req, res, filePath); 
             } catch (e) {}
         }
-
         return serveStaticFile(req, res, path.join(PUBLIC_DIR, 'index.html')); 
 
     } catch (error) {
         console.error("Router Error:", error);
-        if (!res.headersSent) {
-            res.status(500).json({ error: 'Internal Server Error' });
-        }
+        if (!res.headersSent) res.status(500).json({ error: 'Internal Server Error' });
     }
 }
-
 module.exports = requestHandler;
