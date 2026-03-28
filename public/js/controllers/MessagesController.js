@@ -2,16 +2,14 @@
 import { escapeHTML, debounce } from '../ui/utils/utils.js';
 import { SearchEngine } from '../ui/utils/SearchEngine.js';
 import { Toast } from '../ui/utils/Toast.js';
-import { UploadAPI } from '../api/UploadAPI.js';
 import { MessagesAPI } from '../api/MessagesAPI.js';
 import { ProfileAPI } from '../api/ProfileAPI.js';
 import { ChatRenderer } from '../ui/renderers/ChatRenderer.js';
-import { AudioRecorderUI } from '../ui/editors/AudioRecorderUI.js';
 
 import { ChatGalleryHandler } from '../ui/widgets/ChatGalleryHandler.js';
-import { RichTextEditor } from '../ui/editors/RichTextEditor.js';
 import { ChatCreateHandler } from '../ui/widgets/ChatCreateHandler.js';
 import { GroupDetailsHandler } from '../ui/widgets/GroupDetailsHandler.js';
+import { MessageInputHandler } from '../ui/widgets/MessageInputHandler.js'; // НОВЫЙ КОМПОНЕНТ
 import { SocketService } from '../services/SocketService.js';
 
 export class MessagesController {
@@ -26,11 +24,8 @@ export class MessagesController {
         this.activeChatId = null;
         this.activeTargetUsername = null;
         this.pinnedChats = JSON.parse(localStorage.getItem('cycle_pinned_chats')) || [];
-        
-        this.editingMsgId = null;
-        this.replyingMsgId = null; 
-        this.pendingAttachments = []; 
 
+        // DOM
         this.chatSearchInput = document.getElementById('msChatSearch');
         this.searchDropdown = document.getElementById('msSearchDropdown');
         this.searchWrapper = document.getElementById('msSearchWrapper');
@@ -41,18 +36,6 @@ export class MessagesController {
         this.chatListContainer = document.getElementById('chatListContainer');
         this.messagesList = document.getElementById('messagesList');
         
-        this.msgInput = document.getElementById('msgInput');
-        this.msgSendBtn = document.getElementById('msgSendBtn');
-        this.msgVoiceBtn = document.getElementById('msgVoiceBtn');
-        this.msgAttachBtn = document.getElementById('msgAttachBtn');
-        this.msgFileInput = document.getElementById('msgFileInput');
-        
-        this.msInputContainer = document.getElementById('msInputContainer'); 
-        this.msContextBar = document.getElementById('msContextBar'); 
-        this.msContextIcon = document.getElementById('msContextIcon');
-        this.msContextTitle = document.getElementById('msContextTitle');
-        this.msContextText = document.getElementById('msContextText');
-
         this.msOptionsMenu = document.getElementById('msOptionsMenu');
         this.msBlockedState = document.getElementById('msBlockedState');
         this.msInviteState = document.getElementById('msInviteState');
@@ -65,8 +48,8 @@ export class MessagesController {
         this.detailsPanel = document.getElementById('chatDetailsPanel');
         this.detailsBody = document.getElementById('chatDetailsBody');
 
+        // ИНИЦИАЛИЗАЦИЯ НОВЫХ МОДУЛЕЙ
         this.galleryHandler = new ChatGalleryHandler();
-        this.editor = new RichTextEditor(this.msgInput, () => this.updateInputButtons());
         
         this.createChatHandler = new ChatCreateHandler((chatId, initialMessage) => {
             this.openChat(chatId);
@@ -77,55 +60,21 @@ export class MessagesController {
             this.openUserMiniProfile(username, true);
         });
 
-        const pillInputWrapper = document.getElementById('msPillInputWrapper');
-        this.audioRecorder = new AudioRecorderUI(
-            this.msInputContainer, 
-            pillInputWrapper, 
-            this.msgVoiceBtn
-        );
-
-        this.audioRecorder.onSend(async (blob, waveform) => {
-            try {
-                const file = new File([blob], "voice_chat.mp3", { type: "audio/mp3" });
-                const res = await UploadAPI.uploadFile(file);
-                if (res && res.success) {
-                    const content = `[AUDIO:${res.url}|${JSON.stringify(waveform)}]`;
-                    await this.sendMessage(content);
-                } else {
-                    Toast.show("Ошибка сервера при загрузке аудио", "error");
-                }
-            } catch (err) {
-                console.error(err);
-                Toast.show("Сервер недоступен или вернул ошибку 500", "error");
-            }
+        // "ОСТРОВ ВВОДА"
+        this.inputHandler = new MessageInputHandler({
+            onSendMessage: async (content, replyToId) => this.sendMessage(content, replyToId),
+            onEditMessage: async (msgId, content) => this.editMessage(msgId, content)
         });
 
-        // Создаем объект с функциями-обработчиками, чтобы безопасно отписаться от них в destroy
+        // Подписки на сокеты
         this.socketHandlers = {
             new_message: (msg) => this.handleIncomingMessage(msg),
             messages_read: (data) => this.handleMessagesRead(data),
             chat_blocked: (data) => { if (data.chatId === this.activeChatId) this.updateChatStateUI(data.blocked_by, 'joined'); },
             history_cleared: (data) => { if (data.chatId === this.activeChatId) { this.messages = []; this.renderMessages(); this.loadChats(); } },
-            chat_deleted: (data) => {
-                if (data.chatId === this.activeChatId) {
-                    this.activeChatId = null; window.cycleActiveChatId = null;
-                    document.getElementById('msEmptyState').style.display = 'flex';
-                    document.getElementById('msActiveChat').style.display = 'none';
-                    if (window.innerWidth <= 768) { this.chatAreaEl.classList.remove('active'); this.sidebarEl.classList.remove('hidden'); document.body.classList.remove('chat-active-mobile'); }
-                }
-                this.loadChats();
-            },
-            group_updated: (data) => {
-                this.loadChats();
-                if (this.activeChatId === data.chatId) {
-                    this.chatName.textContent = data.name;
-                    this.chatAvatar.src = data.avatar;
-                    if (this.detailsPanel.classList.contains('open')) this.toggleDetails(true);
-                }
-            },
-            group_member_updated: (data) => {
-                if (this.activeChatId === data.chatId && this.detailsPanel.classList.contains('open')) this.toggleDetails(true); 
-            }
+            chat_deleted: (data) => this.handleChatDeleted(data),
+            group_updated: (data) => this.handleGroupUpdated(data),
+            group_member_updated: (data) => { if (this.activeChatId === data.chatId && this.detailsPanel.classList.contains('open')) this.toggleDetails(true); }
         };
 
         this.init();
@@ -138,7 +87,6 @@ export class MessagesController {
 
         document.addEventListener('cycle:chats_updated', () => this.loadChats(), { signal: this.abortController.signal });
 
-        // Подписываемся на события сокета через новый сервис
         for (let [event, handler] of Object.entries(this.socketHandlers)) {
             SocketService.on(event, handler);
         }
@@ -149,46 +97,18 @@ export class MessagesController {
 
     destroy() {
         this.abortController.abort();
-        this.editor.destroy(); 
+        this.inputHandler.destroy(); // Уничтожаем дочерние слушатели острова
         window.cycleActiveChatId = null;
         document.body.classList.remove('messenger-active-layout');
         document.body.classList.remove('chat-active-mobile');
         document.querySelectorAll('audio').forEach(a => { if (a.id !== 'globalAudioPlayer') a.pause(); });
 
-        // Аккуратно отписываемся от всех событий сокета, чтобы они не дублировались
         for (let [event, handler] of Object.entries(this.socketHandlers)) {
             SocketService.off(event, handler);
         }
     }
 
-    async _compressImage(file) {
-        return new Promise((resolve) => {
-            const reader = new FileReader();
-            reader.readAsDataURL(file);
-            reader.onload = (e) => {
-                const img = new Image();
-                img.src = e.target.result;
-                img.onload = () => {
-                    const canvas = document.createElement('canvas');
-                    let w = img.width, h = img.height;
-                    const max = 1200;
-                    if (w > max || h > max) {
-                        const ratio = Math.min(max / w, max / h);
-                        w *= ratio; h *= ratio;
-                    }
-                    canvas.width = w; canvas.height = h;
-                    const ctx = canvas.getContext('2d');
-                    ctx.drawImage(img, 0, 0, w, h);
-                    canvas.toBlob((blob) => {
-                        resolve(new File([blob], "image.jpg", { type: "image/jpeg" }));
-                    }, 'image/jpeg', 0.85);
-                };
-                img.onerror = () => resolve(file); 
-            };
-            reader.onerror = () => resolve(file);
-        });
-    }
-
+    // --- СЕТЕВЫЕ ЗАПРОСЫ И ОБНОВЛЕНИЕ ДАННЫХ ---
     async loadChats() {
         const data = await MessagesAPI.getChats();
         if (data.success) {
@@ -220,7 +140,7 @@ export class MessagesController {
 
         this.activeChatId = chatId; window.cycleActiveChatId = chatId;
         this.toggleDetails(false);
-        this.cancelEditOrReply(); 
+        this.inputHandler.cancelContext(); 
 
         const chat = this.chats.find(c => c.id === chatId);
         if (!chat) return;
@@ -250,7 +170,7 @@ export class MessagesController {
         if (exist) return this.openChat(exist.id);
 
         this.activeChatId = 'new'; this.activeTargetUsername = username;
-        this.cancelEditOrReply();
+        this.inputHandler.cancelContext();
 
         const p = await ProfileAPI.getProfile(username);
         this.chatName.textContent = p.name; this.chatStatus.textContent = `@${p.username}`; this.chatAvatar.src = p.avatar;
@@ -279,111 +199,38 @@ export class MessagesController {
         });
     }
 
-    cancelEditOrReply() {
-        this.editingMsgId = null;
-        this.replyingMsgId = null;
-        this.editor.clear();
-        if (this.msContextBar) this.msContextBar.classList.remove('active');
-        this.updateInputButtons();
-    }
-
-    async sendMessage(rawContent) {
-        let finalContent = rawContent ? rawContent.trim() : '';
-
-        if (this.editingMsgId) {
-            const res = await MessagesAPI.editMessage(this.editingMsgId, this.activeChatId, finalContent);
-            if (!res.success && res.error) { Toast.show(res.error, 'error'); return; }
-            this.cancelEditOrReply();
-            return;
-        }
-        
-        if (this.pendingAttachments.length > 0) {
-            this.msgSendBtn.disabled = true;
-            this.msgSendBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i>';
-
-            let hasErrors = false;
-
-            for (const att of this.pendingAttachments) {
-                try {
-                    const res = await UploadAPI.uploadFile(att.file);
-                    if (res && res.success) { 
-                        finalContent += ` [IMG:${res.url}]`; 
-                    } else {
-                        hasErrors = true;
-                    }
-                } catch (err) {
-                    console.error("Upload error:", err);
-                    hasErrors = true;
-                }
-            }
-
-            if (hasErrors) {
-                Toast.show("Ошибка! Возможно у сервера нет прав на запись в папку uploads.", "error");
-                this.msgSendBtn.disabled = false;
-                this.msgSendBtn.innerHTML = '<i class="fa-solid fa-arrow-up"></i>';
-                return; 
-            }
-
-            this.pendingAttachments = [];
-            this.renderAttachmentPreview();
-            this.msgSendBtn.disabled = false;
-            this.msgSendBtn.innerHTML = '<i class="fa-solid fa-arrow-up"></i>';
-        }
-
-        finalContent = finalContent.trim();
-        if (!finalContent) return; 
-        
+    // --- ОТПРАВКА И РЕДАКТИРОВАНИЕ (Вызывается из InputHandler) ---
+    async sendMessage(content, replyToId) {
         if (this.activeChatId === 'new') {
-            const res = await MessagesAPI.createChat({ type: 'direct', members: [this.activeTargetUsername], initialMessage: finalContent });
+            const res = await MessagesAPI.createChat({ type: 'direct', members: [this.activeTargetUsername], initialMessage: content });
             if (res.success) {
-                this.cancelEditOrReply();
                 await this.openChat(res.chatId);
-                return;
-            } else { Toast.show(res.error || 'Ошибка', 'error'); return; }
+            } else { Toast.show(res.error || 'Ошибка', 'error'); }
+        } else {
+            const res = await MessagesAPI.sendMessage(this.activeChatId, content, replyToId);
+            if (res.success) {
+                if (res.message && !this.messages.find(m => m.id === res.message.id)) {
+                    this.messages.push(res.message);
+                    this.renderMessages();
+                }
+                this.loadChats(); 
+            } else { Toast.show(res.error || 'Ошибка', 'error'); }
         }
-        
-        const currentReplyId = this.replyingMsgId; 
-        const res = await MessagesAPI.sendMessage(this.activeChatId, finalContent, currentReplyId);
-        
-        if (res.success) { 
-            this.cancelEditOrReply();
-            if (res.message && !this.messages.find(m => m.id === res.message.id)) {
-                this.messages.push(res.message);
-                this.renderMessages();
-            }
-            this.loadChats(); 
-        } else { Toast.show(res.error || 'Ошибка', 'error'); }
     }
 
-    renderAttachmentPreview() {
-        const container = document.getElementById('msgAttachmentPreview');
-        if (this.pendingAttachments.length === 0) {
-            container.style.display = 'none';
-            container.innerHTML = '';
-            return;
-        }
-        container.style.display = 'flex';
-        container.innerHTML = this.pendingAttachments.map(att => `
-            <div class="msg-att-item">
-                <img src="${att.url}">
-                <button class="remove-att-btn" data-id="${att.id}"><i class="fa-solid fa-xmark"></i></button>
-            </div>
-        `).join('');
-
-        container.querySelectorAll('.remove-att-btn').forEach(btn => {
-            btn.addEventListener('click', () => {
-                this.pendingAttachments = this.pendingAttachments.filter(a => a.id !== btn.dataset.id);
-                this.renderAttachmentPreview();
-                this.updateInputButtons();
-            });
-        });
+    async editMessage(msgId, content) {
+        const res = await MessagesAPI.editMessage(msgId, this.activeChatId, content);
+        if (!res.success && res.error) Toast.show(res.error, 'error');
     }
+
 
     updateChatStateUI(blockedBy = null, myStatus = 'joined') {
         const isBlocked = !!blockedBy;
         const isInvited = myStatus === 'invited';
 
-        this.msInputContainer.style.display = 'none'; this.msBlockedState.style.display = 'none'; this.msInviteState.style.display = 'none';
+        document.getElementById('msInputContainer').style.display = 'none'; 
+        this.msBlockedState.style.display = 'none'; 
+        this.msInviteState.style.display = 'none';
         
         if (isInvited) this.msInviteState.style.display = 'flex';
         else if (isBlocked) {
@@ -392,20 +239,8 @@ export class MessagesController {
             const unblockBtn = document.getElementById('msUnblockBtn');
             if (unblockBtn) unblockBtn.style.display = blockedBy === this.stores.auth.user.username ? 'block' : 'none';
         } else {
-            this.msInputContainer.style.display = 'flex';
+            document.getElementById('msInputContainer').style.display = 'flex';
             document.getElementById('blockText').textContent = 'Заблокировать';
-        }
-    }
-
-    updateInputButtons() {
-        const hasText = this.msgInput.innerText.trim().length > 0;
-        const hasAtt = this.pendingAttachments.length > 0;
-        if (hasText || hasAtt) {
-            this.msgVoiceBtn.style.display = 'none';
-            this.msgSendBtn.style.display = 'flex';
-        } else {
-            this.msgVoiceBtn.style.display = 'flex';
-            this.msgSendBtn.style.display = 'none';
         }
     }
 
@@ -437,12 +272,8 @@ export class MessagesController {
 
         document.getElementById('msDeclineInviteBtn')?.addEventListener('click', async () => {
             const res = await MessagesAPI.respondInvite(this.activeChatId, 'decline');
-            if (res.success) {
-                this.activeChatId = null; window.cycleActiveChatId = null;
-                document.getElementById('msEmptyState').style.display = 'flex'; document.getElementById('msActiveChat').style.display = 'none';
-                if (window.innerWidth <= 768) { this.chatAreaEl.classList.remove('active'); this.sidebarEl.classList.remove('hidden'); document.body.classList.remove('chat-active-mobile'); }
-                this.loadChats();
-            } else Toast.show(res.error || 'Ошибка', 'error');
+            if (res.success) { this.handleChatDeleted({ chatId: this.activeChatId }); } 
+            else Toast.show(res.error || 'Ошибка', 'error');
         }, { sig });
 
         this.chatListContainer.addEventListener('click', (e) => { const item = e.target.closest('.ms-chat-item'); if (item) this.openChat(item.dataset.id); }, { sig });
@@ -501,6 +332,7 @@ export class MessagesController {
             if (this.msOptionsMenu && !e.target.closest('#msOptionsBtn')) this.msOptionsMenu.classList.remove('active');
             if (this.msgContextMenu) this.msgContextMenu.style.display = 'none';
 
+            // Прыжок к сообщению по клику на реплай
             const replyBlock = e.target.closest('.msg-module-reply');
             if (replyBlock) {
                 const targetId = replyBlock.dataset.targetId;
@@ -512,7 +344,6 @@ export class MessagesController {
                 }
                 return;
             }
-
         }, { signal: sig });
 
 
@@ -542,47 +373,9 @@ export class MessagesController {
 
         document.getElementById('closeChatDetailsBtn')?.addEventListener('click', () => this.toggleDetails(false), { sig });
 
-        this.msgSendBtn.addEventListener('click', () => this.sendMessage(this.editor.getFormattedContent()), { sig });
-        
-        this.msgInput.addEventListener('keydown', (e) => { 
-            if(e.key === 'Enter' && !e.shiftKey) {
-                e.preventDefault();
-                this.sendMessage(this.editor.getFormattedContent());
-            }
-        }, { sig });
-
         document.getElementById('msBackBtn')?.addEventListener('click', (e) => {
             e.stopPropagation(); this.chatAreaEl.classList.remove('active'); this.sidebarEl.classList.remove('hidden'); document.body.classList.remove('chat-active-mobile');
             this.activeChatId = null; this.renderChats(); 
-        }, { sig });
-
-        this.msgAttachBtn.addEventListener('click', () => this.msgFileInput.click(), { sig });
-        
-        this.msgFileInput.addEventListener('change', async () => {
-            if (this.msgFileInput.files.length > 0) {
-                const files = Array.from(this.msgFileInput.files);
-                for (const f of files) {
-                    if (f.type.startsWith('image/')) {
-                        const compressedFile = await this._compressImage(f);
-                        this.pendingAttachments.push({
-                            id: Math.random().toString(36).substr(2, 9),
-                            file: compressedFile,
-                            url: URL.createObjectURL(compressedFile)
-                        });
-                    } else if (f.type.startsWith('audio/')) {
-                        try {
-                            const up = await UploadAPI.uploadFile(f);
-                            if (up && up.success) this.sendMessage(`[AUDIO:${up.url}|[]]`);
-                            else Toast.show("Ошибка сервера при загрузке аудио", "error");
-                        } catch (err) {
-                            Toast.show("Ошибка 500: Проверьте папку uploads", "error");
-                        }
-                    }
-                }
-                this.msgFileInput.value = '';
-                this.renderAttachmentPreview();
-                this.updateInputButtons();
-            }
         }, { sig });
 
         this.messagesList.addEventListener('contextmenu', (e) => {
@@ -609,39 +402,15 @@ export class MessagesController {
         }, { sig });
         
         document.getElementById('ctxMsgEdit').addEventListener('click', () => { 
-            this.cancelEditOrReply(); 
-            this.editingMsgId = this.contextTargetId; 
-            const raw = this.contextTargetRaw.replace(/\[IMG:[^\]]+\]/g, '').replace(/\[AUDIO:[^\]]+\]/g, '').trim();
-            this.msgInput.innerText = raw; 
-            
-            this.msContextIcon.innerHTML = '<i class="fa-solid fa-pen"></i>';
-            this.msContextTitle.textContent = 'Редактирование';
-            this.msContextTitle.style.color = '#fff';
-            this.msContextText.textContent = raw || 'Медиафайл';
-            this.msContextBar.classList.add('active');
-            
-            this.msgInput.focus(); 
-            this.updateInputButtons(); 
+            this.inputHandler.openEditContext(this.contextTargetId, this.contextTargetRaw);
             this.msgContextMenu.style.display = 'none'; 
         }, { sig });
 
         document.getElementById('ctxMsgReply').addEventListener('click', () => { 
-            this.cancelEditOrReply(); 
-            this.replyingMsgId = this.contextTargetId; 
-            
             const snippet = this.renderer._getSnippet(this.contextTargetRaw);
-            this.msContextIcon.innerHTML = '<i class="fa-solid fa-reply"></i>';
-            this.msContextTitle.textContent = `Ответ ${this.contextTargetAuthor}`;
-            this.msContextTitle.style.color = 'var(--accent-games)';
-            this.msContextText.textContent = snippet;
-            this.msContextBar.classList.add('active');
-            
-            this.msgInput.focus(); 
-            this.updateInputButtons(); 
+            this.inputHandler.openReplyContext(this.contextTargetId, this.contextTargetAuthor, snippet);
             this.msgContextMenu.style.display = 'none'; 
         }, { sig });
-
-        document.getElementById('msCancelContextBtn').addEventListener('click', () => this.cancelEditOrReply(), { sig });
         
         document.getElementById('msOptionsBtn').addEventListener('click', (e) => { e.stopPropagation(); this.msOptionsMenu.classList.toggle('active'); }, { sig });
         document.getElementById('optBlockUser')?.addEventListener('click', async () => { const res = await MessagesAPI.toggleBlock(this.activeChatId); if (res && res.error) Toast.show(res.error, 'error'); this.msOptionsMenu.classList.remove('active'); }, { sig });
@@ -652,15 +421,10 @@ export class MessagesController {
             if(confirm('Выйти и удалить этот чат для вас?')) {
                 const res = await MessagesAPI.deleteChat(this.activeChatId);
                 if (res.success) {
-                    this.msOptionsMenu.classList.remove('active'); this.activeChatId = null; window.cycleActiveChatId = null;
-                    document.getElementById('msEmptyState').style.display = 'flex'; document.getElementById('msActiveChat').style.display = 'none';
-                    if (window.innerWidth <= 768) { this.chatAreaEl.classList.remove('active'); this.sidebarEl.classList.remove('hidden'); document.body.classList.remove('chat-active-mobile'); }
-                    this.loadChats();
+                    this.handleChatDeleted({ chatId: this.activeChatId });
                 } else Toast.show(res.error || 'Ошибка удаления', 'error');
             }
         }, { sig });
-
-        this.msgVoiceBtn.addEventListener('click', () => this.audioRecorder.start(), { sig });
     }
 
     async toggleDetails(show) {
@@ -724,15 +488,14 @@ export class MessagesController {
     }
 
     handleIncomingMessage(msg) {
-        if (msg.sender_username === this.stores.auth.user.username) {
-        } else {
-            if (msg.chat_id === this.activeChatId) { 
-                if (!this.messages.find(m => m.id === msg.id)) {
-                    this.messages.push(msg); 
-                    this.renderMessages(); 
-                }
-                MessagesAPI.markAsRead(this.activeChatId); 
+        if (msg.sender_username === this.stores.auth.user.username) return;
+        
+        if (msg.chat_id === this.activeChatId) { 
+            if (!this.messages.find(m => m.id === msg.id)) {
+                this.messages.push(msg); 
+                this.renderMessages(); 
             }
+            MessagesAPI.markAsRead(this.activeChatId); 
         }
         this.loadChats();
     }
@@ -741,6 +504,25 @@ export class MessagesController {
         if (chatId === this.activeChatId) { 
             this.messages.forEach(m => { if(m.sender_username === this.stores.auth.user.username) m.is_read = 1; }); 
             this.renderMessages(); 
+        }
+    }
+
+    handleChatDeleted(data) {
+        if (data.chatId === this.activeChatId) {
+            this.activeChatId = null; window.cycleActiveChatId = null;
+            document.getElementById('msEmptyState').style.display = 'flex';
+            document.getElementById('msActiveChat').style.display = 'none';
+            if (window.innerWidth <= 768) { this.chatAreaEl.classList.remove('active'); this.sidebarEl.classList.remove('hidden'); document.body.classList.remove('chat-active-mobile'); }
+        }
+        this.loadChats();
+    }
+
+    handleGroupUpdated(data) {
+        this.loadChats();
+        if (this.activeChatId === data.chatId) {
+            this.chatName.textContent = data.name;
+            this.chatAvatar.src = data.avatar;
+            if (this.detailsPanel.classList.contains('open')) this.toggleDetails(true);
         }
     }
 }
