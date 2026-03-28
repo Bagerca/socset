@@ -1,6 +1,6 @@
 // public/js/views/NotificationsView.js
 import { NotificationsAPI } from '../api/NotificationsAPI.js';
-import { formatTime, escapeHTML } from '../utils/utils.js';
+import { formatTime, escapeHTML } from '../ui/utils/utils.js';
 
 export const NotificationsView = {
     html: `

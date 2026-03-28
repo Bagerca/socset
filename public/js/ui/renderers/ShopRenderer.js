@@ -1,4 +1,4 @@
-// js/components/ShopRenderer.js
+// js/ui/renderers/ShopRenderer.js
 import { escapeHTML } from '../utils/utils.js';
 
 export class ShopRenderer {

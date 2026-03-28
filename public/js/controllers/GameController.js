@@ -1,9 +1,11 @@
 // js/controllers/GameController.js
-import { escapeHTML } from '../utils/utils.js';
+import { escapeHTML } from '../ui/utils/utils.js';
 import { GAME_CONSTANTS } from '../config/GameConstants.js';
 import { MUSIC_CONSTANTS } from '../config/MusicConstants.js';
-import { PostComponent } from '../components/PostComponent.js';
-import { MusicRenderer } from '../components/MusicRenderer.js';
+import { PostComponent } from '../ui/widgets/PostComponent.js';
+import { MusicRenderer } from '../ui/renderers/MusicRenderer.js';
+import { RichTextEditor } from '../ui/editors/RichTextEditor.js';
+import { CommentContextMenu } from '../ui/widgets/CommentContextMenu.js';
 
 export class GameController {
     constructor(stores, gameId) {
@@ -14,7 +16,6 @@ export class GameController {
         this.page = 1;
         this.isLoadingMore = false;
         this.currentScreenshotIndex = 0; 
-        this.savedRange = null; 
 
         this.boundTrackChanged = () => this.syncListIcons();
         this.boundPlayState = (e) => this.updateListPlayIcon(e.detail);
@@ -22,8 +23,11 @@ export class GameController {
         document.addEventListener('cycle:track-changed', this.boundTrackChanged, { signal: this.abortController.signal });
         document.addEventListener('cycle:play-state', this.boundPlayState, { signal: this.abortController.signal });
 
-        this.createGlobalContextMenu();
-        this.createFormatContextMenu();
+        this.commentMenu = new CommentContextMenu(this.stores, (postId) => {
+            const postEl = document.querySelector(`.post[data-id="${postId}"]`);
+            if (postEl && postEl.__component) postEl.__component._renderComments();
+        });
+
         this.init();
     }
 
@@ -55,8 +59,8 @@ export class GameController {
         this.abortController.abort();
         const trailerContainer = document.getElementById('gameTrailerContainer');
         if (trailerContainer) trailerContainer.innerHTML = ''; 
-        if (this.contextMenu) this.contextMenu.remove();
-        if (this.formatMenu) this.formatMenu.remove();
+        if (this.editor) this.editor.destroy();
+        if (this.commentMenu) this.commentMenu.destroy();
     }
 
     renderHero() {
@@ -170,38 +174,17 @@ export class GameController {
         this.publishBtn = document.getElementById('publishBtn');
         this.attachmentPreview = document.getElementById('attachmentPreview');
         
+        this.editor = new RichTextEditor(this.input, () => this.checkPublishState());
         this.updateAttachmentPreview();
 
-        this.input.addEventListener('input', () => this.checkPublishState());
-        this.input.addEventListener('contextmenu', (e) => {
-            e.preventDefault();
-            const selection = window.getSelection();
-            if(selection.rangeCount > 0) this.savedRange = selection.getRangeAt(0).cloneRange();
-            this.formatMenu.style.display = 'block';
-            this.formatMenu.style.top = `${e.pageY}px`;
-            this.formatMenu.style.left = `${e.pageX}px`;
-        });
-
         this.publishBtn.addEventListener('click', () => {
-            const text = this.getFormattedContent();
+            const text = this.editor.getFormattedContent();
             if (text.length > 0) {
-                // Игра прикрепляется принудительно
                 this.stores.posts.addPost(text, null, { music: null, game: this.game.id });
-                this.input.innerHTML = '';
+                this.editor.clear();
                 this.checkPublishState();
             }
         });
-    }
-
-    getFormattedContent() {
-        const clone = this.input.cloneNode(true);
-        clone.querySelectorAll('.post-quote').forEach(q => { q.replaceWith(`\n> ${q.innerText.trim()}\n`); });
-        clone.querySelectorAll('b, strong, span[style*="font-weight: bold"]').forEach(b => { b.replaceWith(`**${b.innerText}**`); });
-        clone.querySelectorAll('.editor-spoiler').forEach(s => { s.replaceWith(`||${s.innerText}||`); });
-        let html = clone.innerHTML.replace(/<div><br><\/div>/g, '\n').replace(/<div>/g, '\n').replace(/<\/div>/g, '').replace(/<br>/g, '\n');
-        const temp = document.createElement('div');
-        temp.innerHTML = html;
-        return temp.innerText.trim();
     }
 
     updateAttachmentPreview() {
@@ -322,92 +305,8 @@ export class GameController {
         }, { signal });
 
         document.getElementById('postsContainer').addEventListener('contextmenu', (e) => {
-            const commentItem = e.target.closest('.comment-item');
-            if (commentItem) {
-                const authorUsername = commentItem.dataset.author;
-                const currentUser = this.stores.auth.user;
-                if (authorUsername === currentUser.username || currentUser.isAdmin) {
-                    e.preventDefault();
-                    this.contextTargetCommentId = commentItem.dataset.id;
-                    const post = e.target.closest('.post');
-                    if (post) this.contextTargetPostId = post.dataset.id;
-                    this.contextMenu.style.display = 'block';
-                    this.contextMenu.style.top = `${e.pageY}px`;
-                    this.contextMenu.style.left = `${e.pageX}px`;
-                }
-            }
+            this.commentMenu.handleContextMenu(e);
         });
-    }
-
-    createGlobalContextMenu() {
-        if (document.getElementById('customContextMenu')) document.getElementById('customContextMenu').remove();
-        const menu = document.createElement('div');
-        menu.id = 'customContextMenu';
-        menu.className = 'options-menu';
-        menu.style.position = 'absolute';
-        menu.style.display = 'none';
-        menu.style.zIndex = '999999';
-        menu.innerHTML = `<div class="menu-item menu-item-danger" id="ctxDeleteComment"><i class="fa-solid fa-trash"></i> <span>Удалить комментарий</span></div>`;
-        document.body.appendChild(menu);
-        this.contextMenu = menu;
-        this.contextTargetCommentId = null;
-        this.contextTargetPostId = null;
-
-        const signal = this.abortController.signal;
-        document.addEventListener('click', () => { 
-            if(this.contextMenu) this.contextMenu.style.display = 'none'; 
-            if(this.formatMenu) this.formatMenu.style.display = 'none'; 
-        }, { signal });
-        document.addEventListener('scroll', () => { 
-            if(this.contextMenu) this.contextMenu.style.display = 'none'; 
-            if(this.formatMenu) this.formatMenu.style.display = 'none'; 
-        }, { signal, capture: true });
-        
-        const ctxDeleteBtn = document.getElementById('ctxDeleteComment');
-        if (ctxDeleteBtn) {
-            ctxDeleteBtn.addEventListener('click', () => {
-                if (this.contextTargetPostId && this.contextTargetCommentId) {
-                    this.stores.posts.deleteComment(this.contextTargetPostId, this.contextTargetCommentId);
-                    const postEl = document.querySelector(`.post[data-id="${this.contextTargetPostId}"]`);
-                    if (postEl && postEl.__component) {
-                        postEl.__component._renderComments();
-                    }
-                    this.contextMenu.style.display = 'none';
-                }
-            }, { signal });
-        }
-    }
-
-    createFormatContextMenu() {
-        if (document.getElementById('formatContextMenu')) document.getElementById('formatContextMenu').remove();
-        const menu = document.createElement('div');
-        menu.id = 'formatContextMenu';
-        menu.className = 'options-menu';
-        menu.style.position = 'absolute';
-        menu.style.display = 'none';
-        menu.style.zIndex = '999999';
-        menu.innerHTML = `
-            <div class="menu-item" id="fmtBold"><i class="fa-solid fa-bold"></i> <span>Жирный</span></div>
-            <div class="menu-item" id="fmtQuote"><i class="fa-solid fa-quote-right"></i> <span>Цитата</span></div>
-            <div class="menu-item" id="fmtSpoiler"><i class="fa-solid fa-eye-slash"></i> <span>Спойлер</span></div>
-        `;
-        document.body.appendChild(menu);
-        this.formatMenu = menu;
-
-        const signal = this.abortController.signal;
-        document.getElementById('fmtBold').addEventListener('mousedown', (e) => { e.preventDefault(); this.applyFormat('bold'); }, { signal });
-        document.getElementById('fmtQuote').addEventListener('mousedown', (e) => { e.preventDefault(); this.applyFormat('quote'); }, { signal });
-        document.getElementById('fmtSpoiler').addEventListener('mousedown', (e) => { e.preventDefault(); this.applyFormat('spoiler'); }, { signal });
-    }
-
-    applyFormat(type) {
-        this.formatMenu.style.display = 'none'; this.input.focus();
-        if (this.savedRange) { const selection = window.getSelection(); selection.removeAllRanges(); selection.addRange(this.savedRange); }
-        const selection = window.getSelection(); if (!selection.rangeCount) return; const range = selection.getRangeAt(0);
-        if (type === 'bold') { document.execCommand('bold', false, null); } 
-        else if (type === 'quote') { const ext = range.extractContents(); const div = document.createElement('div'); div.className = 'post-quote'; if (ext.textContent.trim() === '') div.textContent = 'Цитата'; else div.appendChild(ext); range.insertNode(div); const space = document.createTextNode('\u200B'); div.after(space); range.setStartAfter(space); range.collapse(true); selection.removeAllRanges(); selection.addRange(range); } 
-        else if (type === 'spoiler') { const ext = range.extractContents(); const span = document.createElement('span'); span.className = 'editor-spoiler'; if (ext.textContent.trim() === '') span.textContent = 'Спойлер'; else span.appendChild(ext); range.insertNode(span); const space = document.createTextNode('\u00A0'); span.after(space); range.setStartAfter(space); range.collapse(true); selection.removeAllRanges(); selection.addRange(range); }
-        this.checkPublishState();
     }
 
     playTrackFromList(trackId) {

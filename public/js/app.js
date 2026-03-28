@@ -6,9 +6,12 @@ import { ShopStore } from './store/ShopStore.js';
 import { CommunitiesStore } from './store/CommunitiesStore.js';
 
 import { Router } from './Router.js';
-import { GlobalPlayer } from './components/GlobalPlayer.js';
-import { Toast } from './utils/Toast.js';
-import { AudioPlayerHandler } from './utils/AudioPlayerHandler.js'; // <--- НОВЫЙ ИМПОРТ
+import { GlobalPlayer } from './ui/widgets/GlobalPlayer.js';
+import { Toast } from './ui/utils/Toast.js';
+import { AudioPlayerHandler } from './ui/utils/AudioPlayerHandler.js';
+import { SocketService } from './services/SocketService.js';
+import { escapeHTML } from './ui/utils/utils.js';
+import { NotificationsAPI } from './api/NotificationsAPI.js';
 
 import { NotificationsView } from './views/NotificationsView.js';
 import { LoginView } from './views/LoginView.js';
@@ -22,53 +25,13 @@ import { ShopView } from './views/ShopView.js';
 import { AdminView } from './views/AdminView.js';
 import { MessagesView } from './views/MessagesView.js';
 
-import { escapeHTML } from './utils/utils.js';
-import { NotificationsAPI } from './api/NotificationsAPI.js';
-
-class NativeSocket {
-    constructor(url) {
-        this.url = url;
-        this.listeners = {};
-        this.connect();
-    }
-    connect() {
-        this.ws = new WebSocket(this.url);
-        this.ws.onmessage = (e) => {
-            try {
-                const { event, payload } = JSON.parse(e.data);
-                if (this.listeners[event]) {
-                    this.listeners[event].forEach(cb => cb(payload));
-                }
-            } catch (err) {}
-        };
-        this.ws.onclose = () => setTimeout(() => this.connect(), 3000);
-    }
-    on(event, callback) {
-        if (!this.listeners[event]) this.listeners[event] = [];
-        this.listeners[event].push(callback);
-    }
-    off(event, callback) {
-        if (this.listeners[event]) {
-            this.listeners[event] = this.listeners[event].filter(cb => cb !== callback);
-        }
-    }
-    emit(event, payload) {
-        if (this.ws.readyState === WebSocket.OPEN) {
-            this.ws.send(JSON.stringify({ event, payload }));
-        } else {
-            this.ws.addEventListener('open', () => {
-                this.ws.send(JSON.stringify({ event, payload }));
-            }, { once: true });
-        }
-    }
-}
-
 document.addEventListener('DOMContentLoaded', async () => {
     window.addEventListener('offline', () => { Toast.show('Оффлайн-режим.', 'warning'); document.body.classList.add('app-offline'); });
     window.addEventListener('online', () => { Toast.show('Соединение восстановлено!', 'success'); document.body.classList.remove('app-offline'); });
 
+    // ИНИЦИАЛИЗАЦИЯ СОКЕТА
     const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-    window.socket = new NativeSocket(`${protocol}//${window.location.host}`);
+    SocketService.init(`${protocol}//${window.location.host}`);
 
     const authStore = new AuthStore();
     const catalogStore = new CatalogStore();
@@ -76,7 +39,8 @@ document.addEventListener('DOMContentLoaded', async () => {
     const shopStore = new ShopStore(authStore);
     const communitiesStore = new CommunitiesStore();
 
-    const stores = { auth: authStore, catalogs: catalogStore, posts: postsStore, shop: shopStore, communities: communitiesStore };
+    // ДОБАВЛЯЕМ ССЫЛКУ НА ПЛЕЕР В STORES (чтобы контроллеры могли к нему обращаться)
+    const stores = { auth: authStore, catalogs: catalogStore, posts: postsStore, shop: shopStore, communities: communitiesStore, player: null };
 
     const appContent = document.getElementById('app-content');
     const sidebarWrapper = document.querySelector('.sidebar-wrapper');
@@ -90,40 +54,24 @@ document.addEventListener('DOMContentLoaded', async () => {
         return; 
     }
 
-    window.socket.emit('register', authStore.user.username);
-    window.cycleActiveChatId = null;
-
+    SocketService.emit('register', authStore.user.username);
+    
     // Инициализация единого мозга аудио плеера
-    AudioPlayerHandler.init(); // <--- АКТИВАЦИЯ
+    AudioPlayerHandler.init(); 
 
-    // --- СОБЫТИЯ МЕССЕНДЖЕРА ---
-    window.socket.on('new_message', (msg) => {
+    // --- СОБЫТИЯ МЕССЕНДЖЕРА И УВЕДОМЛЕНИЙ ---
+    SocketService.on('new_message', (msg) => {
         if (msg.sender_username === authStore.user.username) {
             document.dispatchEvent(new CustomEvent('cycle:chats_updated'));
             return;
         }
 
-        const isCurrentChat = window.location.hash.includes('/messages') && window.cycleActiveChatId === msg.chat_id;
-        
-        if (!isCurrentChat) {
-            let preview = msg.content;
-            if (preview.startsWith('[IMG:')) preview = '🖼 Фотография';
-            else if (preview.startsWith('[AUDIO:')) preview = '🎤 Голосовое сообщение';
-            else preview = preview.substring(0, 30) + (preview.length > 30 ? '...' : '');
-
-            Toast.show(`<b>${escapeHTML(msg.authorName || msg.sender_username)}</b>: ${escapeHTML(preview)}`, 'info');
-            
-            const msgIcon = document.getElementById('msgIcon');
-            if (msgIcon) {
-                msgIcon.classList.add('has-unread');
-                msgIcon.setAttribute('data-count', ''); 
-            }
-            
-            document.dispatchEvent(new CustomEvent('cycle:chats_updated'));
-        }
+        // Мы не можем здесь легко проверить activeChatId без window, поэтому
+        // отправляем событие, а MessagesController сам решит, показывать Toast или нет
+        document.dispatchEvent(new CustomEvent('cycle:incoming_message', { detail: msg }));
     });
 
-    window.socket.on('chat_invited', (data) => {
+    SocketService.on('chat_invited', (data) => {
         Toast.show(`Вас пригласили в чат: <b>${escapeHTML(data.name || 'Личная переписка')}</b>`, 'info');
         const msgIcon = document.getElementById('msgIcon');
         if (msgIcon) {
@@ -133,7 +81,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         document.dispatchEvent(new CustomEvent('cycle:chats_updated'));
     });
 
-    window.socket.on('new_notification', (notif) => {
+    SocketService.on('new_notification', (notif) => {
         const bellIcon = document.getElementById('bellIcon');
         if (bellIcon) {
             if (!window.location.hash.includes('/notifications')) {
@@ -154,7 +102,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         document.dispatchEvent(new CustomEvent('cycle:notifications_updated'));
     });
 
-    window.socket.on('wall_updated', (targetUsername) => {
+    SocketService.on('wall_updated', (targetUsername) => {
         document.dispatchEvent(new CustomEvent('cycle:wall_updated', { detail: targetUsername }));
     });
 
@@ -214,7 +162,8 @@ document.addEventListener('DOMContentLoaded', async () => {
     await postsStore.loadPosts(1);
     await shopStore.load();
     
-    window.cyclePlayer = new GlobalPlayer(stores);
+    // ИНИЦИАЛИЗАЦИЯ И СОХРАНЕНИЕ ПЛЕЕРА
+    stores.player = new GlobalPlayer(stores);
 
     const routes = {
         '/': FeedView,

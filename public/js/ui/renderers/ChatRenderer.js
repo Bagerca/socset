@@ -1,6 +1,6 @@
 // public/js/ui/renderers/ChatRenderer.js
-import { escapeHTML, formatTime, parseFormatting } from '../ui/utils/utils.js';
-import { MessageBuilder } from '../ui/utils/MessageBuilder.js';
+import { escapeHTML, formatTime, parseFormatting } from '../utils/utils.js';
+import { MessageBuilder } from '../utils/MessageBuilder.js';
 
 export class ChatRenderer {
     constructor(stores) {

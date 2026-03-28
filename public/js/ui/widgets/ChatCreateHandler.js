@@ -1,7 +1,7 @@
 // public/js/ui/widgets/ChatCreateHandler.js
-import { escapeHTML } from '../ui/utils/utils.js';
-import { MessagesAPI } from '../api/MessagesAPI.js';
-import { Toast } from '../ui/utils/Toast.js';
+import { escapeHTML } from '../utils/utils.js';
+import { MessagesAPI } from '../../api/MessagesAPI.js';
+import { Toast } from '../utils/Toast.js';
 
 export class ChatCreateHandler {
     constructor(onChatCreated) {

@@ -1,6 +1,6 @@
-// public/js/components/MessageFormatHandler.js
+// public/js/ui/editors/RichTextEditor.js
 
-export class MessageFormatHandler {
+export class RichTextEditor {
     constructor(inputEl, onChangeCallback) {
         this.inputEl = inputEl;
         this.onChangeCallback = onChangeCallback;
@@ -33,6 +33,8 @@ export class MessageFormatHandler {
     }
 
     bindEvents() {
+        if (!this.inputEl) return;
+        
         this.inputEl.addEventListener('contextmenu', (e) => {
             e.preventDefault();
             const selection = window.getSelection();
@@ -40,6 +42,10 @@ export class MessageFormatHandler {
             this.formatMenu.style.display = 'block';
             this.formatMenu.style.top = `${e.pageY}px`;
             this.formatMenu.style.left = `${e.pageX}px`;
+        });
+
+        this.inputEl.addEventListener('input', () => {
+            if (this.onChangeCallback) this.onChangeCallback();
         });
 
         document.addEventListener('click', () => {
@@ -95,6 +101,7 @@ export class MessageFormatHandler {
     }
 
     getFormattedContent() {
+        if (!this.inputEl) return '';
         const clone = this.inputEl.cloneNode(true);
         clone.querySelectorAll('.post-quote').forEach(q => { q.replaceWith(`\n> ${q.innerText.trim()}\n`); });
         clone.querySelectorAll('b, strong, span[style*="font-weight: bold"]').forEach(b => { b.replaceWith(`**${b.innerText}**`); });
@@ -106,6 +113,11 @@ export class MessageFormatHandler {
         const temp = document.createElement('div');
         temp.innerHTML = html;
         return temp.innerText.trim();
+    }
+    
+    clear() {
+        if (this.inputEl) this.inputEl.innerHTML = '';
+        if (this.onChangeCallback) this.onChangeCallback();
     }
 
     destroy() {

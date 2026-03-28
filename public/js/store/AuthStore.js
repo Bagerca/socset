@@ -1,7 +1,7 @@
 // js/store/AuthStore.js
 import { AuthAPI } from '../api/AuthAPI.js';
 import { ProfileAPI } from '../api/ProfileAPI.js';
-import { generateId } from '../utils/utils.js';
+import { generateId } from '../ui/utils/utils.js';
 
 export class AuthStore {
     constructor() {

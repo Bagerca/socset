@@ -1,5 +1,5 @@
 import { escapeHTML, debounce } from '../utils/utils.js';
-import { PostRenderer } from '../components/PostRenderer.js';
+import { PostRenderer } from '../ui/renderers/PostRenderer.js';
 import { PostEventHandler } from '../components/PostEventHandler.js';
 
 export class FeedController {

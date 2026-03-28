@@ -1,7 +1,7 @@
 // js/controllers/ShopController.js
-import { validateFrameCSS, debounce } from '../utils/utils.js';
-import { SearchEngine } from '../utils/SearchEngine.js';
-import { ShopRenderer } from '../components/ShopRenderer.js';
+import { validateFrameCSS, debounce } from '../ui/utils/utils.js';
+import { SearchEngine } from '../ui/utils/SearchEngine.js';
+import { ShopRenderer } from '../ui/renderers/ShopRenderer.js';
 
 export class ShopController {
     constructor(stores) {

@@ -1,9 +1,9 @@
 // public/js/ui/widgets/GroupDetailsHandler.js
-import { escapeHTML, debounce } from '../ui/utils/utils.js';
-import { SearchEngine } from '../ui/utils/SearchEngine.js';
-import { MessagesAPI } from '../api/MessagesAPI.js';
-import { UploadAPI } from '../api/UploadAPI.js';
-import { Toast } from '../ui/utils/Toast.js';
+import { escapeHTML, debounce } from '../utils/utils.js';
+import { SearchEngine } from '../utils/SearchEngine.js';
+import { MessagesAPI } from '../../api/MessagesAPI.js';
+import { UploadAPI } from '../../api/UploadAPI.js';
+import { Toast } from '../utils/Toast.js';
 
 export class GroupDetailsHandler {
     constructor(renderer, onMemberClick) {

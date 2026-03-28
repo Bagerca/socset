@@ -1,45 +1,44 @@
 // public/js/store/PostsStore.js
 import { PostsAPI } from '../api/PostsAPI.js';
-import { generateId } from '../utils/utils.js';
+import { generateId } from '../ui/utils/utils.js';
+import { SocketService } from '../services/SocketService.js';
 
 export class PostsStore {
     constructor(authStore) {
         this.authStore = authStore;
         this.posts = [];
-        this.offlineQueue =[];
+        this.offlineQueue = [];
         this.initSocket();
         this.initOfflineQueue();
     }
 
     initSocket() {
-        if (window.socket) { 
-            window.socket.on('new_post', (post) => {
-                const justCreatedLocally = this.posts.some(p => p.isPending && p.content === post.content && p.author.username === post.author.username);
-                if (!this.posts.find(p => p.id === post.id) && !justCreatedLocally) {
-                    this.posts.unshift(this._personalize(post));
-                    document.dispatchEvent(new CustomEvent('cycle:posts_updated')); // Для нового поста полная перерисовка нормальна
-                }
-            });
+        // Заменили window.socket на SocketService
+        SocketService.on('new_post', (post) => {
+            const justCreatedLocally = this.posts.some(p => p.isPending && p.content === post.content && p.author.username === post.author.username);
+            if (!this.posts.find(p => p.id === post.id) && !justCreatedLocally) {
+                this.posts.unshift(this._personalize(post));
+                document.dispatchEvent(new CustomEvent('cycle:posts_updated')); 
+            }
+        });
 
-            // МГНОВЕННОЕ ТОЧЕЧНОЕ ОБНОВЛЕНИЕ
-            window.socket.on('update_post', (updatedPost) => {
-                const index = this.posts.findIndex(p => p.id === updatedPost.id);
-                if (index !== -1) {
-                    this.posts[index] = this._personalize(updatedPost);
-                    document.dispatchEvent(new CustomEvent('cycle:post_updated', { detail: this.posts[index] }));
-                }
-            });
+        SocketService.on('update_post', (updatedPost) => {
+            const index = this.posts.findIndex(p => p.id === updatedPost.id);
+            if (index !== -1) {
+                this.posts[index] = this._personalize(updatedPost);
+                document.dispatchEvent(new CustomEvent('cycle:post_updated', { detail: this.posts[index] }));
+            }
+        });
 
-            window.socket.on('delete_post', (postId) => {
-                this.posts = this.posts.filter(p => p.id !== postId);
-                document.dispatchEvent(new CustomEvent('cycle:posts_updated'));
-            });
-        }
+        SocketService.on('delete_post', (postId) => {
+            this.posts = this.posts.filter(p => p.id !== postId);
+            document.dispatchEvent(new CustomEvent('cycle:posts_updated'));
+        });
     }
 
     async initOfflineQueue() {
         if (window.localforage) {
-            this.offlineQueue = (await localforage.getItem('cycle_offline_queue')) ||[];
+            this.offlineQueue = (await localforage.getItem('cycle_offline_queue')) || [];
             window.addEventListener('online', () => this.syncOfflineQueue());
             setInterval(() => this.syncOfflineQueue(), 15000);
         }
@@ -52,8 +51,8 @@ export class PostsStore {
 
     async syncOfflineQueue() {
         if (!navigator.onLine || this.offlineQueue.length === 0) return;
-        const queueCopy =[...this.offlineQueue];
-        this.offlineQueue =[]; 
+        const queueCopy = [...this.offlineQueue];
+        this.offlineQueue = []; 
         if (window.localforage) await localforage.setItem('cycle_offline_queue', this.offlineQueue);
 
         for (const task of queueCopy) {
@@ -64,7 +63,6 @@ export class PostsStore {
                         const index = this.posts.findIndex(p => p.id === task.tempId);
                         if (index !== -1) {
                             this.posts[index] = this._personalize(data.post);
-                            // Передаем oldId, чтобы app.js смог найти старый элемент и обновить его ID
                             document.dispatchEvent(new CustomEvent('cycle:post_updated', { 
                                 detail: { oldId: task.tempId, post: this.posts[index] } 
                             }));
@@ -91,7 +89,7 @@ export class PostsStore {
         }
     }
 
-    async loadPosts(page = 1, targetId = null, feedType = 'main', extraIds =[]) {
+    async loadPosts(page = 1, targetId = null, feedType = 'main', extraIds = []) {
         try {
             const newPosts = await PostsAPI.getPosts(page, 10, targetId, feedType, extraIds);
             const processed = newPosts.map(p => this._personalize(p));
@@ -101,10 +99,10 @@ export class PostsStore {
             } else {
                 const existingIds = new Set(this.posts.map(p => p.id));
                 const uniqueNew = processed.filter(p => !existingIds.has(p.id));
-                this.posts =[...this.posts, ...uniqueNew];
+                this.posts = [...this.posts, ...uniqueNew];
             }
             return processed;
-        } catch (e) { return[]; }
+        } catch (e) { return []; }
     }
 
     injectOfflinePosts(targetId, feedType) {
@@ -122,7 +120,7 @@ export class PostsStore {
 
     _personalize(post) {
         const me = this.authStore.user?.username;
-        if (!post.likedBy) post.likedBy =[];
+        if (!post.likedBy) post.likedBy = [];
         post.isLiked = post.likedBy.includes(me);
         post.likes = post.likedBy.length;
 
@@ -154,7 +152,7 @@ export class PostsStore {
         return {
             id: tempId, author: { username: me.username, name: me.name, avatar: me.avatar, frameId: me.frameId, isVerified: me.isVerified, verifiedBadgeType: me.verifiedBadgeType },
             content: payload.content, attachment_type: payload.attachment ? (payload.attachment.music ? 'music' : 'game') : null, attachment: payload.attachment,
-            poll, community_id: payload.communityId || null, timestamp: Date.now(), likedBy:[], comments:[], views: 0, isPending: true 
+            poll, community_id: payload.communityId || null, timestamp: Date.now(), likedBy: [], comments: [], views: 0, isPending: true 
         };
     }
 
@@ -163,7 +161,7 @@ export class PostsStore {
         const payload = { content, pollData, attachment, communityId };
         const optimisticPost = this.createOptimisticPostObj(tempId, payload);
         this.posts.unshift(this._personalize(optimisticPost));
-        document.dispatchEvent(new CustomEvent('cycle:posts_updated')); // Новый пост все же рендерит ленту
+        document.dispatchEvent(new CustomEvent('cycle:posts_updated'));
 
         const task = { action: 'addPost', payload: { content, poll: optimisticPost.poll, attachment, communityId }, tempId, timestamp: Date.now() };
         PostsAPI.createPost(task.payload).then(data => {
@@ -171,7 +169,6 @@ export class PostsStore {
                 const index = this.posts.findIndex(p => p.id === tempId);
                 if (index !== -1) {
                     this.posts[index] = this._personalize(data.post);
-                    // Передаем oldId, чтобы найти старый HTML-элемент и обновить его
                     document.dispatchEvent(new CustomEvent('cycle:post_updated', { 
                         detail: { oldId: tempId, post: this.posts[index] } 
                     }));
@@ -194,7 +191,7 @@ export class PostsStore {
 
         post.comments.push(optimisticComment);
         this._personalize(post);
-        document.dispatchEvent(new CustomEvent('cycle:post_updated', { detail: post })); // Точечно
+        document.dispatchEvent(new CustomEvent('cycle:post_updated', { detail: post }));
 
         const task = { action: 'addComment', payload: { postId, comment: { content, type, waveform } }, tempId, timestamp: Date.now() };
         PostsAPI.addComment(postId, task.payload.comment).then(data => {
@@ -203,7 +200,7 @@ export class PostsStore {
                 if (cIndex !== -1) {
                     post.comments[cIndex] = data.comment;
                     this._personalize(post);
-                    document.dispatchEvent(new CustomEvent('cycle:post_updated', { detail: post })); // Точечно
+                    document.dispatchEvent(new CustomEvent('cycle:post_updated', { detail: post }));
                 }
             }
         }).catch(() => { this.saveToQueue(task); });

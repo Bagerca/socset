@@ -1,4 +1,4 @@
-// js/components/GamesRenderer.js
+// js/ui/renderers/GamesRenderer.js
 
 import { escapeHTML } from '../utils/utils.js';
 

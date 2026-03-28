@@ -1,7 +1,7 @@
-// public/js/components/PostComponent.js
+// public/js/ui/widgets/PostComponent.js
 import { escapeHTML, formatTime, parseFormatting } from '../utils/utils.js';
-import { AudioService } from '../services/AudioService.js';
-import { UploadAPI } from '../api/UploadAPI.js';
+import { AudioService } from '../../services/AudioService.js';
+import { UploadAPI } from '../../api/UploadAPI.js';
 import { MessageBuilder } from '../utils/MessageBuilder.js';
 
 export class PostComponent {
@@ -252,7 +252,7 @@ export class PostComponent {
         if (musicId) {
             const track = this.stores.catalogs.getTrackById(musicId);
             if (track) {
-                let isPlaying = window.cyclePlayer && !window.cyclePlayer.audio.paused && window.cyclePlayer.playlist[window.cyclePlayer.currentIndex]?.id === track.id;
+                let isPlaying = this.stores.player && !this.stores.player.audio.paused && this.stores.player.playlist[this.stores.player.currentIndex]?.id === track.id;
                 html += `
                     <div class="post-music-card">
                         <img src="${track.cover}" class="post-music-cover">
@@ -334,7 +334,7 @@ export class PostComponent {
         if (target.closest('.rec-btn.cancel')) { this._cancelRecordingUI(); return; }
         if (target.closest('.rec-btn.send')) { this._sendAudioComment(); return; }
         if (target.closest('.rec-btn.play-preview')) { this._playPreview(target.closest('.rec-btn.play-preview')); return; }
-        // Клик по '.cycle-audio-btn' теперь обрабатывается глобально в AudioPlayerHandler
+        
         if (target.closest('.post-music-play-btn')) { this.handlePlayMusic(target.closest('.post-music-play-btn').dataset.id); return; }
     }
 
@@ -359,10 +359,10 @@ export class PostComponent {
     }
 
     handlePlayMusic(trackId) {
-        if (window.cyclePlayer) {
-            const currentTrack = window.cyclePlayer.playlist[window.cyclePlayer.currentIndex];
-            if (currentTrack && currentTrack.id === trackId) window.cyclePlayer.togglePlay();
-            else { window.cyclePlayer.playlist = this.stores.catalogs.music; window.cyclePlayer.playTrack(trackId); }
+        if (this.stores.player) {
+            const currentTrack = this.stores.player.playlist[this.stores.player.currentIndex];
+            if (currentTrack && currentTrack.id === trackId) this.stores.player.togglePlay();
+            else { this.stores.player.playlist = this.stores.catalogs.music; this.stores.player.playTrack(trackId); }
         }
     }
 

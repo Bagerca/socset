@@ -118,7 +118,6 @@ export const MessagesView = {
             </div>
         </div>
 
-        <!-- Контекстные меню и модалки остаются без изменений -->
         <div id="msgContextMenu" class="options-menu" style="display:none; position:fixed; z-index:999999; width:150px;">
             <div class="menu-item" id="ctxMsgReply"><i class="fa-solid fa-reply"></i><span>Ответить</span></div>
             <div class="menu-item" id="ctxMsgCopy"><i class="fa-regular fa-copy"></i><span>Копировать</span></div>
@@ -126,9 +125,52 @@ export const MessagesView = {
             <div class="menu-item menu-item-danger" id="ctxMsgDelete" style="display:none;"><i class="fa-solid fa-trash"></i><span>Удалить</span></div>
         </div>
 
-        <div id="createChatModal" class="modal-overlay">...</div>
-        <div id="chatImageModal" class="modal-overlay" style="z-index: 9999999;">...</div>
-        <div id="inviteToGroupModal" class="modal-overlay" style="z-index: 1000000;">...</div>
+        <div id="createChatModal" class="modal-overlay">
+            <div class="modal-content" style="max-width: 400px;">
+                <div class="modal-header">
+                    <span class="modal-title">Новый диалог</span>
+                    <button id="closeCreateChatBtn" class="icon-btn-small"><i class="fa-solid fa-xmark"></i></button>
+                </div>
+                <div class="modal-body">
+                    <div style="display:flex; gap:10px; margin-bottom: 15px;">
+                        <button class="btn-post cc-type-btn active" data-type="direct" style="flex:1;">Личный</button>
+                        <button class="btn-post cc-type-btn" data-type="group" style="flex:1; background:rgba(255,255,255,0.1);">Группа</button>
+                    </div>
+                    <div id="ccGroupNameWrapper" style="display:none; margin-bottom:15px;">
+                        <input type="text" id="ccGroupName" class="poll-input" placeholder="Название группы...">
+                    </div>
+                    <div id="ccFriendsList" style="display: flex; flex-direction: column; gap: 8px; max-height: 250px; overflow-y: auto;"></div>
+                    
+                    <textarea id="ccInitialMessage" class="poll-input" placeholder="Написать первое сообщение... (необязательно)" style="margin-top: 15px; resize: vertical; min-height: 60px;"></textarea>
+
+                    <button id="submitCreateChatBtn" class="btn-post" style="width: 100%; margin-top: 15px;" disabled>Создать</button>
+                </div>
+            </div>
+        </div>
+
+        <div id="chatImageModal" class="modal-overlay" style="z-index: 9999999;">
+            <div class="modal-content" style="max-width: 95vw; max-height: 95vh; background: transparent; box-shadow: none; border: none; align-items: center; justify-content: center; padding: 0; position: relative;">
+                <div id="chatImageCounter" style="position: absolute; top: -30px; left: 50%; transform: translateX(-50%); color: #fff; background: rgba(0,0,0,0.5); padding: 4px 12px; border-radius: 12px; font-size: 14px; font-weight: 600; display: none;">1 / 1</div>
+                <img id="chatFullImage" src="" style="max-width: 100%; max-height: 85vh; border-radius: 12px; box-shadow: 0 20px 80px rgba(0,0,0,0.8); object-fit: contain;">
+                <div style="margin-top: 20px; display: flex; gap: 16px; background: rgba(0,0,0,0.5); padding: 10px 20px; border-radius: 100px; backdrop-filter: blur(10px);">
+                    <button id="prevChatImageBtn" class="icon-btn" style="width: 44px; height: 44px; display: none;"><i class="fa-solid fa-chevron-left"></i></button>
+                    <button id="closeChatImageModal" class="icon-btn" style="width: 44px; height: 44px;"><i class="fa-solid fa-xmark"></i></button>
+                    <a id="downloadChatImageBtn" href="" download class="icon-btn" style="width: 44px; height: 44px;" title="Скачать"><i class="fa-solid fa-download"></i></a>
+                    <button id="nextChatImageBtn" class="icon-btn" style="width: 44px; height: 44px; display: none;"><i class="fa-solid fa-chevron-right"></i></button>
+                </div>
+            </div>
+        </div>
+
+        <div id="inviteToGroupModal" class="modal-overlay" style="z-index: 1000000;">
+            <div class="modal-content" style="max-width: 400px; background: #141416;">
+                <div class="modal-header">
+                    <span class="modal-title">Пригласить друга</span>
+                    <button id="closeInviteModalBtn" class="icon-btn-small"><i class="fa-solid fa-xmark"></i></button>
+                </div>
+                <div class="modal-body" id="inviteFriendsList" style="max-height: 400px; overflow-y: auto; padding: 10px; display: flex; flex-direction: column; gap: 8px;">
+                </div>
+            </div>
+        </div>
     `,
     Manager: MessagesController
 };

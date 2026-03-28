@@ -1,5 +1,5 @@
 // public/js/ui/widgets/GlobalPlayer.js
-import { SocketService } from '../ui/services/SocketService.js'; // <-- ИМПОРТ НОВОГО СЕРВИСА
+import { SocketService } from '../../services/SocketService.js';
 
 export class GlobalPlayer {
     constructor(stores) {

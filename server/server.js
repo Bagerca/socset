@@ -1,30 +1,27 @@
 // server/server.js
 const http = require('http');
 const requestHandler = require('./router');
-const WSManager = require('./utils/wsManager'); // <-- НАШ МЕНЕДЖЕР
+const WSManager = require('./utils/wsManager');
+const seedInitialData = require('./seed'); // Подключаем сидирование
 
 const PORT = process.env.PORT || 3000;
 
 const server = http.createServer();
-// Передаем HTTP-сервер в наш WebSocket менеджер
 const io = new WSManager(server);
 
 const onlineUsers = new Map();
-
-// Контекст, который будет доступен во всех контроллерах
 const appContext = { io, onlineUsers };
+
+// Запускаем заполнение БД после старта
+seedInitialData();
 
 server.on('request', (req, res) => {
     requestHandler(req, res, appContext);
 });
 
-// --- НАСТРОЙКА НАШИХ ВЕБ-СОКЕТОВ ---
 io.on('register', (username, ws) => {
-    // Сохраняем имя пользователя в объекте сокета
     ws.currentUsername = username;
-    // Имитируем socket.join из socket.io
     ws.rooms.add(`user_${username}`);
-    
     onlineUsers.set(username, { isOnline: true, currentTrack: null });
     io.emit('radar_update', { username, type: 'online' });
 });

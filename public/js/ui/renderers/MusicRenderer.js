@@ -1,4 +1,4 @@
-// js/components/MusicRenderer.js
+// js/ui/renderers/MusicRenderer.js
 
 import { escapeHTML } from '../utils/utils.js';
 

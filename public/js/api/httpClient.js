@@ -1,5 +1,5 @@
 // public/js/api/httpClient.js
-import { Toast } from '../utils/Toast.js';
+import { Toast } from '../ui/utils/Toast.js';
 
 export class HttpClient {
     constructor() {

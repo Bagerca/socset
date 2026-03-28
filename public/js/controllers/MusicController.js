@@ -1,14 +1,13 @@
-// js/controllers/MusicController.js
-
-import { debounce, escapeHTML } from '../utils/utils.js';
-import { SearchEngine } from '../utils/SearchEngine.js';
-import { MusicRenderer } from '../components/MusicRenderer.js';
+// public/js/controllers/MusicController.js
+import { debounce, escapeHTML } from '../ui/utils/utils.js';
+import { SearchEngine } from '../ui/utils/SearchEngine.js';
+import { MusicRenderer } from '../ui/renderers/MusicRenderer.js';
 import { MUSIC_CONSTANTS } from '../config/MusicConstants.js';
 
 export class MusicController {
     constructor(stores) {
         this.stores = stores;
-        this.player = window.cyclePlayer; 
+        this.player = this.stores.player; // <-- ИСПОЛЬЗУЕМ ПЛЕЕР ИЗ STORES
         this.searchEngine = new SearchEngine();
         this.abortController = new AbortController();
 
@@ -31,9 +30,9 @@ export class MusicController {
         this.boundPlayState = (e) => this.updateListPlayIcon(e.detail);
         this.boundFavChanged = () => { if(this.currentTab === 'favorites') this.renderContent(); };
         
-        document.addEventListener('cycle:track-changed', this.boundTrackChanged);
-        document.addEventListener('cycle:play-state', this.boundPlayState);
-        document.addEventListener('cycle:fav-changed', this.boundFavChanged);
+        document.addEventListener('cycle:track-changed', this.boundTrackChanged, { signal: this.abortController.signal });
+        document.addEventListener('cycle:play-state', this.boundPlayState, { signal: this.abortController.signal });
+        document.addEventListener('cycle:fav-changed', this.boundFavChanged, { signal: this.abortController.signal });
 
         this.init();
     }
@@ -45,9 +44,6 @@ export class MusicController {
 
     destroy() {
         this.abortController.abort();
-        document.removeEventListener('cycle:track-changed', this.boundTrackChanged);
-        document.removeEventListener('cycle:play-state', this.boundPlayState);
-        document.removeEventListener('cycle:fav-changed', this.boundFavChanged);
     }
 
     loadDurationsForTracks(tracks) {
@@ -530,10 +526,12 @@ export class MusicController {
         
         if (this.currentTab === 'favorites') this.renderContent();
         
-        const currentTrack = this.player.playlist[this.player.currentIndex];
-        if (currentTrack && currentTrack.id === id) {
-            this.player.btnFav.innerHTML = `<i class="fa-${isFav ? 'solid' : 'regular'} fa-heart"></i>`;
-            this.player.btnFav.classList.toggle('active', isFav);
+        if (this.player) {
+            const currentTrack = this.player.playlist[this.player.currentIndex];
+            if (currentTrack && currentTrack.id === id) {
+                this.player.btnFav.innerHTML = `<i class="fa-${isFav ? 'solid' : 'regular'} fa-heart"></i>`;
+                this.player.btnFav.classList.toggle('active', isFav);
+            }
         }
     }
 
@@ -551,6 +549,7 @@ export class MusicController {
     }
 
     playTrackFromList(trackId) {
+        if (!this.player) return;
         let currentList = [];
         if (this.currentAlbumId) {
             const album = this.stores.auth.user.customAlbums.find(a => a.id === this.currentAlbumId);

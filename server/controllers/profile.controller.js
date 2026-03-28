@@ -1,159 +1,48 @@
 // server/controllers/profile.controller.js
-const db = require('../database');
-const { randomUUID } = require('crypto');
-const NotificationService = require('../services/NotificationService'); // <-- ИСПРАВЛЕНО: Путь был './' стал '../services/'
+const ProfileService = require('../services/ProfileService');
 
 class ProfileController {
-    getOne(req, res) {
-        const user = db.prepare('SELECT * FROM users WHERE username = ?').get(req.params.username);
-        
-        if (!user) {
-            return res.status(404).json({ error: 'User not found' });
-        }
-        
-        user.socials = JSON.parse(user.socials || '{}');
-        user.showcaseGames = JSON.parse(user.showcaseGames || '[]');
-        user.purchasedFrames = db.prepare('SELECT item_id FROM inventory WHERE username = ?').all(user.username).map(i => i.item_id);
-        
-        const followersRows = db.prepare(`
-            SELECT u.username, u.name, u.avatar, u.frameId, u.isVerified, u.verifiedBadgeType 
-            FROM follows f JOIN users u ON f.follower_username = u.username 
-            WHERE f.following_username = ?
-        `).all(user.username);
-
-        const followingRows = db.prepare(`
-            SELECT u.username, u.name, u.avatar, u.frameId, u.isVerified, u.verifiedBadgeType 
-            FROM follows f JOIN users u ON f.following_username = u.username 
-            WHERE f.follower_username = ?
-        `).all(user.username);
-
-        user.followers = followersRows;
-        user.following = followingRows;
-        
-        const followingUsernames = followingRows.map(u => u.username);
-        user.friends = followersRows.filter(f => followingUsernames.includes(f.username));
-        
-        const communitiesCount = db.prepare('SELECT COUNT(*) as count FROM community_members WHERE username = ?').get(user.username).count;
-        user.communitiesCount = communitiesCount;
-        
-        user.enableWall = user.enableWall === 1;
-        user.isVerified = user.isVerified === 1;
-
-        user.modules = { music: true, games: true, socials: true };
-        user.favoriteTracks = []; 
-        user.favoriteGames = []; 
-        user.customAlbums =[];
-        
-        res.json(user);
-    }
-
-    update(req, res) {
-        if (req.body.username !== req.user.username) {
-            return res.sendStatus(403);
-        }
-
-        const { 
-            name, bio, avatar, banner, frameId, socials, 
-            showcaseGames, musicId, enableWall, 
-            isVerified, verifiedBadgeType 
-        } = req.body;
-        
+    
+    // Обертка для обработки ошибок (чтобы не писать try/catch везде)
+    _handleRequest = (res, serviceCall) => {
         try {
-            db.prepare(`
-                UPDATE users 
-                SET name = ?, bio = ?, avatar = ?, banner = ?, frameId = ?, 
-                    socials = ?, showcaseGames = ?, musicId = ?, 
-                    enableWall = ?, isVerified = ?, verifiedBadgeType = ?
-                WHERE username = ?
-            `).run(
-                name, 
-                bio, 
-                avatar, 
-                banner, 
-                frameId, 
-                JSON.stringify(socials || {}), 
-                JSON.stringify(showcaseGames ||[]), 
-                musicId || null, 
-                enableWall ? 1 : 0,
-                isVerified ? 1 : 0,      
-                verifiedBadgeType || 'badge-1', 
-                req.user.username
-            );
-            res.json({ success: true });
+            const result = serviceCall();
+            res.json(result);
         } catch (e) {
-            console.error(e);
-            res.status(500).json({ success: false, error: 'DB Error' });
+            console.error('ProfileController Error:', e);
+            res.status(e.status || 500).json({ error: e.message || 'Internal Server Error' });
         }
     }
 
-    // --- СТЕНА ---
-
-    getWall(req, res) {
-        const profileUser = req.params.username;
-        const comments = db.prepare(`
-            SELECT w.*, u.name, u.avatar, u.frameId, u.isVerified, u.verifiedBadgeType 
-            FROM profile_wall w 
-            JOIN users u ON w.author_username = u.username 
-            WHERE w.profile_username = ? 
-            ORDER BY w.timestamp DESC
-        `).all(profileUser);
-        
-        const processed = comments.map(c => ({
-            ...c,
-            isVerified: c.isVerified === 1
-        }));
-
-        res.json(processed);
+    getOne = (req, res) => {
+        this._handleRequest(res, () => ProfileService.getProfile(req.params.username));
     }
 
-    addToWall(req, res) {
-        const { targetUsername, content } = req.body;
-        
-        const user = db.prepare('SELECT enableWall FROM users WHERE username = ?').get(targetUsername);
-        if (!user) return res.status(404).json({ error: 'User not found' });
-        if (user.enableWall !== 1) return res.status(403).json({ error: 'Wall is disabled' });
-
-        const newComment = {
-            id: randomUUID(),
-            profile_username: targetUsername,
-            author_username: req.user.username,
-            content,
-            timestamp: Date.now()
-        };
-
-        db.prepare(`
-            INSERT INTO profile_wall (id, profile_username, author_username, content, timestamp)
-            VALUES (@id, @profile_username, @author_username, @content, @timestamp)
-        `).run(newComment);
-
-        const io = req.app.get('io');
-        // Уведомление
-        NotificationService.create(io, targetUsername, req.user.username, 'wall', null, content.substring(0, 20));
-        // Реал-тайм обновление стены
-        io.emit('wall_updated', targetUsername);
-
-        const author = db.prepare('SELECT name, avatar, frameId, isVerified, verifiedBadgeType FROM users WHERE username = ?').get(req.user.username);
-        author.isVerified = author.isVerified === 1;
-
-        res.json({ success: true, comment: { ...newComment, ...author } });
+    update = (req, res) => {
+        this._handleRequest(res, () => {
+            ProfileService.updateProfile(req.body.username, req.user, req.body);
+            return { success: true };
+        });
     }
 
-    deleteFromWall(req, res) {
-        const { commentId } = req.body;
-        const comment = db.prepare('SELECT * FROM profile_wall WHERE id = ?').get(commentId);
-        
-        if (!comment) return res.status(404).json({ error: 'Not found' });
+    getWall = (req, res) => {
+        this._handleRequest(res, () => ProfileService.getWall(req.params.username));
+    }
 
-        if (comment.author_username !== req.user.username && comment.profile_username !== req.user.username) {
-            return res.status(403).json({ error: 'Forbidden' });
-        }
+    addToWall = (req, res) => {
+        this._handleRequest(res, () => {
+            const io = req.app.get('io');
+            const comment = ProfileService.addToWall(req.body.targetUsername, req.user.username, req.body.content, io);
+            return { success: true, comment };
+        });
+    }
 
-        db.prepare('DELETE FROM profile_wall WHERE id = ?').run(commentId);
-        
-        const io = req.app.get('io');
-        io.emit('wall_updated', comment.profile_username);
-
-        res.json({ success: true });
+    deleteFromWall = (req, res) => {
+        this._handleRequest(res, () => {
+            const io = req.app.get('io');
+            ProfileService.deleteFromWall(req.body.commentId, req.user, io);
+            return { success: true };
+        });
     }
 }
 

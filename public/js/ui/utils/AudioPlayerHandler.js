@@ -21,8 +21,9 @@ export class AudioPlayerHandler {
         const timeDisplay = btn.parentElement.querySelector('.cycle-audio-time');
 
         if (audio.paused) {
-            // Ставим на паузу большой плеер музыки, если он играет
-            if (window.cyclePlayer && !window.cyclePlayer.audio.paused) window.cyclePlayer.audio.pause();
+            // Останавливаем глобальный плеер (получаем напрямую через элемент)
+            const globalPlayer = document.getElementById('globalAudioPlayer');
+            if (globalPlayer && !globalPlayer.paused) globalPlayer.pause();
             
             // Ставим на паузу все остальные голосовые на сайте
             document.querySelectorAll('.cycle-audio-btn').forEach(b => b.innerHTML = '<i class="fa-solid fa-play"></i>');
@@ -36,7 +37,6 @@ export class AudioPlayerHandler {
             let lastSec = -1;
             
             audio.ontimeupdate = () => { 
-                // ЗАЩИТА ОТ ДЕЛЕНИЯ НА 0 ИЛИ NaN
                 const duration = audio.duration && !isNaN(audio.duration) ? audio.duration : 1;
                 const progressPercentage = (audio.currentTime / duration) * 100;
 

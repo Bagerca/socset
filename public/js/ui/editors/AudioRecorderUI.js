@@ -1,5 +1,5 @@
-// public/js/components/AudioRecorderUI.js
-import { AudioService } from '../services/AudioService.js';
+// public/js/ui/editors/AudioRecorderUI.js
+import { AudioService } from '../../services/AudioService.js';
 
 export class AudioRecorderUI {
     constructor(containerEl, inputPillEl, voiceBtnEl) {

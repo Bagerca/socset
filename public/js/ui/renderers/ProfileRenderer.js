@@ -1,6 +1,6 @@
 // js/ui/renderers/ProfileRenderer.js
 
-import { escapeHTML } from '../ui/utils/utils.js';
+import { escapeHTML } from '../utils/utils.js';
 
 export class ProfileRenderer {
 

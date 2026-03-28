@@ -1,17 +1,18 @@
 // public/js/controllers/MessagesController.js
-import { escapeHTML, debounce } from '../utils/utils.js';
-import { SearchEngine } from '../utils/SearchEngine.js';
-import { Toast } from '../utils/Toast.js';
+import { escapeHTML, debounce } from '../ui/utils/utils.js';
+import { SearchEngine } from '../ui/utils/SearchEngine.js';
+import { Toast } from '../ui/utils/Toast.js';
 import { UploadAPI } from '../api/UploadAPI.js';
 import { MessagesAPI } from '../api/MessagesAPI.js';
 import { ProfileAPI } from '../api/ProfileAPI.js';
-import { ChatRenderer } from '../components/ChatRenderer.js';
-import { AudioRecorderUI } from '../components/AudioRecorderUI.js';
+import { ChatRenderer } from '../ui/renderers/ChatRenderer.js';
+import { AudioRecorderUI } from '../ui/editors/AudioRecorderUI.js';
 
-import { ChatGalleryHandler } from '../components/ChatGalleryHandler.js';
-import { MessageFormatHandler } from '../components/MessageFormatHandler.js';
-import { ChatCreateHandler } from '../components/ChatCreateHandler.js';
-import { GroupDetailsHandler } from '../components/GroupDetailsHandler.js';
+import { ChatGalleryHandler } from '../ui/widgets/ChatGalleryHandler.js';
+import { RichTextEditor } from '../ui/editors/RichTextEditor.js';
+import { ChatCreateHandler } from '../ui/widgets/ChatCreateHandler.js';
+import { GroupDetailsHandler } from '../ui/widgets/GroupDetailsHandler.js';
+import { SocketService } from '../services/SocketService.js';
 
 export class MessagesController {
     constructor(stores) {
@@ -30,7 +31,6 @@ export class MessagesController {
         this.replyingMsgId = null; 
         this.pendingAttachments = []; 
 
-        // Инициализация DOM элементов
         this.chatSearchInput = document.getElementById('msChatSearch');
         this.searchDropdown = document.getElementById('msSearchDropdown');
         this.searchWrapper = document.getElementById('msSearchWrapper');
@@ -47,8 +47,8 @@ export class MessagesController {
         this.msgAttachBtn = document.getElementById('msgAttachBtn');
         this.msgFileInput = document.getElementById('msgFileInput');
         
-        this.msInputContainer = document.getElementById('msInputContainer'); // Остров
-        this.msContextBar = document.getElementById('msContextBar'); // Шторка
+        this.msInputContainer = document.getElementById('msInputContainer'); 
+        this.msContextBar = document.getElementById('msContextBar'); 
         this.msContextIcon = document.getElementById('msContextIcon');
         this.msContextTitle = document.getElementById('msContextTitle');
         this.msContextText = document.getElementById('msContextText');
@@ -66,7 +66,7 @@ export class MessagesController {
         this.detailsBody = document.getElementById('chatDetailsBody');
 
         this.galleryHandler = new ChatGalleryHandler();
-        this.formatHandler = new MessageFormatHandler(this.msgInput, () => this.updateInputButtons());
+        this.editor = new RichTextEditor(this.msgInput, () => this.updateInputButtons());
         
         this.createChatHandler = new ChatCreateHandler((chatId, initialMessage) => {
             this.openChat(chatId);
@@ -77,7 +77,6 @@ export class MessagesController {
             this.openUserMiniProfile(username, true);
         });
 
-        // ПЕРЕДАЕМ pill-input-wrapper для замены на диктофон
         const pillInputWrapper = document.getElementById('msPillInputWrapper');
         this.audioRecorder = new AudioRecorderUI(
             this.msInputContainer, 
@@ -86,15 +85,48 @@ export class MessagesController {
         );
 
         this.audioRecorder.onSend(async (blob, waveform) => {
-            const file = new File([blob], "voice_chat.mp3", { type: "audio/mp3" });
-            const res = await UploadAPI.uploadFile(file);
-            if (res && res.success) {
-                const content = `[AUDIO:${res.url}|${JSON.stringify(waveform)}]`;
-                await this.sendMessage(content);
-            } else {
-                Toast.show("Ошибка загрузки аудио", "error");
+            try {
+                const file = new File([blob], "voice_chat.mp3", { type: "audio/mp3" });
+                const res = await UploadAPI.uploadFile(file);
+                if (res && res.success) {
+                    const content = `[AUDIO:${res.url}|${JSON.stringify(waveform)}]`;
+                    await this.sendMessage(content);
+                } else {
+                    Toast.show("Ошибка сервера при загрузке аудио", "error");
+                }
+            } catch (err) {
+                console.error(err);
+                Toast.show("Сервер недоступен или вернул ошибку 500", "error");
             }
         });
+
+        // Создаем объект с функциями-обработчиками, чтобы безопасно отписаться от них в destroy
+        this.socketHandlers = {
+            new_message: (msg) => this.handleIncomingMessage(msg),
+            messages_read: (data) => this.handleMessagesRead(data),
+            chat_blocked: (data) => { if (data.chatId === this.activeChatId) this.updateChatStateUI(data.blocked_by, 'joined'); },
+            history_cleared: (data) => { if (data.chatId === this.activeChatId) { this.messages = []; this.renderMessages(); this.loadChats(); } },
+            chat_deleted: (data) => {
+                if (data.chatId === this.activeChatId) {
+                    this.activeChatId = null; window.cycleActiveChatId = null;
+                    document.getElementById('msEmptyState').style.display = 'flex';
+                    document.getElementById('msActiveChat').style.display = 'none';
+                    if (window.innerWidth <= 768) { this.chatAreaEl.classList.remove('active'); this.sidebarEl.classList.remove('hidden'); document.body.classList.remove('chat-active-mobile'); }
+                }
+                this.loadChats();
+            },
+            group_updated: (data) => {
+                this.loadChats();
+                if (this.activeChatId === data.chatId) {
+                    this.chatName.textContent = data.name;
+                    this.chatAvatar.src = data.avatar;
+                    if (this.detailsPanel.classList.contains('open')) this.toggleDetails(true);
+                }
+            },
+            group_member_updated: (data) => {
+                if (this.activeChatId === data.chatId && this.detailsPanel.classList.contains('open')) this.toggleDetails(true); 
+            }
+        };
 
         this.init();
     }
@@ -106,20 +138,9 @@ export class MessagesController {
 
         document.addEventListener('cycle:chats_updated', () => this.loadChats(), { signal: this.abortController.signal });
 
-        if (window.socket) {
-            window.socket.on('new_message', (msg) => this.handleIncomingMessage(msg));
-            window.socket.on('messages_read', (data) => this.handleMessagesRead(data));
-            window.socket.on('chat_blocked', (data) => { if (data.chatId === this.activeChatId) this.updateChatStateUI(data.blocked_by, 'joined'); });
-            window.socket.on('history_cleared', (data) => { if (data.chatId === this.activeChatId) { this.messages = []; this.renderMessages(); this.loadChats(); } });
-            window.socket.on('chat_deleted', (data) => {
-                if (data.chatId === this.activeChatId) {
-                    this.activeChatId = null; window.cycleActiveChatId = null;
-                    document.getElementById('msEmptyState').style.display = 'flex';
-                    document.getElementById('msActiveChat').style.display = 'none';
-                    if (window.innerWidth <= 768) { this.chatAreaEl.classList.remove('active'); this.sidebarEl.classList.remove('hidden'); document.body.classList.remove('chat-active-mobile'); }
-                }
-                this.loadChats();
-            });
+        // Подписываемся на события сокета через новый сервис
+        for (let [event, handler] of Object.entries(this.socketHandlers)) {
+            SocketService.on(event, handler);
         }
 
         const targetUser = new URLSearchParams(window.location.hash.split('?')[1]).get('user');
@@ -128,14 +149,46 @@ export class MessagesController {
 
     destroy() {
         this.abortController.abort();
-        this.formatHandler.destroy();
+        this.editor.destroy(); 
         window.cycleActiveChatId = null;
         document.body.classList.remove('messenger-active-layout');
         document.body.classList.remove('chat-active-mobile');
         document.querySelectorAll('audio').forEach(a => { if (a.id !== 'globalAudioPlayer') a.pause(); });
+
+        // Аккуратно отписываемся от всех событий сокета, чтобы они не дублировались
+        for (let [event, handler] of Object.entries(this.socketHandlers)) {
+            SocketService.off(event, handler);
+        }
     }
 
-    // Загрузка чатов, сообщений, деталей... Оставляем как было (сокращено для примера)
+    async _compressImage(file) {
+        return new Promise((resolve) => {
+            const reader = new FileReader();
+            reader.readAsDataURL(file);
+            reader.onload = (e) => {
+                const img = new Image();
+                img.src = e.target.result;
+                img.onload = () => {
+                    const canvas = document.createElement('canvas');
+                    let w = img.width, h = img.height;
+                    const max = 1200;
+                    if (w > max || h > max) {
+                        const ratio = Math.min(max / w, max / h);
+                        w *= ratio; h *= ratio;
+                    }
+                    canvas.width = w; canvas.height = h;
+                    const ctx = canvas.getContext('2d');
+                    ctx.drawImage(img, 0, 0, w, h);
+                    canvas.toBlob((blob) => {
+                        resolve(new File([blob], "image.jpg", { type: "image/jpeg" }));
+                    }, 'image/jpeg', 0.85);
+                };
+                img.onerror = () => resolve(file); 
+            };
+            reader.onerror = () => resolve(file);
+        });
+    }
+
     async loadChats() {
         const data = await MessagesAPI.getChats();
         if (data.success) {
@@ -149,6 +202,7 @@ export class MessagesController {
     }
     
     renderChats() {
+        if (!this.chatListContainer) return;
         let filtered = this.chats;
         if (this.activeSearchQuery) {
             filtered = this.searchEngine.search(this.chats, this.activeSearchQuery, [{ field: 'chatName', weight: 5 }, { field: 'members', weight: 2 }]);
@@ -212,13 +266,24 @@ export class MessagesController {
     renderMessages() {
         this.messagesList.innerHTML = this.renderer.renderMessages(this.messages, this.stores.auth.user.username);
         this.messagesList.scrollTop = this.messagesList.scrollHeight;
+        
+        this.messagesList.querySelectorAll('audio').forEach(audio => {
+            audio.addEventListener('loadedmetadata', () => {
+                const timeSpan = audio.parentElement.querySelector('.cycle-audio-time');
+                if (timeSpan) {
+                    const m = Math.floor(audio.duration / 60);
+                    const s = Math.floor(audio.duration % 60);
+                    timeSpan.textContent = `${m}:${s < 10 ? '0' : ''}${s}`;
+                }
+            });
+        });
     }
 
     cancelEditOrReply() {
         this.editingMsgId = null;
         this.replyingMsgId = null;
-        this.msgInput.innerHTML = '';
-        this.msContextBar.classList.remove('active');
+        this.editor.clear();
+        if (this.msContextBar) this.msContextBar.classList.remove('active');
         this.updateInputButtons();
     }
 
@@ -236,9 +301,27 @@ export class MessagesController {
             this.msgSendBtn.disabled = true;
             this.msgSendBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i>';
 
+            let hasErrors = false;
+
             for (const att of this.pendingAttachments) {
-                const res = await UploadAPI.uploadFile(att.file);
-                if (res && res.success) { finalContent += ` [IMG:${res.url}]`; }
+                try {
+                    const res = await UploadAPI.uploadFile(att.file);
+                    if (res && res.success) { 
+                        finalContent += ` [IMG:${res.url}]`; 
+                    } else {
+                        hasErrors = true;
+                    }
+                } catch (err) {
+                    console.error("Upload error:", err);
+                    hasErrors = true;
+                }
+            }
+
+            if (hasErrors) {
+                Toast.show("Ошибка! Возможно у сервера нет прав на запись в папку uploads.", "error");
+                this.msgSendBtn.disabled = false;
+                this.msgSendBtn.innerHTML = '<i class="fa-solid fa-arrow-up"></i>';
+                return; 
             }
 
             this.pendingAttachments = [];
@@ -329,13 +412,98 @@ export class MessagesController {
     bindCoreEvents() {
         const sig = this.abortController.signal;
 
+        const btnToggleSearch = document.getElementById('btnToggleChatSearch');
+        if (btnToggleSearch) {
+            btnToggleSearch.addEventListener('click', () => {
+                if (this.searchWrapper) {
+                    this.searchWrapper.classList.toggle('active');
+                    if (this.searchWrapper.classList.contains('active')) {
+                        setTimeout(() => this.chatSearchInput.focus(), 100);
+                    } else {
+                        this.chatSearchInput.value = '';
+                        this.activeSearchQuery = '';
+                        this.searchDropdown.style.display = 'none';
+                        this.renderChats();
+                    }
+                }
+            }, { sig });
+        }
+
+        document.getElementById('msAcceptInviteBtn')?.addEventListener('click', async () => {
+            const res = await MessagesAPI.respondInvite(this.activeChatId, 'accept');
+            if (res.success) { this.updateChatStateUI(null, 'joined'); this.loadChats(); MessagesAPI.markAsRead(this.activeChatId); } 
+            else Toast.show(res.error || 'Ошибка', 'error');
+        }, { sig });
+
+        document.getElementById('msDeclineInviteBtn')?.addEventListener('click', async () => {
+            const res = await MessagesAPI.respondInvite(this.activeChatId, 'decline');
+            if (res.success) {
+                this.activeChatId = null; window.cycleActiveChatId = null;
+                document.getElementById('msEmptyState').style.display = 'flex'; document.getElementById('msActiveChat').style.display = 'none';
+                if (window.innerWidth <= 768) { this.chatAreaEl.classList.remove('active'); this.sidebarEl.classList.remove('hidden'); document.body.classList.remove('chat-active-mobile'); }
+                this.loadChats();
+            } else Toast.show(res.error || 'Ошибка', 'error');
+        }, { sig });
+
         this.chatListContainer.addEventListener('click', (e) => { const item = e.target.closest('.ms-chat-item'); if (item) this.openChat(item.dataset.id); }, { sig });
         
-        // Клик по Реплаю с прыжком и анимацией
+        const handleSearchInput = debounce((query) => {
+            if (!query) {
+                this.searchDropdown.style.display = 'none';
+                this.activeSearchQuery = ''; 
+                this.renderChats(); 
+                return;
+            }
+            const results = this.searchEngine.search(this.chats, query, [{ field: 'chatName', weight: 5 }, { field: 'members', weight: 2 }]);
+            if (results.length > 0) {
+                this.searchDropdown.innerHTML = results.slice(0, 6).map(chat => this.renderer.renderSearchDropdownItem(chat)).join('');
+                this.searchDropdown.style.display = 'block';
+            } else {
+                this.searchDropdown.innerHTML = '<div style="padding:12px; text-align:center; color:var(--text-muted); font-size:13px;">Ничего не найдено</div>';
+                this.searchDropdown.style.display = 'block';
+            }
+        }, 200);
+
+        if (this.chatSearchInput) {
+            this.chatSearchInput.addEventListener('input', (e) => handleSearchInput(e.target.value.trim()), { sig });
+            this.chatSearchInput.addEventListener('keydown', (e) => {
+                if (e.key === 'Enter') {
+                    this.searchDropdown.style.display = 'none';
+                    this.activeSearchQuery = this.chatSearchInput.value.trim();
+                    this.renderChats(); 
+                }
+            }, { sig });
+        }
+
         document.addEventListener('click', (e) => {
-            const replyModule = e.target.closest('.msg-module-reply');
-            if (replyModule) {
-                const targetId = replyModule.dataset.targetId;
+            const dropItem = e.target.closest('#msSearchDropdown .search-dropdown-item');
+            if (dropItem) {
+                const chatId = dropItem.dataset.id;
+                this.openChat(chatId);
+                return;
+            }
+            if (!e.target.closest('#msSearchWrapper') && this.searchDropdown) {
+                this.searchDropdown.style.display = 'none';
+            }
+
+            const systemMention = e.target.closest('.msg-system-mention');
+            const avatarWrapper = e.target.closest('.msg-avatar-wrapper');
+            
+            if (systemMention && !e.target.closest('button')) {
+                this.openUserMiniProfile(systemMention.dataset.username, !!e.target.closest('#groupMembersScrollList'));
+                return;
+            }
+            if (avatarWrapper) {
+                this.openUserMiniProfile(avatarWrapper.dataset.username, false);
+                return;
+            }
+            
+            if (this.msOptionsMenu && !e.target.closest('#msOptionsBtn')) this.msOptionsMenu.classList.remove('active');
+            if (this.msgContextMenu) this.msgContextMenu.style.display = 'none';
+
+            const replyBlock = e.target.closest('.msg-module-reply');
+            if (replyBlock) {
+                const targetId = replyBlock.dataset.targetId;
                 const targetMsg = document.querySelector(`.msg-row[data-id="${targetId}"]`);
                 if (targetMsg) {
                     targetMsg.scrollIntoView({ behavior: 'smooth', block: 'center' });
@@ -344,16 +512,43 @@ export class MessagesController {
                 }
                 return;
             }
-            
-            if (this.msOptionsMenu && !e.target.closest('#msOptionsBtn')) this.msOptionsMenu.classList.remove('active');
-            if (this.msgContextMenu) this.msgContextMenu.style.display = 'none';
+
         }, { signal: sig });
 
-        this.msgInput.addEventListener('input', () => this.updateInputButtons(), { sig });
-        this.msgSendBtn.addEventListener('click', () => this.sendMessage(this.formatHandler.getFormattedContent()), { sig });
+
+        const headerClickable = document.getElementById('msChatHeaderClickable');
+        if (headerClickable) {
+            headerClickable.addEventListener('click', (e) => { 
+                if (!e.target.closest('.icon-btn') && !e.target.closest('.options-menu')) {
+                    this.toggleDetails(!this.detailsPanel.classList.contains('open')); 
+                }
+            }, { sig });
+        }
+        
+        this.detailsPanel.addEventListener('click', (e) => {
+            const copyBtn = e.target.closest('.cd-copy-username');
+            if (copyBtn) {
+                navigator.clipboard.writeText(copyBtn.dataset.username).then(() => {
+                    const icon = copyBtn.querySelector('i'); icon.className = 'fa-solid fa-check'; Toast.show('Никнейм скопирован!', 'success');
+                    setTimeout(() => { icon.className = 'fa-regular fa-copy'; }, 2000);
+                }); return;
+            }
+            const musicBtn = e.target.closest('.cd-mp-music-badge');
+            if (musicBtn && this.stores.player) {
+                if (this.stores.player.playlist.length === 0) this.stores.player.playlist = this.stores.catalogs.music;
+                this.stores.player.playTrack(musicBtn.dataset.id); return;
+            }
+        }, { sig });
+
+        document.getElementById('closeChatDetailsBtn')?.addEventListener('click', () => this.toggleDetails(false), { sig });
+
+        this.msgSendBtn.addEventListener('click', () => this.sendMessage(this.editor.getFormattedContent()), { sig });
         
         this.msgInput.addEventListener('keydown', (e) => { 
-            if(e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); this.sendMessage(this.formatHandler.getFormattedContent()); }
+            if(e.key === 'Enter' && !e.shiftKey) {
+                e.preventDefault();
+                this.sendMessage(this.editor.getFormattedContent());
+            }
         }, { sig });
 
         document.getElementById('msBackBtn')?.addEventListener('click', (e) => {
@@ -362,7 +557,33 @@ export class MessagesController {
         }, { sig });
 
         this.msgAttachBtn.addEventListener('click', () => this.msgFileInput.click(), { sig });
-        this.msgFileInput.addEventListener('change', async () => { /* Вложения */ }, { sig });
+        
+        this.msgFileInput.addEventListener('change', async () => {
+            if (this.msgFileInput.files.length > 0) {
+                const files = Array.from(this.msgFileInput.files);
+                for (const f of files) {
+                    if (f.type.startsWith('image/')) {
+                        const compressedFile = await this._compressImage(f);
+                        this.pendingAttachments.push({
+                            id: Math.random().toString(36).substr(2, 9),
+                            file: compressedFile,
+                            url: URL.createObjectURL(compressedFile)
+                        });
+                    } else if (f.type.startsWith('audio/')) {
+                        try {
+                            const up = await UploadAPI.uploadFile(f);
+                            if (up && up.success) this.sendMessage(`[AUDIO:${up.url}|[]]`);
+                            else Toast.show("Ошибка сервера при загрузке аудио", "error");
+                        } catch (err) {
+                            Toast.show("Ошибка 500: Проверьте папку uploads", "error");
+                        }
+                    }
+                }
+                this.msgFileInput.value = '';
+                this.renderAttachmentPreview();
+                this.updateInputButtons();
+            }
+        }, { sig });
 
         this.messagesList.addEventListener('contextmenu', (e) => {
             const b = e.target.closest('.msg-bubble'); 
@@ -382,7 +603,11 @@ export class MessagesController {
             document.getElementById('ctxMsgDelete').style.display = isMe ? 'flex' : 'none';
         }, { sig });
         
-        // --- КОНТЕКСТНАЯ ПАНЕЛЬ ДЛЯ РЕДАКТИРОВАНИЯ ---
+        document.getElementById('ctxMsgDelete').addEventListener('click', () => { 
+            MessagesAPI.deleteMessage(this.contextTargetId, this.activeChatId); 
+            this.msgContextMenu.style.display = 'none'; 
+        }, { sig });
+        
         document.getElementById('ctxMsgEdit').addEventListener('click', () => { 
             this.cancelEditOrReply(); 
             this.editingMsgId = this.contextTargetId; 
@@ -400,13 +625,11 @@ export class MessagesController {
             this.msgContextMenu.style.display = 'none'; 
         }, { sig });
 
-        // --- КОНТЕКСТНАЯ ПАНЕЛЬ ДЛЯ ОТВЕТА ---
         document.getElementById('ctxMsgReply').addEventListener('click', () => { 
             this.cancelEditOrReply(); 
             this.replyingMsgId = this.contextTargetId; 
             
             const snippet = this.renderer._getSnippet(this.contextTargetRaw);
-            
             this.msContextIcon.innerHTML = '<i class="fa-solid fa-reply"></i>';
             this.msContextTitle.textContent = `Ответ ${this.contextTargetAuthor}`;
             this.msContextTitle.style.color = 'var(--accent-games)';
@@ -419,15 +642,105 @@ export class MessagesController {
         }, { sig });
 
         document.getElementById('msCancelContextBtn').addEventListener('click', () => this.cancelEditOrReply(), { sig });
-        this.msgVoiceBtn.addEventListener('click', () => this.audioRecorder.start(), { sig });
-
-        // Заглушки (удаление, другие опции)
-        document.getElementById('ctxMsgDelete').addEventListener('click', () => { MessagesAPI.deleteMessage(this.contextTargetId, this.activeChatId); this.msgContextMenu.style.display = 'none'; }, { sig });
+        
         document.getElementById('msOptionsBtn').addEventListener('click', (e) => { e.stopPropagation(); this.msOptionsMenu.classList.toggle('active'); }, { sig });
+        document.getElementById('optBlockUser')?.addEventListener('click', async () => { const res = await MessagesAPI.toggleBlock(this.activeChatId); if (res && res.error) Toast.show(res.error, 'error'); this.msOptionsMenu.classList.remove('active'); }, { sig });
+        document.getElementById('msUnblockBtn')?.addEventListener('click', async () => { const res = await MessagesAPI.toggleBlock(this.activeChatId); if (res && res.error) Toast.show(res.error, 'error'); }, { sig });
+        document.getElementById('optPinChat')?.addEventListener('click', () => { if (this.pinnedChats.includes(this.activeChatId)) this.pinnedChats = this.pinnedChats.filter(id => id !== this.activeChatId); else this.pinnedChats.push(this.activeChatId); localStorage.setItem('cycle_pinned_chats', JSON.stringify(this.pinnedChats)); this.renderChats(); this.msOptionsMenu.classList.remove('active'); }, { sig });
+        document.getElementById('optClearHistory').addEventListener('click', () => { if(confirm('Точно очистить историю?')) MessagesAPI.clearHistory(this.activeChatId); this.msOptionsMenu.classList.remove('active'); }, { sig });
+        document.getElementById('optDeleteChat')?.addEventListener('click', async () => {
+            if(confirm('Выйти и удалить этот чат для вас?')) {
+                const res = await MessagesAPI.deleteChat(this.activeChatId);
+                if (res.success) {
+                    this.msOptionsMenu.classList.remove('active'); this.activeChatId = null; window.cycleActiveChatId = null;
+                    document.getElementById('msEmptyState').style.display = 'flex'; document.getElementById('msActiveChat').style.display = 'none';
+                    if (window.innerWidth <= 768) { this.chatAreaEl.classList.remove('active'); this.sidebarEl.classList.remove('hidden'); document.body.classList.remove('chat-active-mobile'); }
+                    this.loadChats();
+                } else Toast.show(res.error || 'Ошибка удаления', 'error');
+            }
+        }, { sig });
+
+        this.msgVoiceBtn.addEventListener('click', () => this.audioRecorder.start(), { sig });
     }
 
-    async toggleDetails(show) { /* Сокращено для примера */ }
-    openUserMiniProfile(username, fromGroup = false) { /* Сокращено */ }
-    handleIncomingMessage(msg) { /* Сокращено */ }
-    handleMessagesRead(data) { /* Сокращено */ }
+    async toggleDetails(show) {
+        if (!show) {
+            const miniProfile = this.detailsBody.querySelector('.cd-mini-profile');
+            if (miniProfile && miniProfile.dataset.fromGroup === 'true') return this.toggleDetails(true); 
+            this.detailsPanel.classList.remove('open'); 
+            return;
+        }
+
+        if (this.activeChatId && this.activeChatId !== 'new') {
+            this.detailsPanel.classList.add('open');
+            this.detailsBody.innerHTML = '<div style="text-align:center; padding:40px; color:var(--text-muted);">Загрузка...</div>';
+            try {
+                const res = await MessagesAPI.getChatDetails(this.activeChatId);
+                if (res.success) {
+                    const chatInfo = this.chats.find(c => c.id === this.activeChatId);
+                    if (chatInfo && chatInfo.type === 'direct') {
+                        const profile = await ProfileAPI.getProfile(this.activeTargetUsername);
+                        this.detailsBody.innerHTML = this.renderer.renderDirectDetails(profile, res.media);
+                        this._initGamesScrollLogic();
+                    } else {
+                        this.detailsBody.innerHTML = this.renderer.renderGroupDetails(res.chatInfo, res.myRole, res.members, res.media, res.stats);
+                        this.groupDetailsHandler.init(this.activeChatId, res.myRole, this.stores.auth.user.username, res.members);
+                    }
+                }
+            } catch (e) { this.detailsBody.innerHTML = '<div style="padding:20px; color:var(--danger); text-align:center;">Ошибка загрузки</div>'; }
+        }
+    }
+
+    _initGamesScrollLogic() {
+        const slider = document.getElementById('miniProfileGamesScroll');
+        if (!slider) return;
+        let isDown = false, startX, scrollLeft;
+        slider.addEventListener('mousedown', (e) => { isDown = true; startX = e.pageX - slider.offsetLeft; scrollLeft = slider.scrollLeft; slider.style.cursor = 'grabbing'; });
+        slider.addEventListener('mouseleave', () => { isDown = false; slider.style.cursor = 'grab'; });
+        slider.addEventListener('mouseup', () => { isDown = false; slider.style.cursor = 'grab'; });
+        slider.addEventListener('mousemove', (e) => { if (!isDown) return; e.preventDefault(); slider.scrollLeft = scrollLeft - ((e.pageX - slider.offsetLeft) - startX) * 2; });
+        slider.addEventListener('wheel', (evt) => { if (evt.deltaY !== 0) { evt.preventDefault(); slider.scrollLeft += evt.deltaY; } }, { passive: false });
+    }
+
+    async openUserMiniProfile(username, fromGroup = false) {
+        this.detailsPanel.classList.add('open');
+        this.detailsBody.innerHTML = '<div style="text-align:center; padding:40px; color:var(--text-muted);">Загрузка профиля...</div>';
+        try {
+            const profile = await ProfileAPI.getProfile(username);
+            let media = [];
+            const me = this.stores.auth.user.username;
+            if (username !== me) {
+                const directChat = this.chats.find(c => c.type === 'direct' && c.members.includes(username));
+                if (directChat) {
+                    const res = await MessagesAPI.getChatDetails(directChat.id);
+                    if (res.success) media = res.media;
+                }
+            }
+            this.detailsBody.innerHTML = this.renderer.renderDirectDetails(profile, media, fromGroup);
+            this._initGamesScrollLogic();
+        } catch (e) {
+            this.detailsBody.innerHTML = '<div style="padding:20px; color:var(--danger); text-align:center;">Ошибка загрузки профиля</div>';
+        }
+    }
+
+    handleIncomingMessage(msg) {
+        if (msg.sender_username === this.stores.auth.user.username) {
+        } else {
+            if (msg.chat_id === this.activeChatId) { 
+                if (!this.messages.find(m => m.id === msg.id)) {
+                    this.messages.push(msg); 
+                    this.renderMessages(); 
+                }
+                MessagesAPI.markAsRead(this.activeChatId); 
+            }
+        }
+        this.loadChats();
+    }
+
+    handleMessagesRead({ chatId }) {
+        if (chatId === this.activeChatId) { 
+            this.messages.forEach(m => { if(m.sender_username === this.stores.auth.user.username) m.is_read = 1; }); 
+            this.renderMessages(); 
+        }
+    }
 }

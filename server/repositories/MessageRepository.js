@@ -1,0 +1,181 @@
+// server/repositories/MessageRepository.js
+const db = require('../database');
+
+class MessageRepository {
+    // --- CHATS ---
+    createChat(chat) {
+        db.prepare('INSERT INTO chats (id, type, name, updated_at) VALUES (?, ?, ?, ?)').run(chat.id, chat.type, chat.name, chat.updated_at);
+    }
+    
+    getChatById(id) {
+        return db.prepare('SELECT * FROM chats WHERE id = ?').get(id);
+    }
+    
+    getChatWithTypeAndMember(chatId, username) {
+        return db.prepare('SELECT c.*, cm.status FROM chats c JOIN chat_members cm ON c.id = cm.chat_id WHERE c.id = ? AND cm.username = ?').get(chatId, username);
+    }
+    
+    getUserChats(username) {
+        return db.prepare(`
+            SELECT c.*, cm.status as myStatus, cm.cleared_at 
+            FROM chats c 
+            JOIN chat_members cm ON c.id = cm.chat_id 
+            WHERE cm.username = ? AND cm.status NOT IN ('left', 'declined') 
+            ORDER BY c.updated_at DESC
+        `).all(username);
+    }
+    
+    getDirectChatBetweenUsers(user1, user2) {
+        return db.prepare(`
+            SELECT c.id 
+            FROM chats c 
+            JOIN chat_members cm1 ON c.id = cm1.chat_id 
+            JOIN chat_members cm2 ON c.id = cm2.chat_id 
+            WHERE c.type = 'direct' AND cm1.username = ? AND cm2.username = ?
+        `).get(user1, user2);
+    }
+    
+    updateChatUpdatedAt(chatId, timestamp) {
+        db.prepare('UPDATE chats SET updated_at = ? WHERE id = ?').run(timestamp, chatId);
+    }
+    
+    updateGroupChat(chatId, name, avatar, description, timestamp) {
+        db.prepare('UPDATE chats SET name = ?, avatar = ?, description = ?, updated_at = ? WHERE id = ?')
+          .run(name, avatar, description, timestamp, chatId);
+    }
+    
+    updateChatBlockedBy(chatId, blockedBy) {
+        db.prepare('UPDATE chats SET blocked_by = ? WHERE id = ?').run(blockedBy, chatId);
+    }
+    
+    deleteChat(chatId) {
+        db.prepare('DELETE FROM chats WHERE id = ?').run(chatId);
+    }
+
+    // --- MEMBERS ---
+    addMember(chatId, username, role, status, clearedAt = 0) {
+        db.prepare('INSERT INTO chat_members (chat_id, username, role, status, cleared_at) VALUES (?, ?, ?, ?, ?)')
+          .run(chatId, username, role, status, clearedAt);
+    }
+    
+    getMember(chatId, username) {
+        return db.prepare('SELECT * FROM chat_members WHERE chat_id = ? AND username = ?').get(chatId, username);
+    }
+    
+    getMembers(chatId) {
+        return db.prepare('SELECT * FROM chat_members WHERE chat_id = ?').all(chatId);
+    }
+    
+    getActiveMembers(chatId) {
+        return db.prepare("SELECT * FROM chat_members WHERE chat_id = ? AND status IN ('joined', 'invited')").all(chatId);
+    }
+    
+    getMembersWithUserDetails(chatId) {
+        return db.prepare(`
+            SELECT u.username, u.name, u.avatar, u.banner, u.isVerified, u.verifiedBadgeType, u.frameId, cm.role, cm.status 
+            FROM chat_members cm 
+            JOIN users u ON cm.username = u.username 
+            WHERE cm.chat_id = ? AND cm.status IN ('joined', 'invited')
+        `).all(chatId);
+    }
+    
+    getActiveMembersCount(chatId) {
+        const result = db.prepare("SELECT count(*) as c FROM chat_members WHERE chat_id = ? AND status NOT IN ('left', 'declined')").get(chatId);
+        return result ? result.c : 0;
+    }
+    
+    updateMemberStatus(chatId, username, status) {
+        db.prepare('UPDATE chat_members SET status = ? WHERE chat_id = ? AND username = ?').run(status, chatId, username);
+    }
+    
+    updateMemberRole(chatId, username, role) {
+        db.prepare('UPDATE chat_members SET role = ? WHERE chat_id = ? AND username = ?').run(role, chatId, username);
+    }
+    
+    updateMemberClearedAt(chatId, username, timestamp) {
+        db.prepare('UPDATE chat_members SET cleared_at = ? WHERE chat_id = ? AND username = ?').run(timestamp, chatId, username);
+    }
+    
+    updateMemberStatusAndClearedAt(chatId, username, status, timestamp) {
+        db.prepare('UPDATE chat_members SET status = ?, cleared_at = ? WHERE chat_id = ? AND username = ?').run(status, timestamp, chatId, username);
+    }
+    
+    deleteChatMembers(chatId) {
+        db.prepare('DELETE FROM chat_members WHERE chat_id = ?').run(chatId);
+    }
+
+    // --- MESSAGES ---
+    createMessage(msg) {
+        db.prepare(`
+            INSERT INTO messages (id, chat_id, sender_username, content, timestamp, is_read, is_edited, reply_to_id) 
+            VALUES (@id, @chat_id, @sender_username, @content, @timestamp, @is_read, @is_edited, @reply_to_id)
+        `).run({
+            id: msg.id, chat_id: msg.chat_id, sender_username: msg.sender_username, content: msg.content,
+            timestamp: msg.timestamp, is_read: msg.is_read || 0, is_edited: msg.is_edited || 0, reply_to_id: msg.reply_to_id || null
+        });
+    }
+    
+    getMessageById(id) {
+        return db.prepare('SELECT * FROM messages WHERE id = ?').get(id);
+    }
+    
+    getMessagesWithReplyInfo(chatId, sinceTimestamp) {
+        return db.prepare(`
+            SELECT m.*, r.sender_username as reply_sender, r.content as reply_content 
+            FROM messages m 
+            LEFT JOIN messages r ON m.reply_to_id = r.id 
+            WHERE m.chat_id = ? AND m.timestamp > ? 
+            ORDER BY m.timestamp ASC
+        `).all(chatId, sinceTimestamp);
+    }
+    
+    getLastMessage(chatId, sinceTimestamp) {
+        return db.prepare('SELECT content, sender_username, timestamp, is_read FROM messages WHERE chat_id = ? AND timestamp > ? ORDER BY timestamp DESC LIMIT 1').get(chatId, sinceTimestamp);
+    }
+    
+    getUnreadCount(chatId, excludeUsername, sinceTimestamp) {
+        const result = db.prepare('SELECT COUNT(*) as c FROM messages WHERE chat_id = ? AND sender_username != ? AND is_read = 0 AND timestamp > ?').get(chatId, excludeUsername, sinceTimestamp);
+        return result ? result.c : 0;
+    }
+    
+    markMessagesAsRead(chatId, excludeUsername, sinceTimestamp = 0) {
+        const info = db.prepare('UPDATE messages SET is_read = 1 WHERE chat_id = ? AND sender_username != ? AND is_read = 0 AND timestamp > ?').run(chatId, excludeUsername, sinceTimestamp);
+        return info.changes > 0;
+    }
+    
+    getMediaMessages(chatId, sinceTimestamp) {
+        return db.prepare(`SELECT content FROM messages WHERE chat_id = ? AND content LIKE '[IMG:%' AND timestamp > ? ORDER BY timestamp DESC`).all(chatId, sinceTimestamp);
+    }
+    
+    getTotalMessagesCount(chatId) {
+        const result = db.prepare("SELECT COUNT(*) as c FROM messages WHERE chat_id = ? AND sender_username != 'TetlaBot'").get(chatId);
+        return result ? result.c : 0;
+    }
+    
+    updateMessageContent(id, username, content) {
+        db.prepare('UPDATE messages SET content = ?, is_edited = 1 WHERE id = ? AND sender_username = ?').run(content, id, username);
+    }
+    
+    deleteMessage(id, username) {
+        db.prepare('DELETE FROM messages WHERE id = ? AND sender_username = ?').run(id, username);
+    }
+    
+    deleteChatMessages(chatId) {
+        db.prepare('DELETE FROM messages WHERE chat_id = ?').run(chatId);
+    }
+
+    // --- FRIENDS & USERS HELPER ---
+    getFriends(username) {
+        const following = db.prepare('SELECT following_username FROM follows WHERE follower_username = ?').all(username).map(f => f.following_username);
+        const followers = db.prepare('SELECT follower_username FROM follows WHERE following_username = ?').all(username).map(f => f.follower_username);
+        return following.filter(f => followers.includes(f));
+    }
+    
+    getUsersByUsernames(usernames) {
+        if (usernames.length === 0) return [];
+        const placeholders = usernames.map(() => '?').join(',');
+        return db.prepare(`SELECT username, name, avatar FROM users WHERE username IN (${placeholders})`).all(...usernames);
+    }
+}
+
+module.exports = new MessageRepository();

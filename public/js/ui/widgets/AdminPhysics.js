@@ -1,4 +1,4 @@
-// public/js/components/AdminPhysics.js
+// public/js/ui/widgets/AdminPhysics.js
 
 export class AdminPhysics {
     constructor() {

@@ -1,4 +1,4 @@
-// public/js/components/AdminRenderer.js
+// public/js/ui/renderers/AdminRenderer.js
 
 export class AdminRenderer {
     constructor(canvasId) {

@@ -1,10 +1,11 @@
 // public/js/controllers/AdminController.js
 import { AdminAPI } from '../api/AdminAPI.js';
-import { escapeHTML, formatTime, debounce } from '../utils/utils.js';
-import { SearchEngine } from '../utils/SearchEngine.js';
-import { AdminPhysics } from '../components/AdminPhysics.js';
-import { AdminRenderer } from '../components/AdminRenderer.js';
-import { Toast } from '../utils/Toast.js';
+import { escapeHTML, formatTime, debounce } from '../ui/utils/utils.js';
+import { SearchEngine } from '../ui/utils/SearchEngine.js';
+import { AdminPhysics } from '../ui/widgets/AdminPhysics.js';
+import { AdminRenderer } from '../ui/renderers/AdminRenderer.js';
+import { Toast } from '../ui/utils/Toast.js';
+import { SocketService } from '../services/SocketService.js';
 
 export class AdminController {
     constructor(stores) {
@@ -29,7 +30,7 @@ export class AdminController {
 
         this.users = [];
         this.links = [];
-        this.communities =[];
+        this.communities = [];
 
         this.uiState = {
             searchResults: null,
@@ -55,20 +56,21 @@ export class AdminController {
         this.startEngine();
         this.bindEvents();
 
-        if (window.socket) {
-            window.socket.on('new_post', this.socketPostHandler);
-            window.socket.on('radar_update', this.socketRadarHandler);
-        }
+        // ПОДКЛЮЧАЕМСЯ ЧЕРЕЗ СЕРВИС
+        SocketService.on('new_post', this.socketPostHandler);
+        SocketService.on('radar_update', this.socketRadarHandler);
+        
         this.syncInterval = setInterval(() => this.silentSync(), 3000);
     }
 
     destroy() {
         if (this.animationId) cancelAnimationFrame(this.animationId);
         if (this.syncInterval) clearInterval(this.syncInterval);
-        if (window.socket) {
-            window.socket.off('new_post', this.socketPostHandler);
-            window.socket.off('radar_update', this.socketRadarHandler);
-        }
+        
+        // ОТКЛЮЧАЕМСЯ ЧЕРЕЗ СЕРВИС
+        SocketService.off('new_post', this.socketPostHandler);
+        SocketService.off('radar_update', this.socketRadarHandler);
+        
         this.abortController.abort(); 
     }
 
@@ -159,7 +161,6 @@ export class AdminController {
 
         document.getElementById('admBtnExit').addEventListener('click', () => { window.location.hash = '/'; }, { signal });
 
-        // Закрытие досье по клику на пустое пространство Радара
         this.radarContainer.addEventListener('mousedown', (e) => {
             if (e.target === canvas && !this.uiState.hoveredUser) {
                 this.closeDossier();
@@ -202,7 +203,6 @@ export class AdminController {
         canvas.addEventListener('mouseup', () => { this.isPanning = false; this.dragNode = null; canvas.style.cursor = this.uiState.hoveredUser ? 'pointer' : 'grab'; }, { signal });
         canvas.addEventListener('mouseleave', () => { this.isPanning = false; this.dragNode = null; this.uiState.hoveredUser = null; }, { signal });
 
-        // Умный поиск (С дропдауном)
         if (this.searchInput && this.searchDropdown) {
             const handleDropdownSearch = debounce((query) => {
                 if (!query.trim()) { this.searchDropdown.style.display = 'none'; return; }
@@ -262,7 +262,6 @@ export class AdminController {
             }
         }, { signal });
 
-        // Взаимодействие с досье
         if (this.dossierPanel) {
             this.dossierPanel.addEventListener('click', async (e) => {
                 if (e.target.closest('#admBtnCloseDossier')) { this.closeDossier(); return; }
@@ -277,7 +276,6 @@ export class AdminController {
                 if (!this.uiState.selectedUser) return;
                 const targetUsername = this.uiState.selectedUser.username;
 
-                // Функция микро-отклика для кнопок
                 const withFeedback = async (btn, actionPromise) => {
                     const origHTML = btn.innerHTML;
                     btn.disabled = true;
@@ -409,7 +407,6 @@ export class AdminController {
         const isMuted = user.muteUntil > now;
         const muteText = isMuted ? `Снимется: ${formatTime(user.muteUntil)}` : 'Может писать в ленту';
 
-        // 1. Формируем Sticky Header
         this.dossierHeader.innerHTML = `
             <div class="adm-ds-banner" style="background-image: url('${user.banner || 'https://placehold.co/800x250/111/fff?text=Banner'}');">
                 <button class="icon-btn adm-ds-close" id="admBtnCloseDossier"><i class="fa-solid fa-xmark"></i></button>
@@ -437,7 +434,6 @@ export class AdminController {
             </a>
         `;
 
-        // 2. Формируем Scroll Body
         let gamesHtml = '';
         if (user.showcaseGames && user.showcaseGames.length > 0) {
             const games = user.showcaseGames.map(id => this.stores.catalogs.getGameById(id)).filter(Boolean);
@@ -476,12 +472,10 @@ export class AdminController {
         `).join('');
         if (user.warnings.length === 0) warningsHtml = '<div style="color:var(--text-muted); font-size:13px; text-align:center;">Нарушений не зафиксировано</div>';
 
-        // Форматирование даты в простой вид "DD Мес YYYY"
         const regDate = new Date(user.created_at || Date.now());
         const formattedRegDate = regDate.toLocaleDateString('ru-RU', { day: 'numeric', month: 'short', year: 'numeric' });
 
         this.dossierBody.innerHTML = `
-            <!-- СТАТИСТИКА КОНТЕНТА -->
             <div class="adm-ds-stats-grid">
                 <div class="adm-ds-stat-box">
                     <div class="adm-ds-stat-value"><i class="fa-solid fa-comment-dots" style="font-size:14px; opacity:0.7;"></i> ${user.postCount}</div>
@@ -497,7 +491,6 @@ export class AdminController {
                 </div>
             </div>
 
-            <!-- МЕДИА -->
             ${(musicHtml || gamesHtml) ? `
                 <div class="adm-ds-card">
                     <div class="adm-ds-card-title"><i class="fa-solid fa-compact-disc"></i> Медиа Контекст</div>
@@ -506,7 +499,6 @@ export class AdminController {
                 </div>
             ` : ''}
 
-            <!-- ЭКОНОМИКА -->
             <div class="adm-ds-card">
                 <div class="adm-ds-card-title"><i class="fa-solid fa-wallet"></i> Экономика и Статус</div>
                 
@@ -529,7 +521,6 @@ export class AdminController {
                 <button id="admSaveEcon" class="btn-post" style="width:100%;"><i class="fa-solid fa-floppy-disk"></i> Сохранить данные</button>
             </div>
 
-            <!-- ВАРНЫ И БАНЫ -->
             <div class="adm-ds-card">
                 <div class="adm-ds-card-title"><i class="fa-solid fa-shield-halved"></i> Модерация</div>
                 
@@ -565,7 +556,6 @@ export class AdminController {
                 </div>
             </div>
 
-            <!-- ОПАСНАЯ ЗОНА -->
             <div class="adm-ds-card danger-zone">
                 <div class="adm-ds-card-title"><i class="fa-solid fa-triangle-exclamation"></i> Зона Уничтожения</div>
                 <div class="adm-ds-controls-row">

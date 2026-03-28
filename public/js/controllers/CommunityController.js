@@ -1,7 +1,8 @@
 // js/controllers/CommunityController.js
-import { escapeHTML } from '../utils/utils.js';
+import { escapeHTML } from '../ui/utils/utils.js';
 import { CommunitiesAPI } from '../api/CommunitiesAPI.js';
-import { PostComponent } from '../components/PostComponent.js';
+import { PostComponent } from '../ui/widgets/PostComponent.js';
+import { RichTextEditor } from '../ui/editors/RichTextEditor.js';
 
 export class CommunityController {
     constructor(stores, handle) {
@@ -40,6 +41,7 @@ export class CommunityController {
 
     destroy() {
         this.abortController.abort();
+        if (this.editor) this.editor.destroy();
         if (this.stores.auth.user) {
             this.stores.auth.user.activeCommunityAdmin = null;
         }
@@ -238,10 +240,10 @@ export class CommunityController {
 
         if (!this.input) return;
 
-        this.input.addEventListener('input', () => this.checkPublishState());
+        this.editor = new RichTextEditor(this.input, () => this.checkPublishState());
         
         this.publishBtn.addEventListener('click', () => {
-            const text = this.input.innerText.trim();
+            const text = this.editor.getFormattedContent();
             let attachData = null;
             if (this.currentAttachments.music || this.currentAttachments.game) {
                 attachData = {
@@ -252,8 +254,7 @@ export class CommunityController {
 
             if (text.length > 0 || attachData) {
                 this.stores.posts.addPost(text, null, attachData, this.community.id);
-                
-                this.input.innerHTML = '';
+                this.editor.clear();
                 this.currentAttachments = { music: null, game: null };
                 this.updateAttachmentPreview();
                 this.checkPublishState();

@@ -1,6 +1,8 @@
-// js/controllers/FeedController.js
-import { escapeHTML, debounce } from '../utils/utils.js';
-import { PostComponent } from '../components/PostComponent.js';
+// public/js/controllers/FeedController.js
+import { escapeHTML, debounce } from '../ui/utils/utils.js';
+import { PostComponent } from '../ui/widgets/PostComponent.js';
+import { RichTextEditor } from '../ui/editors/RichTextEditor.js';
+import { CommentContextMenu } from '../ui/widgets/CommentContextMenu.js';
 
 export class FeedController {
     constructor(stores) {
@@ -36,14 +38,18 @@ export class FeedController {
 
         this.isPollActive = false;
         this.currentAttachments = { music: null, game: null };
-        this.savedRange = null;
         
         this.currentFeedType = 'main'; 
         this.page = 1;
         this.isLoadingMore = false;
 
-        this.createGlobalContextMenu(); 
-        this.createFormatContextMenu(); 
+        // Инициализация новых универсальных компонентов
+        this.editor = new RichTextEditor(this.input, () => this.checkPublishState());
+        this.commentMenu = new CommentContextMenu(this.stores, (postId) => {
+            const postEl = document.querySelector(`.post[data-id="${postId}"]`);
+            if (postEl && postEl.__component) postEl.__component._renderComments();
+        });
+
         this.init();
     }
 
@@ -60,8 +66,8 @@ export class FeedController {
 
     destroy() {
         this.abortController.abort();
-        if (this.contextMenu) this.contextMenu.remove();
-        if (this.formatMenu) this.formatMenu.remove();
+        if (this.editor) this.editor.destroy();
+        if (this.commentMenu) this.commentMenu.destroy();
         if (this.closeSelectHandler) document.removeEventListener('click', this.closeSelectHandler);
     }
 
@@ -83,119 +89,6 @@ export class FeedController {
             }
             this.isLoadingMore = false;
         }
-    }
-
-    getFormattedContent() {
-        const clone = this.input.cloneNode(true);
-        clone.querySelectorAll('.post-quote').forEach(q => { q.replaceWith(`\n> ${q.innerText.trim()}\n`); });
-        clone.querySelectorAll('b, strong, span[style*="font-weight: bold"]').forEach(b => { b.replaceWith(`**${b.innerText}**`); });
-        clone.querySelectorAll('.editor-spoiler').forEach(s => { s.replaceWith(`||${s.innerText}||`); });
-
-        let html = clone.innerHTML;
-        html = html.replace(/<div><br><\/div>/g, '\n').replace(/<div>/g, '\n').replace(/<\/div>/g, '').replace(/<br>/g, '\n'); 
-
-        const temp = document.createElement('div');
-        temp.innerHTML = html;
-        return temp.innerText.trim();
-    }
-
-    createGlobalContextMenu() {
-        if (document.getElementById('customContextMenu')) document.getElementById('customContextMenu').remove();
-        const menu = document.createElement('div');
-        menu.id = 'customContextMenu';
-        menu.className = 'options-menu';
-        menu.style.position = 'absolute';
-        menu.style.display = 'none';
-        menu.style.zIndex = '999999';
-        menu.innerHTML = `<div class="menu-item menu-item-danger" id="ctxDeleteComment"><i class="fa-solid fa-trash"></i> <span>Удалить комментарий</span></div>`;
-        document.body.appendChild(menu);
-        this.contextMenu = menu;
-        this.contextTargetCommentId = null;
-        this.contextTargetPostId = null;
-
-        const signal = this.abortController.signal;
-        document.addEventListener('click', () => { 
-            if(this.contextMenu) this.contextMenu.style.display = 'none'; 
-            if(this.formatMenu) this.formatMenu.style.display = 'none';
-        }, { signal });
-        document.addEventListener('scroll', () => { 
-            if(this.contextMenu) this.contextMenu.style.display = 'none'; 
-            if(this.formatMenu) this.formatMenu.style.display = 'none';
-        }, { signal, capture: true });
-        
-        const ctxDeleteBtn = document.getElementById('ctxDeleteComment');
-        if (ctxDeleteBtn) {
-            ctxDeleteBtn.addEventListener('click', () => {
-                if (this.contextTargetPostId && this.contextTargetCommentId) {
-                    this.stores.posts.deleteComment(this.contextTargetPostId, this.contextTargetCommentId);
-                    const postEl = document.querySelector(`.post[data-id="${this.contextTargetPostId}"]`);
-                    if (postEl && postEl.__component) {
-                        postEl.__component._renderComments();
-                    }
-                    this.contextMenu.style.display = 'none';
-                }
-            }, { signal });
-        }
-    }
-
-    createFormatContextMenu() {
-        if (document.getElementById('formatContextMenu')) document.getElementById('formatContextMenu').remove();
-        const menu = document.createElement('div');
-        menu.id = 'formatContextMenu';
-        menu.className = 'options-menu';
-        menu.style.position = 'absolute';
-        menu.style.display = 'none';
-        menu.style.zIndex = '999999';
-        menu.innerHTML = `
-            <div class="menu-item" id="fmtBold"><i class="fa-solid fa-bold"></i> <span>Жирный</span></div>
-            <div class="menu-item" id="fmtQuote"><i class="fa-solid fa-quote-right"></i> <span>Цитата</span></div>
-            <div class="menu-item" id="fmtSpoiler"><i class="fa-solid fa-eye-slash"></i> <span>Спойлер</span></div>
-        `;
-        document.body.appendChild(menu);
-        this.formatMenu = menu;
-
-        const signal = this.abortController.signal;
-        document.getElementById('fmtBold').addEventListener('mousedown', (e) => { e.preventDefault(); this.applyFormat('bold'); }, { signal });
-        document.getElementById('fmtQuote').addEventListener('mousedown', (e) => { e.preventDefault(); this.applyFormat('quote'); }, { signal });
-        document.getElementById('fmtSpoiler').addEventListener('mousedown', (e) => { e.preventDefault(); this.applyFormat('spoiler'); }, { signal });
-    }
-
-    applyFormat(type) {
-        this.formatMenu.style.display = 'none';
-        this.input.focus();
-
-        if (this.savedRange) {
-            const selection = window.getSelection();
-            selection.removeAllRanges();
-            selection.addRange(this.savedRange);
-        }
-
-        const selection = window.getSelection();
-        if (!selection.rangeCount) return;
-        const range = selection.getRangeAt(0);
-
-        if (type === 'bold') {
-            document.execCommand('bold', false, null);
-        } else if (type === 'quote') {
-            const extracted = range.extractContents();
-            const div = document.createElement('div');
-            div.className = 'post-quote';
-            if (extracted.textContent.trim() === '') div.textContent = 'Цитата'; else div.appendChild(extracted);
-            range.insertNode(div);
-            const space = document.createTextNode('\u200B'); div.after(space);
-            range.setStartAfter(space); range.collapse(true);
-            selection.removeAllRanges(); selection.addRange(range);
-        } else if (type === 'spoiler') {
-            const extracted = range.extractContents();
-            const span = document.createElement('span');
-            span.className = 'editor-spoiler';
-            if (extracted.textContent.trim() === '') span.textContent = 'Спойлер'; else span.appendChild(extracted);
-            range.insertNode(span);
-            const space = document.createTextNode('\u00A0'); span.after(space);
-            range.setStartAfter(space); range.collapse(true);
-            selection.removeAllRanges(); selection.addRange(range);
-        }
-        this.checkPublishState();
     }
 
     initCustomSelect() {
@@ -327,16 +220,6 @@ export class FeedController {
         this.closePollBtn.addEventListener('click', () => this.closePoll());
         this.addOptionBtn.addEventListener('click', () => this.addPollOption());
         
-        this.input.addEventListener('input', () => { this.checkPublishState(); });
-        this.input.addEventListener('contextmenu', (e) => {
-            e.preventDefault();
-            const selection = window.getSelection();
-            if(selection.rangeCount > 0) this.savedRange = selection.getRangeAt(0).cloneRange();
-            this.formatMenu.style.display = 'block';
-            this.formatMenu.style.top = `${e.pageY}px`;
-            this.formatMenu.style.left = `${e.pageX}px`;
-        });
-
         this.pollInputsContainer.addEventListener('input', () => this.checkPublishState());
         
         this.publishBtn.addEventListener('click', () => this.publishPost());
@@ -347,22 +230,8 @@ export class FeedController {
         
         if (this.modal) this.modal.addEventListener('click', (e) => { if (e.target === this.modal) this.closeModal(); });
 
-        this.container.addEventListener('contextmenu', (e) => {
-            const commentItem = e.target.closest('.comment-item');
-            if (commentItem) {
-                const authorUsername = commentItem.dataset.author;
-                const currentUser = this.stores.auth.user;
-                if (authorUsername === currentUser.username || currentUser.isAdmin) {
-                    e.preventDefault();
-                    this.contextTargetCommentId = commentItem.dataset.id;
-                    const post = e.target.closest('.post');
-                    if (post) this.contextTargetPostId = post.dataset.id;
-                    this.contextMenu.style.display = 'block';
-                    this.contextMenu.style.top = `${e.pageY}px`;
-                    this.contextMenu.style.left = `${e.pageX}px`;
-                }
-            }
-        });
+        // Вызов контекстного меню комментария
+        this.container.addEventListener('contextmenu', (e) => this.commentMenu.handleContextMenu(e));
 
         this.initCustomSelect();
     }
@@ -464,7 +333,7 @@ export class FeedController {
     }
 
     publishPost() {
-        const text = this.getFormattedContent();
+        const text = this.editor.getFormattedContent();
         let pollData = null;
         if (this.isPollActive) {
             const options = Array.from(this.pollInputsContainer.querySelectorAll('.poll-input')).map(i => i.value.trim()).filter(v => v !== '');
@@ -479,7 +348,7 @@ export class FeedController {
         if (text.length > 0 || pollData || attachData) {
             this.stores.posts.addPost(text, pollData, attachData);
             
-            this.input.innerHTML = '';
+            this.editor.clear();
             this.currentAttachments = { music: null, game: null };
             this.updateAttachmentPreview();
             this.closePoll();

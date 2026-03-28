@@ -1,4 +1,4 @@
-// public/js/components/ChatGalleryHandler.js
+// public/js/ui/widgets/ChatGalleryHandler.js
 
 export class ChatGalleryHandler {
     constructor() {
