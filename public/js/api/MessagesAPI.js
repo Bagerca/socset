@@ -8,7 +8,7 @@ export const MessagesAPI = {
     getFriends: () => httpClient.get('/messages/friends'),
     
     createChat: (data) => httpClient.post('/messages/create', data),
-    sendMessage: (chatId, content) => httpClient.post('/messages/send', { chatId, content }),
+    sendMessage: (chatId, content, replyToId) => httpClient.post('/messages/send', { chatId, content, replyToId }),
     editMessage: (messageId, chatId, newContent) => httpClient.post('/messages/edit', { messageId, chatId, newContent }),
     deleteMessage: (messageId, chatId) => httpClient.post('/messages/delete', { messageId, chatId }),
     
@@ -19,5 +19,8 @@ export const MessagesAPI = {
     clearHistory: (chatId) => httpClient.post('/messages/clear', { chatId }),
     deleteChat: (chatId) => httpClient.post('/messages/delete_chat', { chatId }),
     
-    respondInvite: (chatId, action) => httpClient.post('/messages/invite_respond', { chatId, action })
+    respondInvite: (chatId, action) => httpClient.post('/messages/invite_respond', { chatId, action }),
+
+    updateGroup: (chatId, name, avatar, description) => httpClient.post('/messages/update_group', { chatId, name, avatar, description }),
+    manageMember: (chatId, targetUsername, action, newRole) => httpClient.post('/messages/manage_member', { chatId, targetUsername, action, newRole })
 };

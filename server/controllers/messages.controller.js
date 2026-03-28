@@ -6,6 +6,7 @@ const { randomUUID } = require('crypto');
 try {
     db.exec(`CREATE TABLE IF NOT EXISTS chat_members (chat_id TEXT, username TEXT, role TEXT, PRIMARY KEY (chat_id, username));`);
     try { db.exec("ALTER TABLE messages ADD COLUMN is_edited INTEGER DEFAULT 0;"); } catch(e){}
+    try { db.exec("ALTER TABLE messages ADD COLUMN reply_to_id TEXT DEFAULT NULL;"); } catch(e){} // НОВАЯ КОЛОНКА
 
     try {
         const cmInfo = db.prepare("PRAGMA table_info(chat_members)").all();
@@ -16,6 +17,13 @@ try {
             db.exec("ALTER TABLE chat_members ADD COLUMN cleared_at INTEGER DEFAULT 0;");
         }
     } catch(e) { console.error("[DB] Ошибка обновления chat_members:", e); }
+
+    try {
+        const chatInfo = db.prepare("PRAGMA table_info(chats)").all();
+        if (chatInfo.length > 0 && !chatInfo.some(col => col.name === 'description')) {
+            db.exec("ALTER TABLE chats ADD COLUMN description TEXT DEFAULT NULL;");
+        }
+    } catch(e) { console.error("[DB] Ошибка добавления колонки description:", e); }
 
     const tableInfo = db.prepare("PRAGMA table_info(chats)").all();
     const hasLegacyColumns = tableInfo.some(col => col.name === 'user1');
@@ -34,6 +42,7 @@ try {
                     type TEXT DEFAULT 'direct',
                     name TEXT DEFAULT NULL,
                     avatar TEXT DEFAULT NULL,
+                    description TEXT DEFAULT NULL,
                     blocked_by TEXT DEFAULT NULL,
                     updated_at INTEGER
                 );
@@ -179,7 +188,6 @@ class MessagesController {
             if (!chat) return res.status(404).json({ error: 'Чат не найден' });
 
             const memberInfo = db.prepare('SELECT status FROM chat_members WHERE chat_id = ? AND username = ?').get(chatId, username);
-            
             if (!memberInfo || memberInfo.status === 'left') return res.json({ success: true });
 
             if (memberInfo.status === 'joined') {
@@ -225,8 +233,10 @@ class MessagesController {
         try {
             const chats = db.prepare(`SELECT c.*, cm.status as myStatus, cm.cleared_at FROM chats c JOIN chat_members cm ON c.id = cm.chat_id WHERE cm.username = ? AND cm.status NOT IN ('left', 'declined') ORDER BY c.updated_at DESC`).all(username);
             const enrichedChats = chats.map(chat => {
-                const membersRows = db.prepare('SELECT username FROM chat_members WHERE chat_id = ?').all(chat.id);
+                const membersRows = db.prepare('SELECT username, status FROM chat_members WHERE chat_id = ?').all(chat.id);
                 const members = membersRows.map(m => m.username);
+                const activeMembersCount = membersRows.filter(m => m.status === 'joined').length;
+
                 let chatName = chat.name, chatAvatar = chat.avatar, targetUser = null;
 
                 if (chat.type === 'direct') {
@@ -243,7 +253,7 @@ class MessagesController {
                 const lastMsg = db.prepare('SELECT content, sender_username, timestamp, is_read FROM messages WHERE chat_id = ? AND timestamp > ? ORDER BY timestamp DESC LIMIT 1').get(chat.id, chat.cleared_at);
                 const unreadCount = db.prepare('SELECT COUNT(*) as c FROM messages WHERE chat_id = ? AND sender_username != ? AND is_read = 0 AND timestamp > ?').get(chat.id, username, chat.cleared_at).c;
 
-                return { ...chat, chatName, chatAvatar, targetUser, members, lastMessage: lastMsg, unreadCount };
+                return { ...chat, chatName, chatAvatar, targetUser, members, lastMessage: lastMsg, unreadCount, activeMembersCount };
             });
             res.json({ success: true, chats: enrichedChats });
         } catch (e) { res.status(500).json({ error: 'Ошибка загрузки чатов' }); }
@@ -266,11 +276,32 @@ class MessagesController {
                 }
             }
 
-            const messages = db.prepare('SELECT * FROM messages WHERE chat_id = ? AND timestamp > ? ORDER BY timestamp ASC').all(chatId, memberRow.cleared_at);
+            // ИЗМЕНЕНИЕ: Забираем реплай-сообщение (оно может быть удалено, поэтому LEFT JOIN)
+            const messages = db.prepare(`
+                SELECT m.*, r.sender_username as reply_sender, r.content as reply_content 
+                FROM messages m 
+                LEFT JOIN messages r ON m.reply_to_id = r.id 
+                WHERE m.chat_id = ? AND m.timestamp > ? 
+                ORDER BY m.timestamp ASC
+            `).all(chatId, memberRow.cleared_at);
+
             const enrichedMessages = messages.map(m => {
                 const u = db.prepare('SELECT name, avatar, frameId FROM users WHERE username = ?').get(m.sender_username);
+                
+                let replyAuthorName = m.reply_sender;
+                if (m.reply_sender && m.reply_sender !== 'TetlaBot') {
+                    const ru = db.prepare('SELECT name FROM users WHERE username = ?').get(m.reply_sender);
+                    if (ru) replyAuthorName = ru.name;
+                }
+
                 if (m.sender_username === 'TetlaBot') return m;
-                return { ...m, authorName: u?.name || m.sender_username, authorAvatar: u?.avatar, frameId: u?.frameId };
+                return { 
+                    ...m, 
+                    authorName: u?.name || m.sender_username, 
+                    authorAvatar: u?.avatar, 
+                    frameId: u?.frameId,
+                    replyAuthorName
+                };
             });
 
             res.json({ success: true, messages: enrichedMessages, blocked_by: chat.blocked_by, chatType: chat.type, myStatus: memberRow.status });
@@ -281,21 +312,122 @@ class MessagesController {
         const { chatId } = req.params;
         const username = req.user.username;
         try {
-            const memberRow = db.prepare('SELECT status, cleared_at FROM chat_members WHERE chat_id = ? AND username = ?').get(chatId, username);
+            const memberRow = db.prepare('SELECT status, role, cleared_at FROM chat_members WHERE chat_id = ? AND username = ?').get(chatId, username);
             if (!memberRow || memberRow.status === 'left' || memberRow.status === 'declined') return res.status(403).json({ error: 'Доступ запрещен' });
 
-            // ИЗМЕНЕНИЕ ЗДЕСЬ: Добавлен выбор u.banner
+            const chat = db.prepare('SELECT * FROM chats WHERE id = ?').get(chatId);
+
             const members = db.prepare(`
-                SELECT u.username, u.name, u.avatar, u.banner, u.isVerified, u.frameId, cm.role 
+                SELECT u.username, u.name, u.avatar, u.banner, u.isVerified, u.verifiedBadgeType, u.frameId, cm.role, cm.status 
                 FROM chat_members cm 
                 JOIN users u ON cm.username = u.username 
-                WHERE cm.chat_id = ?
+                WHERE cm.chat_id = ? AND cm.status IN ('joined', 'invited')
             `).all(chatId);
+
+            const onlineUsers = req.app.get('onlineUsers') || new Map();
+            const enrichedMembers = members.map(m => {
+                const userState = onlineUsers.get(m.username);
+                return { ...m, isOnline: userState ? userState.isOnline : false };
+            });
 
             const mediaMessages = db.prepare(`SELECT content FROM messages WHERE chat_id = ? AND content LIKE '[IMG:%' AND timestamp > ? ORDER BY timestamp DESC`).all(chatId, memberRow.cleared_at);
             const media = mediaMessages.map(m => m.content.slice(5, -1));
-            res.json({ success: true, members, media });
+            
+            let stats = null;
+            if (chat.type === 'group') {
+                const totalMessages = db.prepare('SELECT COUNT(*) as c FROM messages WHERE chat_id = ? AND sender_username != ?').get(chatId, 'TetlaBot').c;
+                const activeCount = enrichedMembers.filter(m => m.status === 'joined').length;
+                stats = { totalMessages, totalMedia: media.length, activeMembers: activeCount };
+            }
+            
+            res.json({ success: true, chatInfo: chat, myRole: memberRow.role, members: enrichedMembers, media, stats });
         } catch (e) { res.status(500).json({ error: 'Ошибка загрузки данных чата' }); }
+    }
+
+    updateGroup(req, res, io) {
+        const { chatId, name, avatar, description } = req.body;
+        const username = req.user.username;
+        try {
+            const memberRow = db.prepare('SELECT role FROM chat_members WHERE chat_id = ? AND username = ?').get(chatId, username);
+            if (!memberRow || (memberRow.role !== 'admin' && memberRow.role !== 'moderator')) {
+                return res.status(403).json({ error: 'У вас нет прав для изменения настроек группы' });
+            }
+
+            db.prepare('UPDATE chats SET name = ?, avatar = ?, description = ?, updated_at = ? WHERE id = ?')
+              .run(name, avatar, description, Date.now(), chatId);
+            
+            this._sendSystemMessage(chatId, `⚙️ @${username} обновил профиль группы.`, io);
+            
+            if (io) {
+                const members = db.prepare("SELECT username FROM chat_members WHERE chat_id = ? AND status IN ('joined', 'invited')").all(chatId);
+                members.forEach(m => io.to(`user_${m.username}`).emit('group_updated', { chatId, name, avatar, description }));
+            }
+
+            res.json({ success: true });
+        } catch (e) { res.status(500).json({ error: 'Ошибка обновления группы' }); }
+    }
+
+    manageMember(req, res, io) {
+        const { chatId, targetUsername, action, newRole } = req.body;
+        const myUsername = req.user.username;
+        try {
+            const chat = db.prepare('SELECT type, name FROM chats WHERE id = ?').get(chatId);
+            if (chat.type !== 'group') return res.status(400).json({ error: 'Доступно только в группах' });
+
+            const myRow = db.prepare('SELECT role FROM chat_members WHERE chat_id = ? AND username = ?').get(chatId, myUsername);
+            const targetRow = db.prepare('SELECT role FROM chat_members WHERE chat_id = ? AND username = ?').get(chatId, targetUsername);
+            
+            if (!myRow || (myRow.role !== 'admin' && myRow.role !== 'moderator')) {
+                return res.status(403).json({ error: 'Недостаточно прав для управления участниками' });
+            }
+
+            if (action === 'invite') {
+                const following = db.prepare('SELECT following_username FROM follows WHERE follower_username = ?').all(myUsername).map(f => f.following_username);
+                const followers = db.prepare('SELECT follower_username FROM follows WHERE following_username = ?').all(myUsername).map(f => f.follower_username);
+                const friends = following.filter(f => followers.includes(f));
+
+                if (!friends.includes(targetUsername)) {
+                    return res.status(403).json({ error: 'Можно приглашать только друзей' });
+                }
+
+                const exist = db.prepare('SELECT status FROM chat_members WHERE chat_id = ? AND username = ?').get(chatId, targetUsername);
+                if (exist && (exist.status === 'joined' || exist.status === 'invited')) {
+                    return res.status(400).json({ error: 'Пользователь уже в группе или приглашен' });
+                }
+
+                if (exist) {
+                    db.prepare("UPDATE chat_members SET status = 'invited', role = 'member' WHERE chat_id = ? AND username = ?").run(chatId, targetUsername);
+                } else {
+                    db.prepare("INSERT INTO chat_members (chat_id, username, role, status, cleared_at) VALUES (?, ?, 'member', 'invited', 0)").run(chatId, targetUsername);
+                }
+
+                this._sendSystemMessage(chatId, `📩 @${myUsername} пригласил(а) @${targetUsername}.`, io);
+                if (io) io.to(`user_${targetUsername}`).emit('chat_invited', { chatId, type: chat.type, name: chat.name, sender: myUsername });
+                
+                return res.json({ success: true });
+            }
+
+            if (!targetRow) return res.status(404).json({ error: 'Пользователь не найден в группе' });
+
+            if (action === 'kick') {
+                db.prepare("UPDATE chat_members SET status = 'left' WHERE chat_id = ? AND username = ?").run(chatId, targetUsername);
+                this._sendSystemMessage(chatId, `👢 @${myUsername} исключил(а) @${targetUsername}.`, io);
+                if (io) io.to(`user_${targetUsername}`).emit('chat_deleted', { chatId }); 
+            } 
+            else if (action === 'role') {
+                if (myRow.role !== 'admin') return res.status(403).json({ error: 'Только администратор может изменять роли' });
+                if (newRole !== 'admin' && newRole !== 'moderator' && newRole !== 'member') return res.status(400).json({error: 'Неверная роль'});
+                db.prepare('UPDATE chat_members SET role = ? WHERE chat_id = ? AND username = ?').run(newRole, chatId, targetUsername);
+                this._sendSystemMessage(chatId, `🛡️ Пользователю @${targetUsername} назначена роль: ${newRole.toUpperCase()}.`, io);
+            }
+
+            if (io) {
+                const members = db.prepare("SELECT username FROM chat_members WHERE chat_id = ? AND status IN ('joined', 'invited')").all(chatId);
+                members.forEach(m => io.to(`user_${m.username}`).emit('group_member_updated', { chatId }));
+            }
+
+            res.json({ success: true });
+        } catch (e) { res.status(500).json({ error: 'Ошибка управления участником' }); }
     }
 
     markAsRead(req, res, io) {
@@ -324,7 +456,8 @@ class MessagesController {
     }
 
     sendMessage(req, res, io) {
-        const { chatId, content } = req.body;
+        // ИЗМЕНЕНИЕ: Получаем replyToId
+        const { chatId, content, replyToId } = req.body;
         const sender = req.user.username;
         try {
             const chat = db.prepare('SELECT c.*, cm.status FROM chats c JOIN chat_members cm ON c.id = cm.chat_id WHERE c.id = ? AND cm.username = ?').get(chatId, sender);
@@ -333,11 +466,25 @@ class MessagesController {
             if (chat.status === 'invited') return res.status(403).json({ error: 'Сначала примите приглашение' });
 
             const now = Date.now();
-            const newMsg = { id: randomUUID(), chat_id: chatId, sender_username: sender, content, timestamp: now, is_read: 0, is_edited: 0 };
+            const newMsg = { id: randomUUID(), chat_id: chatId, sender_username: sender, content, timestamp: now, is_read: 0, is_edited: 0, reply_to_id: replyToId || null };
             
             let reInvitedUsers = [];
+            let replyInfo = null;
 
             db.transaction(() => {
+                // Если есть ответ, достаем инфу, чтобы сразу вернуть на клиент
+                if (replyToId) {
+                    const rMsg = db.prepare('SELECT sender_username, content FROM messages WHERE id = ?').get(replyToId);
+                    if (rMsg) {
+                        let rName = rMsg.sender_username;
+                        if (rName !== 'TetlaBot') {
+                           const ru = db.prepare('SELECT name FROM users WHERE username = ?').get(rName);
+                           if(ru) rName = ru.name;
+                        }
+                        replyInfo = { sender_username: rMsg.sender_username, content: rMsg.content, authorName: rName };
+                    }
+                }
+
                 const members = db.prepare('SELECT username, status FROM chat_members WHERE chat_id = ?').all(chatId);
                 for (const m of members) {
                     if (m.username === sender) continue;
@@ -349,12 +496,16 @@ class MessagesController {
                     }
                 }
 
-                db.prepare('INSERT INTO messages (id, chat_id, sender_username, content, timestamp, is_read, is_edited) VALUES (@id, @chat_id, @sender_username, @content, @timestamp, @is_read, @is_edited)').run(newMsg);
+                // ИЗМЕНЕНИЕ: Сохраняем reply_to_id
+                db.prepare('INSERT INTO messages (id, chat_id, sender_username, content, timestamp, is_read, is_edited, reply_to_id) VALUES (@id, @chat_id, @sender_username, @content, @timestamp, @is_read, @is_edited, @reply_to_id)').run(newMsg);
                 db.prepare('UPDATE chats SET updated_at = ? WHERE id = ?').run(now, chatId);
             })();
 
             const user = db.prepare('SELECT name, avatar, frameId FROM users WHERE username = ?').get(sender);
-            const enrichedMsg = { ...newMsg, authorName: user.name, authorAvatar: user.avatar, frameId: user.frameId };
+            const enrichedMsg = { 
+                ...newMsg, authorName: user.name, authorAvatar: user.avatar, frameId: user.frameId,
+                reply_sender: replyInfo?.sender_username, reply_content: replyInfo?.content, replyAuthorName: replyInfo?.authorName 
+            };
 
             if (io) {
                 const members = db.prepare("SELECT username, status FROM chat_members WHERE chat_id = ? AND status IN ('joined', 'invited')").all(chatId);
