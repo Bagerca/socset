@@ -54,11 +54,9 @@ class APIRouter {
 
 const api = new APIRouter();
 
-// AUTH & CONFIG
 api.post('/api/login', AuthController.login);
 api.get('/api/config/db', ConfigController.getDbConfig);
 
-// UPLOAD
 api.post('/api/upload', authenticateToken, async (req, res) => {
     try {
         await runMulter(req, res);
@@ -67,13 +65,11 @@ api.post('/api/upload', authenticateToken, async (req, res) => {
     } catch(e) { res.status(500).json({error: 'Upload error'}); }
 });
 
-// SHOP
 api.get('/api/shop', ShopController.getAll);
 api.post('/api/shop/buy', authenticateToken, ShopController.buy);
 api.post('/api/shop/equip', authenticateToken, ShopController.equip);
 api.post('/api/shop/create', authenticateToken, ShopController.create);
 
-// COMMUNITIES
 api.get('/api/communities', authenticateToken, CommunitiesController.getAll);
 api.post('/api/communities/create', authenticateToken, CommunitiesController.create);
 api.post('/api/communities/join', authenticateToken, CommunitiesController.toggleJoin);
@@ -81,17 +77,18 @@ api.post('/api/communities/update', authenticateToken, CommunitiesController.upd
 api.post('/api/communities/delete', authenticateToken, CommunitiesController.delete);
 api.get('/api/communities/:handle', authenticateToken, CommunitiesController.getOne);
 
-// NOTIFICATIONS
 api.get('/api/notifications', authenticateToken, NotificationsController.getNotifications);
 api.post('/api/notifications/read', authenticateToken, NotificationsController.markAsRead);
 api.get('/api/notifications/unread', authenticateToken, NotificationsController.getUnreadCount);
 
-// MESSAGES
+// MESSAGES (Добавлены новые маршруты для каналов)
 api.get('/api/messages/chats', authenticateToken, MessagesController.getChats);
 api.get('/api/messages/friends', authenticateToken, MessagesController.getFriends);
+api.get('/api/messages/admin_groups', authenticateToken, MessagesController.getAdminGroups);
 api.post('/api/messages/create', authenticateToken, (req, res, ctx) => MessagesController.createChat(req, res, ctx.io));
 api.post('/api/messages/send', authenticateToken, (req, res, ctx) => MessagesController.sendMessage(req, res, ctx.io));
 api.post('/api/messages/read', authenticateToken, (req, res, ctx) => MessagesController.markAsRead(req, res, ctx.io));
+api.post('/api/messages/view', authenticateToken, MessagesController.viewMessage);
 api.post('/api/messages/typing', authenticateToken, (req, res, ctx) => MessagesController.typing(req, res, ctx.io));
 api.post('/api/messages/toggle_block', authenticateToken, (req, res, ctx) => MessagesController.toggleBlock(req, res, ctx.io));
 api.post('/api/messages/delete', authenticateToken, (req, res, ctx) => MessagesController.deleteMessage(req, res, ctx.io));
@@ -101,10 +98,10 @@ api.post('/api/messages/invite_respond', authenticateToken, (req, res, ctx) => M
 api.post('/api/messages/delete_chat', authenticateToken, (req, res, ctx) => MessagesController.deleteChat(req, res, ctx.io));
 api.post('/api/messages/update_group', authenticateToken, (req, res, ctx) => MessagesController.updateGroup(req, res, ctx.io));
 api.post('/api/messages/manage_member', authenticateToken, (req, res, ctx) => MessagesController.manageMember(req, res, ctx.io));
+api.post('/api/messages/link_group', authenticateToken, (req, res, ctx) => MessagesController.linkGroup(req, res, ctx.io));
 api.get('/api/messages/details/:chatId', authenticateToken, MessagesController.getChatDetails);
 api.get('/api/messages/:chatId', authenticateToken, (req, res, ctx) => MessagesController.getMessages(req, res, ctx.io));
 
-// ADMIN
 const adminMws = [authenticateToken, isAdmin];
 api.get('/api/admin/stats', adminMws, AdminController.getStats);
 api.get('/api/admin/graph', adminMws, AdminController.getGraph);
@@ -120,9 +117,8 @@ api.post('/api/admin/delete_user', adminMws, AdminController.deleteUser);
 api.post('/api/admin/reset_media', adminMws, AdminController.resetMedia);
 api.post('/api/admin/toggle_admin', adminMws, AdminController.toggleAdmin);
 
-// POSTS
 api.get('/api/posts', PostsController.getFeed);
-api.get('/api/post/:id', PostsController.getOne); // <--- НОВЫЙ МАРШРУТ
+api.get('/api/post/:id', PostsController.getOne);
 api.post('/api/posts', authenticateToken, (req, res, ctx) => PostsController.create(req, res, ctx.io));
 api.post('/api/posts/repost', authenticateToken, (req, res, ctx) => PostsController.repost(req, res, ctx.io));
 api.post('/api/posts/delete', authenticateToken, PostsController.delete);
@@ -133,7 +129,6 @@ api.post('/api/posts/comment', authenticateToken, PostsController.addComment);
 api.post('/api/posts/comment/delete', authenticateToken, PostsController.deleteComment);
 api.post('/api/posts/comment/react', authenticateToken, PostsController.reactComment);
 
-// PROFILE
 api.post('/api/profile', authenticateToken, ProfileController.update);
 api.post('/api/profile/follow', authenticateToken, SocialController.toggleFollow);
 api.post('/api/profile/gift', authenticateToken, SocialController.giftCoins);

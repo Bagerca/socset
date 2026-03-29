@@ -18,6 +18,7 @@ export class GlobalPlayer {
         this.btnShuffle = document.getElementById('fmpShuffle');
         this.btnRepeat = document.getElementById('fmpRepeat');
         this.btnFav = document.getElementById('fmpFavBtn');
+        this.btnClose = document.getElementById('fmpCloseBtn'); // <--- НОВАЯ КНОПКА
         
         this.progressBar = document.getElementById('fmpProgressBar');
         this.timeCurrent = document.getElementById('fmpCurrentTime');
@@ -76,6 +77,11 @@ export class GlobalPlayer {
         this.btnNext.addEventListener('click', () => this.next());
         this.btnPrev.addEventListener('click', () => this.prev());
         
+        // --- ЛОГИКА ЗАКРЫТИЯ ПЛЕЕРА ---
+        if (this.btnClose) {
+            this.btnClose.addEventListener('click', () => this.closePlayer());
+        }
+
         this.btnShuffle.addEventListener('click', () => {
             this.isShuffle = !this.isShuffle;
             this.btnShuffle.classList.toggle('active', this.isShuffle);
@@ -110,6 +116,12 @@ export class GlobalPlayer {
 
         this.volumeBar.addEventListener('input', (e) => { this.audio.volume = e.target.value / 100; });
         this.volumeIcon.addEventListener('click', () => { this.audio.muted = !this.audio.muted; });
+    }
+
+    // Метод для закрытия плеера
+    closePlayer() {
+        this.audio.pause(); // Ставим на паузу
+        this.widget.classList.add('hidden'); // Прячем виджет
     }
 
     initDraggablePlayer() {
@@ -300,10 +312,8 @@ export class GlobalPlayer {
         document.dispatchEvent(new CustomEvent('cycle:play-state', { detail: isPlaying }));
         this.syncPostPlayButtons();
 
-        // Заменили window.socket на SocketService
-        const track = this.playlist[this.currentIndex];
         SocketService.emit('music_state', {
-            trackId: track ? track.id : null,
+            trackId: this.playlist[this.currentIndex] ? this.playlist[this.currentIndex].id : null,
             isPlaying: isPlaying
         });
     }

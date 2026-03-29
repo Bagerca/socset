@@ -11,14 +11,39 @@ export class ChatCreateHandler {
         this.bindEvents();
     }
 
+    // Умная проверка доступности кнопки "Создать"
+    checkSubmitState() {
+        const btn = document.getElementById('submitCreateChatBtn');
+        if (!btn) return;
+
+        if (this.chatType === 'direct') {
+            btn.disabled = this.selectedFriends.size === 0;
+        } else {
+            // Для группы и канала нужен только ввод названия
+            const name = document.getElementById('ccGroupName')?.value.trim();
+            btn.disabled = !name;
+        }
+    }
+
     bindEvents() {
         const btnCreateChat = document.getElementById('btnCreateChat');
         if (btnCreateChat) {
             btnCreateChat.addEventListener('click', async () => {
-                this.selectedFriends.clear(); this.chatType = 'direct';
-                document.querySelectorAll('.cc-type-btn').forEach(b => { b.classList.toggle('active', b.dataset.type === 'direct'); if (b.dataset.type !== 'direct') b.style.background = 'rgba(255,255,255,0.1)'; else b.style.background = ''; });
+                this.selectedFriends.clear(); 
+                this.chatType = 'direct';
+                
+                document.querySelectorAll('.cc-type-btn').forEach(b => { 
+                    b.classList.toggle('active', b.dataset.type === 'direct'); 
+                    if (b.dataset.type !== 'direct') b.style.background = 'rgba(255,255,255,0.1)'; 
+                    else b.style.background = ''; 
+                });
+                
                 document.getElementById('ccGroupNameWrapper').style.display = 'none';
-                document.getElementById('submitCreateChatBtn').disabled = true;
+                const nameInput = document.getElementById('ccGroupName');
+                if (nameInput) nameInput.value = '';
+                
+                this.checkSubmitState();
+
                 const listEl = document.getElementById('ccFriendsList');
                 listEl.innerHTML = '<div style="text-align:center; color:var(--text-muted);">Загрузка...</div>';
                 document.getElementById('createChatModal').classList.add('active');
@@ -45,22 +70,35 @@ export class ChatCreateHandler {
             btn.addEventListener('click', () => {
                 document.querySelectorAll('.cc-type-btn').forEach(b => { b.classList.remove('active'); b.style.background = 'rgba(255,255,255,0.1)'; });
                 btn.classList.add('active'); btn.style.background = ''; this.chatType = btn.dataset.type;
-                document.getElementById('ccGroupNameWrapper').style.display = this.chatType === 'group' ? 'block' : 'none';
-                if (this.chatType === 'direct' && this.selectedFriends.size > 1) { this.selectedFriends.clear(); document.querySelectorAll('.cc-friend-item.selected').forEach(el => this._toggleFriendItem(el, false)); }
-                document.getElementById('submitCreateChatBtn').disabled = this.selectedFriends.size === 0;
+                document.getElementById('ccGroupNameWrapper').style.display = (this.chatType === 'group' || this.chatType === 'channel') ? 'block' : 'none';
+                
+                if (this.chatType === 'direct' && this.selectedFriends.size > 1) { 
+                    this.selectedFriends.clear(); 
+                    document.querySelectorAll('.cc-friend-item.selected').forEach(el => this._toggleFriendItem(el, false)); 
+                }
+                
+                this.checkSubmitState();
             });
         });
+
+        document.getElementById('ccGroupName')?.addEventListener('input', () => this.checkSubmitState());
 
         document.getElementById('ccFriendsList')?.addEventListener('click', (e) => {
             const item = e.target.closest('.cc-friend-item');
             if (item) {
                 const username = item.dataset.username;
-                if (this.selectedFriends.has(username)) { this.selectedFriends.delete(username); this._toggleFriendItem(item, false); } 
-                else {
-                    if (this.chatType === 'direct') { this.selectedFriends.clear(); document.querySelectorAll('.cc-friend-item.selected').forEach(el => this._toggleFriendItem(el, false)); }
-                    this.selectedFriends.add(username); this._toggleFriendItem(item, true);
+                if (this.selectedFriends.has(username)) { 
+                    this.selectedFriends.delete(username); 
+                    this._toggleFriendItem(item, false); 
+                } else {
+                    if (this.chatType === 'direct') { 
+                        this.selectedFriends.clear(); 
+                        document.querySelectorAll('.cc-friend-item.selected').forEach(el => this._toggleFriendItem(el, false)); 
+                    }
+                    this.selectedFriends.add(username); 
+                    this._toggleFriendItem(item, true);
                 }
-                document.getElementById('submitCreateChatBtn').disabled = this.selectedFriends.size === 0;
+                this.checkSubmitState();
             }
         });
 
@@ -68,17 +106,19 @@ export class ChatCreateHandler {
             const name = document.getElementById('ccGroupName')?.value.trim(); 
             const initialMessage = document.getElementById('ccInitialMessage')?.value.trim();
             
-            if (this.selectedFriends.size === 0) return Toast.show("Выберите участников", "error");
-            if (this.chatType === 'group' && !name) return Toast.show("Введите название", "error");
+            if (this.chatType === 'direct' && this.selectedFriends.size === 0) return Toast.show("Выберите собеседника", "error");
+            if ((this.chatType === 'group' || this.chatType === 'channel') && !name) return Toast.show("Введите название", "error");
             
-            document.getElementById('submitCreateChatBtn').disabled = true;
+            const btn = document.getElementById('submitCreateChatBtn');
+            btn.disabled = true;
+            
             const res = await MessagesAPI.createChat({ type: this.chatType, name, members: Array.from(this.selectedFriends), initialMessage });
-            document.getElementById('submitCreateChatBtn').disabled = false;
             
             if (res.success) { 
                 document.getElementById('createChatModal').classList.remove('active'); 
                 this.onChatCreated(res.chatId, initialMessage); 
             } else {
+                btn.disabled = false;
                 Toast.show(res.error || 'Ошибка', 'error');
             }
         });

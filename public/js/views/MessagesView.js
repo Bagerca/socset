@@ -12,7 +12,7 @@ export const MessagesView = {
                     <h2><i class="fa-regular fa-paper-plane"></i> Сообщения</h2>
                     <div class="ms-header-actions">
                         <button id="btnToggleChatSearch" class="icon-btn" title="Поиск"><i class="fa-solid fa-magnifying-glass"></i></button>
-                        <button id="btnCreateChat" class="icon-btn ms-create-btn" title="Создать чат"><i class="fa-solid fa-pen-to-square"></i></button>
+                        <button id="btnCreateChat" class="icon-btn ms-create-btn" title="Создать"><i class="fa-solid fa-pen-to-square"></i></button>
                     </div>
                 </div>
                 
@@ -52,8 +52,9 @@ export const MessagesView = {
 
                         <div class="ms-header-options" style="position: relative;">
                             <button id="msOptionsBtn" class="icon-btn"><i class="fa-solid fa-ellipsis-vertical"></i></button>
-                            <div id="msOptionsMenu" class="options-menu" style="top: 45px; right: 0; width: 220px; z-index: 100;">
-                                <div class="menu-item" id="optPinChat"><i class="fa-solid fa-thumbtack"></i><span id="pinText">Закрепить диалог</span></div>
+                            <div id="msOptionsMenu" class="options-menu" style="top: 45px; right: 0; width: 240px; z-index: 100;">
+                                <div class="menu-item" id="optPinChat"><i class="fa-solid fa-thumbtack"></i><span id="pinText">Закрепить</span></div>
+                                <div class="menu-item" id="optLinkGroup" style="display:none;"><i class="fa-solid fa-link"></i><span>Привязать группу</span></div>
                                 <div class="menu-item" id="optBlockUser"><i class="fa-solid fa-ban"></i><span id="blockText">Заблокировать</span></div>
                                 <div class="menu-item menu-item-danger" id="optClearHistory"><i class="fa-solid fa-eraser"></i><span>Стереть переписку</span></div>
                                 <div class="menu-item menu-item-danger" id="optDeleteChat"><i class="fa-solid fa-trash-can"></i><span>Удалить диалог</span></div>
@@ -71,7 +72,7 @@ export const MessagesView = {
                     <div id="msInviteState" class="ms-invite-panel" style="display:none;">
                         <div class="ms-invite-header">
                             <i class="fa-solid fa-envelope-open-text"></i>
-                            <span>Вас пригласили в этот чат</span>
+                            <span>Вас пригласили</span>
                         </div>
                         <div class="ms-invite-buttons">
                             <button id="msDeclineInviteBtn" class="btn-post ms-btn-decline"><i class="fa-solid fa-xmark"></i> Отклонить</button>
@@ -79,10 +80,13 @@ export const MessagesView = {
                         </div>
                     </div>
 
-                    <!-- ПЛАВАЮЩИЙ ОСТРОВ ВВОДА (Input Island) -->
+                    <!-- СОСТОЯНИЕ: ТОЛЬКО ЧТЕНИЕ (КАНАЛ) -->
+                    <div id="msReadOnlyState" class="ms-readonly-state" style="display:none; position: absolute; bottom: 0; left: 0; width: 100%; padding: 20px; background: rgba(20,20,24,0.85); backdrop-filter: blur(10px); border-top: 1px solid rgba(255,255,255,0.05); text-align: center; color: var(--text-muted); font-size: 14px; font-weight: 600; z-index: 100;">
+                        <i class="fa-solid fa-bullhorn" style="margin-right: 8px;"></i> Вы подписчик этого канала
+                    </div>
+
+                    <!-- ПЛАВАЮЩИЙ ОСТРОВ ВВОДА -->
                     <div class="ms-input-island" id="msInputContainer">
-                        
-                        <!-- Контекстная шторка (Ответ/Редакт) -->
                         <div id="msContextBar" class="ms-context-bar">
                             <div class="context-icon" id="msContextIcon"><i class="fa-solid fa-reply"></i></div>
                             <div class="context-info">
@@ -92,7 +96,6 @@ export const MessagesView = {
                             <button class="icon-btn-small context-close-btn" id="msCancelContextBtn"><i class="fa-solid fa-xmark"></i></button>
                         </div>
                         
-                        <!-- Сама пилюля -->
                         <div class="ms-input-pill" id="msInputPill">
                             <input type="file" id="msgFileInput" style="display: none;" accept="image/*, audio/*" multiple>
                             <button id="msgAttachBtn" class="pill-btn"><i class="fa-solid fa-paperclip"></i></button>
@@ -105,7 +108,6 @@ export const MessagesView = {
                             <button id="msgVoiceBtn" class="pill-btn action-btn voice-mode"><i class="fa-solid fa-microphone"></i></button>
                             <button id="msgSendBtn" class="pill-btn action-btn send-mode" style="display:none;"><i class="fa-solid fa-arrow-up"></i></button>
                         </div>
-
                     </div>
                 </div>
 
@@ -118,6 +120,7 @@ export const MessagesView = {
             </div>
         </div>
 
+        <!-- МОДАЛКИ -->
         <div id="msgContextMenu" class="options-menu" style="display:none; position:fixed; z-index:999999; width:150px;">
             <div class="menu-item" id="ctxMsgReply"><i class="fa-solid fa-reply"></i><span>Ответить</span></div>
             <div class="menu-item" id="ctxMsgCopy"><i class="fa-regular fa-copy"></i><span>Копировать</span></div>
@@ -128,22 +131,35 @@ export const MessagesView = {
         <div id="createChatModal" class="modal-overlay">
             <div class="modal-content" style="max-width: 400px;">
                 <div class="modal-header">
-                    <span class="modal-title">Новый диалог</span>
+                    <span class="modal-title">Создать...</span>
                     <button id="closeCreateChatBtn" class="icon-btn-small"><i class="fa-solid fa-xmark"></i></button>
                 </div>
                 <div class="modal-body">
                     <div style="display:flex; gap:10px; margin-bottom: 15px;">
                         <button class="btn-post cc-type-btn active" data-type="direct" style="flex:1;">Личный</button>
                         <button class="btn-post cc-type-btn" data-type="group" style="flex:1; background:rgba(255,255,255,0.1);">Группа</button>
+                        <button class="btn-post cc-type-btn" data-type="channel" style="flex:1; background:rgba(255,255,255,0.1);">Канал</button>
                     </div>
                     <div id="ccGroupNameWrapper" style="display:none; margin-bottom:15px;">
-                        <input type="text" id="ccGroupName" class="poll-input" placeholder="Название группы...">
+                        <input type="text" id="ccGroupName" class="poll-input" placeholder="Название (Канала / Группы)...">
                     </div>
                     <div id="ccFriendsList" style="display: flex; flex-direction: column; gap: 8px; max-height: 250px; overflow-y: auto;"></div>
                     
                     <textarea id="ccInitialMessage" class="poll-input" placeholder="Написать первое сообщение... (необязательно)" style="margin-top: 15px; resize: vertical; min-height: 60px;"></textarea>
 
                     <button id="submitCreateChatBtn" class="btn-post" style="width: 100%; margin-top: 15px;" disabled>Создать</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Модалка Привязки Группы -->
+        <div id="linkGroupModal" class="modal-overlay">
+            <div class="modal-content" style="max-width: 400px; background: #141416;">
+                <div class="modal-header">
+                    <span class="modal-title">Привязать группу</span>
+                    <button id="closeLinkGroupModalBtn" class="icon-btn-small"><i class="fa-solid fa-xmark"></i></button>
+                </div>
+                <div class="modal-body" id="adminGroupsList" style="max-height: 400px; overflow-y: auto; padding: 10px; display: flex; flex-direction: column; gap: 8px;">
                 </div>
             </div>
         </div>
@@ -164,7 +180,7 @@ export const MessagesView = {
         <div id="inviteToGroupModal" class="modal-overlay" style="z-index: 1000000;">
             <div class="modal-content" style="max-width: 400px; background: #141416;">
                 <div class="modal-header">
-                    <span class="modal-title">Пригласить друга</span>
+                    <span class="modal-title">Пригласить участника</span>
                     <button id="closeInviteModalBtn" class="icon-btn-small"><i class="fa-solid fa-xmark"></i></button>
                 </div>
                 <div class="modal-body" id="inviteFriendsList" style="max-height: 400px; overflow-y: auto; padding: 10px; display: flex; flex-direction: column; gap: 8px;">

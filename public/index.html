@@ -65,7 +65,10 @@
     <!-- Плеер -->
     <div class="floating-mini-player hidden" id="floatingMiniPlayer">
         <div class="fmp-bg-blur" id="fmpBg"></div>
-        <div class="fmp-drag-handle"><div class="drag-bar"></div></div>
+        <div class="fmp-drag-handle">
+            <div class="drag-bar"></div>
+            <button id="fmpCloseBtn" class="fmp-close-btn" title="Закрыть плеер"><i class="fa-solid fa-xmark"></i></button>
+        </div>
         <div class="fmp-inner" id="fmpInner">
             <div class="fmp-progress-wrapper">
                 <input type="range" id="fmpProgressBar" class="fmp-slider thin" value="0" min="0" max="100">

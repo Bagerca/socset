@@ -36,6 +36,26 @@ class MessageService {
         return MessageRepository.getUsersByUsernames(friendsUsernames);
     }
 
+    getAdminGroups(username) {
+        return MessageRepository.getGroupsByAdmin(username);
+    }
+
+    linkGroup(channelId, groupId, username, io) {
+        const channelMember = MessageRepository.getMember(channelId, username);
+        if (!channelMember || channelMember.role !== 'admin') throw { status: 403, message: 'Только создатель канала может привязать группу' };
+        
+        if (groupId) {
+            const groupMember = MessageRepository.getMember(groupId, username);
+            if (!groupMember || (groupMember.role !== 'admin' && groupMember.role !== 'moderator')) {
+                throw { status: 403, message: 'Вы должны быть администратором группы' };
+            }
+        }
+
+        MessageRepository.updateLinkedChat(channelId, groupId);
+        const text = groupId ? `🔗 Группа привязана для комментариев.` : `🔗 Группа для комментариев отвязана.`;
+        this._sendSystemMessage(channelId, text, io);
+    }
+
     createChat(sender, type, name, members, initialMessage, io) {
         const friends = MessageRepository.getFriends(sender);
         
@@ -47,7 +67,6 @@ class MessageService {
         
         const allMembers = [...new Set([...members, sender])];
 
-        // Обработка личного чата
         if (type === 'direct') {
             if (allMembers.length !== 2) throw { status: 400, message: 'Для личного чата нужно 2 пользователя' };
             const target = allMembers.find(m => m !== sender);
@@ -67,12 +86,11 @@ class MessageService {
             }
         }
 
-        // Создание нового чата
         const chatId = randomUUID();
         const timestamp = Date.now();
 
         db.transaction(() => {
-            MessageRepository.createChat({ id: chatId, type, name: type === 'group' ? name : null, updated_at: timestamp });
+            MessageRepository.createChat({ id: chatId, type, name: (type === 'group' || type === 'channel') ? name : null, updated_at: timestamp });
             
             allMembers.forEach(m => {
                 const role = m === sender ? 'admin' : 'member';
@@ -174,8 +192,8 @@ class MessageService {
                 chatAvatar = user ? user.avatar : 'https://placehold.co/150/333/fff?text=U';
                 targetUser = { username: otherUser, ...user };
             } else {
-                chatName = chat.name || 'Группа';
-                chatAvatar = chat.avatar || 'https://placehold.co/150/7c3aed/fff?text=G';
+                chatName = chat.name || (chat.type === 'channel' ? 'Канал' : 'Группа');
+                chatAvatar = chat.avatar || (chat.type === 'channel' ? 'https://placehold.co/150/e8115b/fff?text=CH' : 'https://placehold.co/150/7c3aed/fff?text=G');
             }
 
             const lastMsg = MessageRepository.getLastMessage(chat.id, chat.cleared_at);
@@ -185,14 +203,12 @@ class MessageService {
         });
     }
 
-    // Измененный метод с поддержкой пагинации
     getMessages(chatId, username, io, beforeTimestamp = null) {
         const memberRow = MessageRepository.getMember(chatId, username);
         if (!memberRow || memberRow.status === 'left' || memberRow.status === 'declined') throw { status: 403, message: 'Доступ запрещен' };
 
         const chat = MessageRepository.getChatById(chatId);
         
-        // Помечаем как прочитанные, только если грузим свежие (самые новые) сообщения
         if (!beforeTimestamp && memberRow.status === 'joined') {
             const hasChanges = MessageRepository.markMessagesAsRead(chatId, username, memberRow.cleared_at);
             if (hasChanges && io) {
@@ -201,7 +217,6 @@ class MessageService {
             }
         }
 
-        // Запрашиваем 50 сообщений у репозитория с учетом beforeTimestamp
         const messages = MessageRepository.getMessagesWithReplyInfo(chatId, memberRow.cleared_at, beforeTimestamp, 50);
 
         const enrichedMessages = messages.map(m => {
@@ -223,7 +238,7 @@ class MessageService {
             };
         });
 
-        return { messages: enrichedMessages, blocked_by: chat.blocked_by, chatType: chat.type, myStatus: memberRow.status };
+        return { messages: enrichedMessages, blocked_by: chat.blocked_by, chatType: chat.type, linkedChatId: chat.linked_chat_id, myRole: memberRow.role, myStatus: memberRow.status };
     }
 
     getChatDetails(chatId, username, onlineUsersMap) {
@@ -242,7 +257,7 @@ class MessageService {
         const media = mediaMessages.map(m => m.content.slice(5, -1));
         
         let stats = null;
-        if (chat.type === 'group') {
+        if (chat.type === 'group' || chat.type === 'channel') {
             const totalMessages = MessageRepository.getTotalMessagesCount(chatId);
             const activeCount = enrichedMembers.filter(m => m.status === 'joined').length;
             stats = { totalMessages, totalMedia: media.length, activeMembers: activeCount };
@@ -254,11 +269,11 @@ class MessageService {
     updateGroup(chatId, username, name, avatar, description, io) {
         const memberRow = MessageRepository.getMember(chatId, username);
         if (!memberRow || (memberRow.role !== 'admin' && memberRow.role !== 'moderator')) {
-            throw { status: 403, message: 'У вас нет прав для изменения настроек группы' };
+            throw { status: 403, message: 'У вас нет прав' };
         }
 
         MessageRepository.updateGroupChat(chatId, name, avatar, description, Date.now());
-        this._sendSystemMessage(chatId, `⚙️ @${username} обновил профиль группы.`, io);
+        this._sendSystemMessage(chatId, `⚙️ @${username} обновил профиль.`, io);
         
         if (io) {
             const members = MessageRepository.getActiveMembers(chatId);
@@ -268,13 +283,13 @@ class MessageService {
 
     manageMember(chatId, myUsername, targetUsername, action, newRole, io) {
         const chat = MessageRepository.getChatById(chatId);
-        if (chat.type !== 'group') throw { status: 400, message: 'Доступно только в группах' };
+        if (chat.type !== 'group' && chat.type !== 'channel') throw { status: 400, message: 'Доступно только в группах/каналах' };
 
         const myRow = MessageRepository.getMember(chatId, myUsername);
         const targetRow = MessageRepository.getMember(chatId, targetUsername);
         
         if (!myRow || (myRow.role !== 'admin' && myRow.role !== 'moderator')) {
-            throw { status: 403, message: 'Недостаточно прав для управления участниками' };
+            throw { status: 403, message: 'Недостаточно прав' };
         }
 
         if (action === 'invite') {
@@ -284,7 +299,7 @@ class MessageService {
 
             const exist = MessageRepository.getMember(chatId, targetUsername);
             if (exist && (exist.status === 'joined' || exist.status === 'invited')) {
-                throw { status: 400, message: 'Пользователь уже в группе или приглашен' };
+                throw { status: 400, message: 'Пользователь уже здесь' };
             }
 
             if (exist) {
@@ -298,7 +313,7 @@ class MessageService {
             return;
         }
 
-        if (!targetRow) throw { status: 404, message: 'Пользователь не найден в группе' };
+        if (!targetRow) throw { status: 404, message: 'Пользователь не найден' };
 
         if (action === 'kick') {
             MessageRepository.updateMemberStatus(chatId, targetUsername, 'left');
@@ -329,17 +344,27 @@ class MessageService {
         }
     }
 
+    viewMessage(messageId, username) {
+        MessageRepository.addMessageView(messageId, username);
+    }
+
     sendMessage(chatId, sender, content, replyToId, io) {
         const chat = MessageRepository.getChatWithTypeAndMember(chatId, sender);
         if (!chat) throw { status: 403, message: 'Чат не найден или нет доступа' };
         if (chat.blocked_by) throw { status: 403, message: 'Чат заблокирован' };
         if (chat.status === 'invited') throw { status: 403, message: 'Сначала примите приглашение' };
 
+        // ПРОВЕРКА ПРАВ КАНАЛА
+        if (chat.type === 'channel' && chat.myRole === 'member') {
+            throw { status: 403, message: 'Только администраторы могут писать в канал' };
+        }
+
         const now = Date.now();
         const newMsgId = randomUUID();
         
         let reInvitedUsers = [];
         let replyInfo = null;
+        let forwardedToId = null;
 
         db.transaction(() => {
             if (replyToId) {
@@ -366,14 +391,23 @@ class MessageService {
             }
 
             MessageRepository.createMessage({
-                id: newMsgId, chat_id: chatId, sender_username: sender, content, timestamp: now, is_read: 0, is_edited: 0, reply_to_id: replyToId
+                id: newMsgId, chat_id: chatId, sender_username: sender, content, timestamp: now, is_read: 0, is_edited: 0, reply_to_id: replyToId, views_count: chat.type === 'channel' ? 1 : 0
             });
             MessageRepository.updateChatUpdatedAt(chatId, now);
+
+            // АВТО-ПЕРЕСЫЛКА В ПРИВЯЗАННУЮ ГРУППУ
+            if (chat.type === 'channel' && chat.linked_chat_id) {
+                forwardedToId = randomUUID();
+                MessageRepository.createMessage({
+                    id: forwardedToId, chat_id: chat.linked_chat_id, sender_username: sender, content, timestamp: now, is_read: 0, is_edited: 0, forwarded_from_id: newMsgId
+                });
+                MessageRepository.updateChatUpdatedAt(chat.linked_chat_id, now);
+            }
         })();
 
         const user = UserRepository.findAuthorData(sender);
         const enrichedMsg = { 
-            id: newMsgId, chat_id: chatId, sender_username: sender, content, timestamp: now, is_read: 0, is_edited: 0, reply_to_id: replyToId,
+            id: newMsgId, chat_id: chatId, sender_username: sender, content, timestamp: now, is_read: 0, is_edited: 0, reply_to_id: replyToId, views_count: chat.type === 'channel' ? 1 : 0,
             authorName: user.name, authorAvatar: user.avatar, frameId: user.frameId,
             reply_sender: replyInfo?.sender_username, reply_content: replyInfo?.content, replyAuthorName: replyInfo?.authorName 
         };
@@ -382,6 +416,12 @@ class MessageService {
             const members = MessageRepository.getActiveMembers(chatId);
             members.forEach(m => { io.to(`user_${m.username}`).emit('new_message', enrichedMsg); });
             reInvitedUsers.forEach(ru => { io.to(`user_${ru}`).emit('chat_invited', { chatId, type: chat.type, name: chat.name, sender }); });
+            
+            if (forwardedToId) {
+                const groupMembers = MessageRepository.getActiveMembers(chat.linked_chat_id);
+                const groupMsg = { ...enrichedMsg, id: forwardedToId, chat_id: chat.linked_chat_id, forwarded_from_id: newMsgId };
+                groupMembers.forEach(m => { io.to(`user_${m.username}`).emit('new_message', groupMsg); });
+            }
         }
         
         return { message: enrichedMsg, chatId };

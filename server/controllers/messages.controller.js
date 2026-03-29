@@ -8,9 +8,17 @@ class MessagesController {
         return { friends: MessageService.getFriends(req.user.username) };
     });
 
+    getAdminGroups = withHandler((req) => {
+        return { groups: MessageService.getAdminGroups(req.user.username) };
+    });
+
     createChat = withHandler((req, res, ctx) => {
         const { type, name, members, initialMessage } = req.body;
         return MessageService.createChat(req.user.username, type, name, members, initialMessage, ctx.io);
+    });
+
+    linkGroup = withHandler((req, res, ctx) => {
+        MessageService.linkGroup(req.body.channelId, req.body.groupId, req.user.username, ctx.io);
     });
 
     respondInvite = withHandler((req, res, ctx) => {
@@ -51,6 +59,10 @@ class MessagesController {
 
     markAsRead = withHandler((req, res, ctx) => {
         MessageService.markAsRead(req.body.chatId, req.user.username, ctx.io);
+    });
+
+    viewMessage = withHandler((req) => {
+        MessageService.viewMessage(req.body.messageId, req.user.username);
     });
 
     typing = withHandler((req, res, ctx) => {

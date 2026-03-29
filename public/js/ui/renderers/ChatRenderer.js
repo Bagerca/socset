@@ -30,6 +30,7 @@ export class ChatRenderer {
         if (chat.type === 'direct' && chat.targetUser?.isVerified) {
             nameHTML += ' <i class="fa-solid fa-circle-check" style="color:#1da1f2; font-size:12px; margin-left:4px;"></i>';
         }
+        let typeBadge = chat.type === 'group' ? 'Группа' : (chat.type === 'channel' ? 'Канал' : `@${escapeHTML(chat.targetUser?.username || '')}`);
 
         return `
             <div class="search-dropdown-item" data-id="${chat.id}">
@@ -42,7 +43,7 @@ export class ChatRenderer {
                         ${nameHTML}
                     </div>
                     <div style="font-size:12px; color:var(--text-muted); white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">
-                        ${chat.type === 'group' ? 'Группа' : `@${escapeHTML(chat.targetUser?.username || '')}`}
+                        ${typeBadge}
                     </div>
                 </div>
             </div>
@@ -58,6 +59,9 @@ export class ChatRenderer {
             const inviteDot = chat.myStatus === 'invited' ? `<div style="width:10px;height:10px;border-radius:50%;background:#44bd32;margin-right:5px;" title="Новое приглашение"></div>` : '';
             
             const msgClass = chat.myStatus === 'invited' ? 'ms-chat-item-msg is-invite-msg' : 'ms-chat-item-msg';
+            
+            let namePrefix = '';
+            if (chat.type === 'channel') namePrefix = '<i class="fa-solid fa-bullhorn" style="color:var(--accent-games); margin-right: 6px; font-size: 12px;"></i>';
 
             return `
                 <div class="ms-chat-item ${activeChatId === chat.id ? 'active' : ''}" data-id="${chat.id}">
@@ -67,7 +71,7 @@ export class ChatRenderer {
                     </div>
                     <div class="ms-chat-item-info">
                         <div class="ms-chat-item-top">
-                            <span class="ms-chat-item-name" style="display:flex;align-items:center;">${inviteDot}${escapeHTML(chat.chatName)}</span>
+                            <span class="ms-chat-item-name" style="display:flex;align-items:center;">${namePrefix}${inviteDot}${escapeHTML(chat.chatName)}</span>
                             <span class="ms-chat-item-time">${isPinned ? '<i class="fa-solid fa-thumbtack"></i> ' : ''}${formatTime(chat.updated_at)}</span>
                         </div>
                         <div class="ms-chat-item-bottom">
@@ -80,7 +84,9 @@ export class ChatRenderer {
         }).join('');
     }
 
-    renderMessages(messages, currentUserUsername) {
+    renderMessages(messages, currentUserUsername, chatType, linkedChatId) {
+        const isChannel = chatType === 'channel';
+
         return messages.map(msg => {
             if (msg.sender_username === 'TetlaBot') {
                 let systemContent = escapeHTML(msg.content).replace(/@([a-zA-Z0-9_]+)/g, '<span class="msg-system-mention" data-username="$1" style="cursor:pointer;">@$1</span>');
@@ -111,7 +117,6 @@ export class ChatRenderer {
             let textContent = rawContent.trim();
             let contentHTML = '';
 
-            // --- МОДУЛЬ: РЕПЛАЙ ---
             if (msg.reply_to_id && msg.replyAuthorName) {
                 const snippet = this._getSnippet(msg.reply_content);
                 contentHTML += `
@@ -125,51 +130,43 @@ export class ChatRenderer {
                 `;
             }
 
-            // --- МОДУЛЬ: ФОТО ---
             if (images.length > 0) {
-                let gridClass = '';
-                let imgsHTML = '';
-                const imagesAttr = escapeHTML(images.join(',')); 
-
+                let gridClass = ''; let imgsHTML = ''; const imagesAttr = escapeHTML(images.join(',')); 
                 if (images.length === 1) { gridClass = 'msg-grid-1'; imgsHTML = `<img src="${images[0]}" class="cycle-media-img" data-url="${images[0]}">`; } 
                 else if (images.length === 2) { gridClass = 'msg-grid-2'; imgsHTML = images.map(url => `<img src="${url}" class="cycle-media-img" data-url="${url}">`).join(''); } 
                 else if (images.length === 3) { gridClass = 'msg-grid-3'; imgsHTML = images.map(url => `<img src="${url}" class="cycle-media-img" data-url="${url}">`).join(''); } 
                 else {
-                    gridClass = 'msg-grid-4';
-                    const extraCount = images.length - 4;
+                    gridClass = 'msg-grid-4'; const extraCount = images.length - 4;
                     imgsHTML = `
                         <img src="${images[0]}" class="cycle-media-img" data-url="${images[0]}">
                         <img src="${images[1]}" class="cycle-media-img" data-url="${images[1]}">
                         <img src="${images[2]}" class="cycle-media-img" data-url="${images[2]}">
-                        <div class="msg-grid-more-wrapper cycle-media-img" data-url="${images[3]}">
-                            <img src="${images[3]}">
-                            ${extraCount > 0 ? `<div class="msg-grid-overlay">+${extraCount}</div>` : ''}
-                        </div>
+                        <div class="msg-grid-more-wrapper cycle-media-img" data-url="${images[3]}"><img src="${images[3]}">${extraCount > 0 ? `<div class="msg-grid-overlay">+${extraCount}</div>` : ''}</div>
                     `;
                 }
-                
                 contentHTML += `<div class="msg-module-media"><div class="msg-image-grid ${gridClass}" data-images="${imagesAttr}">${imgsHTML}</div></div>`;
             }
 
-            // --- МОДУЛЬ: АУДИО ---
             if (audios.length > 0) {
                 let audiosHTML = audios.map(a => MessageBuilder.buildAudioPlayer(a.url, a.waveform)).join('');
                 contentHTML += `<div class="msg-module-audio">${audiosHTML}</div>`;
             }
 
-            // --- МОДУЛЬ: ТЕКСТ ---
             if (textContent) {
                 contentHTML += `<div class="msg-module-text">${parseFormatting(textContent)}</div>`;
             }
 
             let statusIcon = '';
-            if (isMe) {
+            if (isChannel) {
+                statusIcon = `<i class="fa-regular fa-eye" style="color:var(--text-muted); font-size:10px;"></i> <span style="color:var(--text-muted); font-size:11px; margin-left: 2px;">${msg.views_count || 1}</span>`;
+            } else if (isMe) {
                 if (msg.is_read) statusIcon = '<i class="fa-solid fa-check-double" style="color:#fff;"></i>';
                 else statusIcon = '<i class="fa-solid fa-check" style="color:rgba(255,255,255,0.6);"></i>';
             }
 
             let avatarHTML = '';
-            if (!isMe) {
+            // В канале не показываем аватарки, если это не группа
+            if (!isMe && !isChannel) {
                 avatarHTML = `
                     <div class="msg-avatar-wrapper" data-username="${escapeHTML(msg.sender_username)}" style="position:relative; width:36px; height:36px; flex-shrink:0; align-self:flex-end; margin-bottom: 20px; cursor:pointer;">
                         <img src="${msg.authorAvatar}" style="width:100%;height:100%;border-radius:50%;object-fit:cover;" onerror="this.src='img/logo.svg'">
@@ -178,12 +175,28 @@ export class ChatRenderer {
                 `;
             }
 
+            let commentBtnHTML = '';
+            if (isChannel && linkedChatId) {
+                commentBtnHTML = `
+                    <div class="msg-module-comments-btn" data-id="${msg.id}" data-linked="${linkedChatId}" style="border-top: 1px solid rgba(255,255,255,0.05); padding: 8px; text-align: center; font-size: 13px; font-weight: 600; color: var(--accent-games); cursor: pointer; transition: 0.2s;">
+                        <i class="fa-regular fa-comments"></i> Обсудить
+                    </div>
+                `;
+            }
+
+            let forwardedHTML = '';
+            if (msg.forwarded_from_id) {
+                forwardedHTML = `<div style="font-size:11px; color:var(--accent-games); padding: 6px 14px 0 14px; font-weight:600;"><i class="fa-solid fa-share" style="margin-right:4px;"></i> Переслано из канала</div>`;
+            }
+
             return `
-                <div class="msg-row ${isMe ? 'me' : 'them'}" data-id="${msg.id}">
+                <div class="msg-row ${isMe && !isChannel ? 'me' : 'them'} message-item" data-id="${msg.id}">
                     ${avatarHTML}
-                    <div class="msg-content-col ${isMe ? 'me' : 'them'}">
-                        <div class="msg-bubble ${isMe ? 'me' : 'them'}" data-id="${msg.id}" data-sender="${msg.sender_username}" data-author="${escapeHTML(msg.authorName || msg.sender_username)}" data-raw="${escapeHTML(msg.content)}">
+                    <div class="msg-content-col ${isMe && !isChannel ? 'me' : 'them'}">
+                        <div class="msg-bubble ${isMe && !isChannel ? 'me' : 'them'}" data-id="${msg.id}" data-sender="${msg.sender_username}" data-author="${escapeHTML(msg.authorName || msg.sender_username)}" data-raw="${escapeHTML(msg.content)}">
+                            ${forwardedHTML}
                             ${contentHTML}
+                            ${commentBtnHTML}
                         </div>
                         <div class="msg-meta">${formatTime(msg.timestamp)} ${msg.is_edited ? '<i>(изм.)</i>' : ''} ${statusIcon}</div>
                     </div>
@@ -271,8 +284,9 @@ export class ChatRenderer {
     renderGroupDetails(chatInfo, myRole, members, media, stats) {
         const isAdmin = myRole === 'admin' || myRole === 'moderator';
         const groupDesc = chatInfo.description || '';
-        const groupAvatar = chatInfo.avatar || 'https://placehold.co/150/7c3aed/fff?text=G';
-        const groupName = chatInfo.name || 'Группа';
+        const groupAvatar = chatInfo.avatar || (chatInfo.type === 'channel' ? 'https://placehold.co/150/e8115b/fff?text=CH' : 'https://placehold.co/150/7c3aed/fff?text=G');
+        const groupName = chatInfo.name || (chatInfo.type === 'channel' ? 'Канал' : 'Группа');
+        const typeLabel = chatInfo.type === 'channel' ? 'Канал' : 'Группа';
 
         const infoCardHTML = `
             <div class="cd-group-info-card" id="cdGroupInfoCard">
@@ -280,7 +294,7 @@ export class ChatRenderer {
                     <div class="cd-gic-top">
                         <img src="${groupAvatar}" class="cd-gic-avatar" onerror="this.src='img/logo.svg'">
                         <div class="cd-gic-meta">
-                            <div class="cd-gic-name">${escapeHTML(groupName)}</div>
+                            <div class="cd-gic-name">${escapeHTML(groupName)} <span style="font-size: 10px; background: rgba(255,255,255,0.1); padding: 2px 6px; border-radius: 4px; vertical-align: middle;">${typeLabel}</span></div>
                             <div class="cd-gic-stats">${stats.activeMembers} участников • ${stats.totalMessages} сообщений • ${stats.totalMedia} медиа</div>
                         </div>
                         ${isAdmin ? `<button id="btnEditGroupProfile" class="icon-btn cd-gic-edit-btn" title="Редактировать"><i class="fa-solid fa-pen"></i></button>` : ''}
@@ -296,12 +310,12 @@ export class ChatRenderer {
                             <div class="cd-group-avatar-overlay"><i class="fa-solid fa-camera"></i></div>
                         </div>
                         <div class="cd-gic-meta">
-                            <input type="text" id="editGroupNameInput" class="cd-group-name-input" value="${escapeHTML(groupName)}" placeholder="Название группы...">
+                            <input type="text" id="editGroupNameInput" class="cd-group-name-input" value="${escapeHTML(groupName)}" placeholder="Название...">
                             <div class="cd-gic-stats" style="margin-top: 4px;">${stats.activeMembers} участников • ${stats.totalMessages} сообщений</div>
                         </div>
                     </div>
                     <div class="cd-desc-editor-wrapper">
-                        <div id="editGroupDescInput" class="cd-group-desc-input" contenteditable="true" placeholder="Напишите о чём эта группа...">${escapeHTML(groupDesc)}</div>
+                        <div id="editGroupDescInput" class="cd-group-desc-input" contenteditable="true" placeholder="Напишите о чём этот чат...">${escapeHTML(groupDesc)}</div>
                         <div class="cd-desc-hint">Поддерживается разметка: **жирный**, &gt; цитата, ||спойлер||</div>
                     </div>
                     <div class="cd-gic-actions">

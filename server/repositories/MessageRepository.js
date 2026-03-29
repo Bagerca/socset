@@ -12,17 +12,29 @@ class MessageRepository {
     }
     
     getChatWithTypeAndMember(chatId, username) {
-        return db.prepare('SELECT c.*, cm.status FROM chats c JOIN chat_members cm ON c.id = cm.chat_id WHERE c.id = ? AND cm.username = ?').get(chatId, username);
+        return db.prepare('SELECT c.*, cm.status, cm.role as myRole FROM chats c JOIN chat_members cm ON c.id = cm.chat_id WHERE c.id = ? AND cm.username = ?').get(chatId, username);
     }
     
     getUserChats(username) {
         return db.prepare(`
-            SELECT c.*, cm.status as myStatus, cm.cleared_at 
+            SELECT c.*, cm.status as myStatus, cm.role as myRole, cm.cleared_at 
             FROM chats c 
             JOIN chat_members cm ON c.id = cm.chat_id 
             WHERE cm.username = ? AND cm.status NOT IN ('left', 'declined') 
             ORDER BY c.updated_at DESC
         `).all(username);
+    }
+
+    getGroupsByAdmin(username) {
+        return db.prepare(`
+            SELECT c.* FROM chats c
+            JOIN chat_members cm ON c.id = cm.chat_id
+            WHERE cm.username = ? AND cm.role IN ('admin', 'moderator') AND c.type = 'group'
+        `).all(username);
+    }
+
+    updateLinkedChat(channelId, groupId) {
+        db.prepare('UPDATE chats SET linked_chat_id = ? WHERE id = ?').run(groupId, channelId);
     }
     
     getDirectChatBetweenUsers(user1, user2) {
@@ -107,11 +119,12 @@ class MessageRepository {
     // --- MESSAGES ---
     createMessage(msg) {
         db.prepare(`
-            INSERT INTO messages (id, chat_id, sender_username, content, timestamp, is_read, is_edited, reply_to_id) 
-            VALUES (@id, @chat_id, @sender_username, @content, @timestamp, @is_read, @is_edited, @reply_to_id)
+            INSERT INTO messages (id, chat_id, sender_username, content, timestamp, is_read, is_edited, reply_to_id, forwarded_from_id, views_count) 
+            VALUES (@id, @chat_id, @sender_username, @content, @timestamp, @is_read, @is_edited, @reply_to_id, @forwarded_from_id, 0)
         `).run({
             id: msg.id, chat_id: msg.chat_id, sender_username: msg.sender_username, content: msg.content,
-            timestamp: msg.timestamp, is_read: msg.is_read || 0, is_edited: msg.is_edited || 0, reply_to_id: msg.reply_to_id || null
+            timestamp: msg.timestamp, is_read: msg.is_read || 0, is_edited: msg.is_edited || 0, 
+            reply_to_id: msg.reply_to_id || null, forwarded_from_id: msg.forwarded_from_id || null
         });
     }
     
@@ -119,7 +132,6 @@ class MessageRepository {
         return db.prepare('SELECT * FROM messages WHERE id = ?').get(id);
     }
     
-    // ОПТИМИЗИРОВАНО: Поддержка курсорной пагинации
     getMessagesWithReplyInfo(chatId, sinceTimestamp, beforeTimestamp = null, limit = 50) {
         let query = `
             SELECT m.*, r.sender_username as reply_sender, r.content as reply_content 
@@ -134,12 +146,11 @@ class MessageRepository {
             params.push(beforeTimestamp);
         }
 
-        // Забираем последнюю пачку (с конца) и переворачиваем
         query += ' ORDER BY m.timestamp DESC LIMIT ?';
         params.push(limit);
 
         const rows = db.prepare(query).all(...params);
-        return rows.reverse(); // Восстанавливаем хронологический порядок для UI
+        return rows.reverse(); 
     }
     
     getLastMessage(chatId, sinceTimestamp) {
@@ -175,6 +186,16 @@ class MessageRepository {
     
     deleteChatMessages(chatId) {
         db.prepare('DELETE FROM messages WHERE chat_id = ?').run(chatId);
+    }
+
+    // --- VIEWS (Для Каналов) ---
+    addMessageView(messageId, username) {
+        const info = db.prepare('INSERT OR IGNORE INTO message_views (message_id, username) VALUES (?, ?)').run(messageId, username);
+        if (info.changes > 0) {
+            db.prepare('UPDATE messages SET views_count = views_count + 1 WHERE id = ?').run(messageId);
+            return true;
+        }
+        return false;
     }
 
     // --- FRIENDS & USERS HELPER ---
