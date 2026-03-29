@@ -119,14 +119,27 @@ class MessageRepository {
         return db.prepare('SELECT * FROM messages WHERE id = ?').get(id);
     }
     
-    getMessagesWithReplyInfo(chatId, sinceTimestamp) {
-        return db.prepare(`
+    // ОПТИМИЗИРОВАНО: Поддержка курсорной пагинации
+    getMessagesWithReplyInfo(chatId, sinceTimestamp, beforeTimestamp = null, limit = 50) {
+        let query = `
             SELECT m.*, r.sender_username as reply_sender, r.content as reply_content 
             FROM messages m 
             LEFT JOIN messages r ON m.reply_to_id = r.id 
-            WHERE m.chat_id = ? AND m.timestamp > ? 
-            ORDER BY m.timestamp ASC
-        `).all(chatId, sinceTimestamp);
+            WHERE m.chat_id = ? AND m.timestamp > ?
+        `;
+        const params = [chatId, sinceTimestamp];
+
+        if (beforeTimestamp) {
+            query += ' AND m.timestamp < ?';
+            params.push(beforeTimestamp);
+        }
+
+        // Забираем последнюю пачку (с конца) и переворачиваем
+        query += ' ORDER BY m.timestamp DESC LIMIT ?';
+        params.push(limit);
+
+        const rows = db.prepare(query).all(...params);
+        return rows.reverse(); // Восстанавливаем хронологический порядок для UI
     }
     
     getLastMessage(chatId, sinceTimestamp) {

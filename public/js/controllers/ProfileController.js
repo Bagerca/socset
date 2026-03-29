@@ -6,6 +6,7 @@ import { ProfileAPI } from '../api/ProfileAPI.js';
 import { RichTextEditor } from '../ui/editors/RichTextEditor.js';
 import { CommentContextMenu } from '../ui/widgets/CommentContextMenu.js';
 import { ProfileSettingsModal } from '../ui/modals/ProfileSettingsModal.js';
+import { UploadAPI } from '../api/UploadAPI.js';
 
 export class ProfileController {
     constructor(stores, targetUsername) {
@@ -39,6 +40,7 @@ export class ProfileController {
         this.publishBtn = document.getElementById('publishBtn');
         this.postInput = document.getElementById('postInput');
         this.composeBox = document.getElementById('profileComposeBox');
+        this.attachmentPreview = document.getElementById('attachmentPreview');
 
         this.tabBtns = document.querySelectorAll('.profile-tab');
         this.tabPosts = document.getElementById('tabContentPosts');
@@ -47,6 +49,10 @@ export class ProfileController {
         this.wallSendBtn = document.getElementById('wallSendBtn');
         this.wallList = document.getElementById('wallPostsList');
         this.wallUserAvatar = document.getElementById('wallUserAvatar');
+
+        this.pendingMedia = [];
+        this.postFileInput = document.getElementById('postFileInput');
+        this.attachMediaBtn = document.getElementById('attachMediaBtn');
 
         if (this.postInput) {
             this.editor = new RichTextEditor(this.postInput, () => this.checkPublishState());
@@ -57,7 +63,6 @@ export class ProfileController {
             if (postEl && postEl.__component) postEl.__component._renderComments();
         });
 
-        // Инициализируем наш новый класс-модалку
         if (this.isMyProfile) {
             this.settingsModal = new ProfileSettingsModal(this.stores, async (newData) => {
                 await this.stores.auth.updateProfile(newData);
@@ -115,6 +120,10 @@ export class ProfileController {
 
         this.initEventListeners();
         
+        // НОВЫЕ ТОЧЕЧНЫЕ СОБЫТИЯ
+        document.addEventListener('cycle:post_added', (e) => this.handlePostAdded(e.detail), { signal: this.abortController.signal });
+        document.addEventListener('cycle:post_deleted', (e) => this.handlePostDeleted(e.detail), { signal: this.abortController.signal });
+        // Оставляем это на случай глобального рефреша (но оно больше не дергается при добавлении/удалении)
         document.addEventListener('cycle:posts_updated', () => this.renderPosts(), { signal: this.abortController.signal });
 
         document.addEventListener('cycle:wall_updated', (e) => {
@@ -134,8 +143,30 @@ export class ProfileController {
         }
     }
 
+    handlePostAdded(post) {
+        if (post.author.username !== this.currentUser.username) return;
+
+        const empty = this.postsContainer.querySelector('.text-muted');
+        if (empty && empty.textContent.includes('Нет публикаций')) empty.remove();
+
+        const comp = new PostComponent(post, this.stores);
+        this.postsContainer.prepend(comp.getElement());
+    }
+
+    handlePostDeleted(postId) {
+        const el = this.postsContainer.querySelector(`.post[data-id="${postId}"]`);
+        if (el) el.remove();
+        if (this.postsContainer.children.length === 0) {
+            this.postsContainer.innerHTML = `<div style="text-align:center; padding: 40px; color: var(--text-muted);">Нет публикаций</div>`;
+        }
+    }
+
     checkPublishState() { 
-        if (this.publishBtn && this.postInput) this.publishBtn.disabled = this.postInput.innerText.trim().length === 0; 
+        if (this.publishBtn && this.postInput) {
+            const hasText = this.postInput.innerText.trim().length > 0;
+            const hasMedia = this.pendingMedia.length > 0;
+            this.publishBtn.disabled = !(hasText || hasMedia); 
+        }
     }
 
     renderProfileHeader() {
@@ -470,6 +501,81 @@ export class ProfileController {
         modal.classList.add('active');
     }
 
+    async handleFileSelect() {
+        if (this.postFileInput.files.length > 0) {
+            const files = Array.from(this.postFileInput.files);
+            for (const f of files) {
+                if (f.type.startsWith('image/')) {
+                    const compressedFile = await this._compressImage(f);
+                    this.pendingMedia.push({ type: 'image', id: Math.random().toString(36).substr(2, 9), file: compressedFile, url: URL.createObjectURL(compressedFile) });
+                } else if (f.type.startsWith('audio/')) {
+                    this.pendingMedia.push({ type: 'audio', id: Math.random().toString(36).substr(2, 9), file: f, url: null, name: f.name });
+                }
+            }
+            this.postFileInput.value = '';
+            this.updateAttachmentPreview();
+            this.checkPublishState();
+        }
+    }
+
+    async _compressImage(file) {
+        return new Promise((resolve) => {
+            const reader = new FileReader();
+            reader.readAsDataURL(file);
+            reader.onload = (e) => {
+                const img = new Image();
+                img.src = e.target.result;
+                img.onload = () => {
+                    const canvas = document.createElement('canvas');
+                    let w = img.width, h = img.height;
+                    const max = 1200;
+                    if (w > max || h > max) { const ratio = Math.min(max / w, max / h); w *= ratio; h *= ratio; }
+                    canvas.width = w; canvas.height = h;
+                    const ctx = canvas.getContext('2d'); ctx.drawImage(img, 0, 0, w, h);
+                    canvas.toBlob((blob) => { resolve(new File([blob], "image.jpg", { type: "image/jpeg" })); }, 'image/jpeg', 0.85);
+                };
+                img.onerror = () => resolve(file); 
+            };
+            reader.onerror = () => resolve(file);
+        });
+    }
+
+    updateAttachmentPreview() {
+        if (this.pendingMedia.length === 0) {
+            this.attachmentPreview.style.display = 'none';
+            this.attachmentPreview.innerHTML = '';
+            return;
+        }
+        this.attachmentPreview.style.display = 'flex';
+        this.attachmentPreview.style.gap = '10px';
+        this.attachmentPreview.style.flexWrap = 'wrap';
+        this.attachmentPreview.innerHTML = '';
+
+        this.pendingMedia.forEach(media => {
+            const el = document.createElement('div');
+            el.className = 'attached-content-preview';
+            let imgHTML = media.type === 'image' 
+                ? `<img src="${media.url}" style="width:32px; height:32px; border-radius:4px; object-fit:cover;">`
+                : `<div style="width:32px; height:32px; border-radius:4px; background:rgba(255,255,255,0.1); display:flex; align-items:center; justify-content:center; color:var(--accent-games);"><i class="fa-solid fa-music"></i></div>`;
+            let title = media.type === 'image' ? 'Фотография' : media.name;
+            
+            el.innerHTML = `
+                ${imgHTML}
+                <div style="font-size:14px; flex:1; min-width:0;">
+                    <div style="white-space:nowrap; overflow:hidden; text-overflow:ellipsis;"><strong>${escapeHTML(title)}</strong></div>
+                    <div style="color:var(--text-muted); font-size:12px;">Загруженный файл</div>
+                </div>
+                <div class="remove-btn"><i class="fa-solid fa-xmark"></i></div>
+            `;
+            el.querySelector('.remove-btn').addEventListener('click', () => {
+                this.pendingMedia = this.pendingMedia.filter(m => m.id !== media.id);
+                this.updateAttachmentPreview();
+                this.checkPublishState();
+            });
+            this.attachmentPreview.appendChild(el);
+        });
+    }
+
     initEventListeners() {
         const signal = this.abortController.signal;
 
@@ -597,13 +703,45 @@ export class ProfileController {
             this.closeSelectionBtn.addEventListener('click', () => { if(this.selectionModal) this.selectionModal.classList.remove('active'); }, { signal });
         }
         
+        if (this.attachMediaBtn && this.postFileInput) {
+            this.attachMediaBtn.addEventListener('click', () => this.postFileInput.click());
+            this.postFileInput.addEventListener('change', async () => this.handleFileSelect());
+        }
+
         if (this.publishBtn && this.editor) {
-            this.publishBtn.addEventListener('click', () => { 
-                const text = this.editor.getFormattedContent(); 
-                if (text) { 
-                    this.stores.posts.addPost(text); 
-                    this.editor.clear(); 
-                    this.checkPublishState(); 
+            this.publishBtn.addEventListener('click', async () => { 
+                let text = this.editor.getFormattedContent(); 
+
+                if (this.pendingMedia && this.pendingMedia.length > 0) {
+                    this.publishBtn.disabled = true; 
+                    const origText = this.publishBtn.textContent;
+                    this.publishBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i>';
+                    
+                    let hasErrors = false;
+                    for (const att of this.pendingMedia) {
+                        try {
+                            const res = await UploadAPI.uploadFile(att.file);
+                            if (res && res.success) { 
+                                if (att.type === 'image') text += ` [IMG:${res.url}]`; 
+                                else if (att.type === 'audio') text += ` [AUDIO:${res.url}|[]]`;
+                            } else { hasErrors = true; }
+                        } catch (err) { hasErrors = true; }
+                    }
+                    this.publishBtn.textContent = origText;
+                    if (hasErrors) { alert("Ошибка загрузки файлов"); return; }
+                }
+
+                if (text.trim()) { 
+                    this.publishBtn.disabled = true; this.publishBtn.textContent = 'Отправка...';
+                    try {
+                        await this.stores.posts.addPost(text.trim()); 
+                        this.editor.clear(); 
+                        this.pendingMedia = [];
+                        this.updateAttachmentPreview();
+                    } catch(e){}
+                    finally {
+                        this.publishBtn.disabled = false; this.publishBtn.textContent = 'Опубликовать'; this.checkPublishState(); 
+                    }
                 } 
             });
         }

@@ -1,3 +1,4 @@
+// public/js/views/CommunityView.js
 import { CommunityController } from '../controllers/CommunityController.js';
 
 export const CommunityView = {
@@ -16,7 +17,6 @@ export const CommunityView = {
 
                 <div class="visitor-actions" style="display:flex; gap:10px;">
                     <button id="commJoinBtn" class="btn-post"></button>
-                    <!-- Кнопка настроек для админов -->
                     <button id="commSettingsBtn" class="btn-post btn-edit-profile" style="display:none; margin-bottom: 0; background: rgba(20,20,22,0.8);"><i class="fa-solid fa-gear"></i></button>
                 </div>
             </div>
@@ -36,10 +36,12 @@ export const CommunityView = {
             <div id="commContentPosts" style="margin-top: 16px;">
                 <div id="commComposeBox" style="padding: 0 24px 24px 24px; display: none;">
                     <div class="compose-box" style="box-shadow: none; border: 1px solid var(--border-color); background: #1a1a1c;">
+                        <input type="file" id="postFileInput" style="display: none;" accept="image/*, audio/*" multiple>
                         <div id="postInput" class="compose-input" contenteditable="true" placeholder="Написать в сообщество..."></div>
-                        <div id="attachmentPreview" style="display: none;"></div>
+                        <div id="attachmentPreview" style="display: flex; gap: 10px; margin-top: 10px; flex-wrap: wrap;"></div>
                         <div class="compose-actions">
                             <div class="action-icons">
+                                <button id="attachMediaBtn" class="icon-btn" title="Прикрепить фото/аудио"><i class="fa-solid fa-image"></i></button>
                                 <button id="attachMusicBtn" class="icon-btn"><i class="fa-solid fa-music"></i></button>
                                 <button id="attachGameBtn" class="icon-btn"><i class="fa-solid fa-gamepad"></i></button>
                             </div>
@@ -58,7 +60,6 @@ export const CommunityView = {
             </div>
         </div>
 
-        <!-- МОДАЛКА НАСТРОЕК СООБЩЕСТВА -->
         <div id="commSettingsModal" class="modal-overlay">
             <div class="modal-content" style="max-width: 500px;">
                 <div class="modal-header">

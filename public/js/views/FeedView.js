@@ -1,8 +1,8 @@
+// public/js/views/FeedView.js
 import { FeedController } from '../controllers/FeedController.js';
 
 export const FeedView = {
     html: `
-        <!-- ЦЕНТРИРОВАННЫЕ ТАБЫ -->
         <div class="feed-tabs-wrapper">
             <div class="feed-top-tabs">
                 <button class="feed-tab-btn active" data-tab="main">Моя лента</button>
@@ -10,10 +10,7 @@ export const FeedView = {
             </div>
         </div>
 
-        <!-- ОБОЛОЧКА ЛЕНТЫ (Работает и для Главной, и для Сообществ) -->
         <div id="feedWrapper" style="display: flex; flex-direction: column; gap: 24px;">
-            
-            <!-- ПРИЗЫВ ИСКАТЬ ГРУППЫ (Только во вкладке Сообщества) -->
             <div id="communitiesFeedHeader" class="discover-communities-card" style="display: none;">
                 <div class="discover-info">
                     <h3>Ваши сообщества</h3>
@@ -24,8 +21,8 @@ export const FeedView = {
                 </button>
             </div>
 
-            <!-- ПОЛЕ СОЗДАНИЯ ПОСТА -->
             <div class="compose-box">
+                <input type="file" id="postFileInput" style="display: none;" accept="image/*, audio/*" multiple>
                 <div id="postInput" class="compose-input" contenteditable="true" placeholder="Что происходит?"></div>
                 <div id="attachmentPreview" style="display: none;"></div>
                 <div id="pollCreator" class="poll-creator" style="display: none;">
@@ -42,6 +39,7 @@ export const FeedView = {
                 </div>
                 <div class="compose-actions">
                     <div class="action-icons">
+                        <button id="attachMediaBtn" class="icon-btn" title="Прикрепить фото/аудио"><i class="fa-solid fa-image"></i></button>
                         <button id="togglePollBtn" class="icon-btn" title="Опрос"><i class="fa-solid fa-list-ul"></i></button>
                         <button id="attachMusicBtn" class="icon-btn" title="Прикрепить музыку"><i class="fa-solid fa-music"></i></button>
                         <button id="attachGameBtn" class="icon-btn" title="Прикрепить игру"><i class="fa-solid fa-gamepad"></i></button>
@@ -53,7 +51,6 @@ export const FeedView = {
             <div id="postsContainer"></div>
         </div>
 
-        <!-- КАТАЛОГ СООБЩЕСТВ (Скрыт по умолчанию) -->
         <div id="catalogWrapper" style="display: none; flex-direction: column; gap: 24px;">
             <div class="communities-header-bar">
                 <button id="btnBackToFeed" class="icon-btn" style="background: rgba(255,255,255,0.05); color: #fff; width: 44px; height: 44px; flex-shrink:0;"><i class="fa-solid fa-arrow-left"></i></button>
@@ -66,7 +63,6 @@ export const FeedView = {
             <div id="communitiesList" class="communities-grid"></div>
         </div>
 
-        <!-- МОДАЛКИ (Выбор и Создание) -->
         <div id="selectionModal" class="modal-overlay">
             <div class="modal-content">
                 <div class="modal-header"><span id="modalTitle" class="modal-title">Выбрать...</span><button id="closeModalBtn" class="icon-btn-small"><i class="fa-solid fa-xmark"></i></button></div>

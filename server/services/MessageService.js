@@ -185,13 +185,15 @@ class MessageService {
         });
     }
 
-    getMessages(chatId, username, io) {
+    // Измененный метод с поддержкой пагинации
+    getMessages(chatId, username, io, beforeTimestamp = null) {
         const memberRow = MessageRepository.getMember(chatId, username);
         if (!memberRow || memberRow.status === 'left' || memberRow.status === 'declined') throw { status: 403, message: 'Доступ запрещен' };
 
         const chat = MessageRepository.getChatById(chatId);
         
-        if (memberRow.status === 'joined') {
+        // Помечаем как прочитанные, только если грузим свежие (самые новые) сообщения
+        if (!beforeTimestamp && memberRow.status === 'joined') {
             const hasChanges = MessageRepository.markMessagesAsRead(chatId, username, memberRow.cleared_at);
             if (hasChanges && io) {
                 const members = MessageRepository.getMembers(chatId);
@@ -199,7 +201,8 @@ class MessageService {
             }
         }
 
-        const messages = MessageRepository.getMessagesWithReplyInfo(chatId, memberRow.cleared_at);
+        // Запрашиваем 50 сообщений у репозитория с учетом beforeTimestamp
+        const messages = MessageRepository.getMessagesWithReplyInfo(chatId, memberRow.cleared_at, beforeTimestamp, 50);
 
         const enrichedMessages = messages.map(m => {
             const u = UserRepository.findAuthorData(m.sender_username);

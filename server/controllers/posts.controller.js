@@ -1,132 +1,94 @@
 // server/controllers/posts.controller.js
 const PostService = require('../services/PostService');
-const jwt = require('../utils/jwt'); // <-- ЗАМЕНЕНО: теперь используется наш локальный JWT
+const jwt = require('../utils/jwt'); 
+const withHandler = require('../utils/responseHandler');
 
 const SECRET_KEY = process.env.JWT_SECRET || 'fallback_secret_key';
 
 class PostsController {
     
-    // Эта функция используется для неавторизованных запросов к ленте (чтобы знать, лайкнул ли пост гость)
     _getCurrentUser = (req) => {
         const authHeader = req.headers['authorization'];
         if (authHeader) {
             const token = authHeader.split(' ')[1];
-            try { 
-                // Используем наш метод verify, который просто вернет payload или выбросит ошибку
-                return jwt.verify(token, SECRET_KEY); 
-            } catch (e) { 
-                // Ошибка означает, что токен невалиден
-                return null; 
-            }
+            try { return jwt.verify(token, SECRET_KEY); } catch (e) { return null; }
         }
         return null;
     }
-    
-    // Обертка для обработки ошибок в одном месте
-    _handleRequest = (res, serviceCall) => {
-        try {
-            const result = serviceCall();
-            res.json(result);
-        } catch (e) {
-            console.error('Controller Error:', e);
-            res.status(e.status || 500).json({ success: false, error: e.message || 'Internal Server Error' });
-        }
-    }
 
-    getFeed = (req, res) => {
+    getFeed = withHandler((req) => {
         const queryParams = {
             page: parseInt(req.query.page) || 1, limit: parseInt(req.query.limit) || 10,
             communityId: req.query.communityId || null, feedType: req.query.feedType || 'main',
             gameId: req.query.gameId, musicIds: req.query.musicIds ? req.query.musicIds.split(',') :[]
         };
-        const posts = PostService.getFeed(queryParams, this._getCurrentUser(req));
-        res.json(posts);
-    }
+        // Возвращаем просто массив постов, как ждет фронт
+        return PostService.getFeed(queryParams, this._getCurrentUser(req));
+    }, { wrapSuccess: false });
 
-    create = (req, res, io) => {
-        this._handleRequest(res, () => {
-            const post = PostService.createPost(req.body, req.user);
-            io.emit('new_post', post); 
-            return { success: true, post };
-        });
-    }
+    getOne = withHandler((req) => {
+        const post = PostService.getEnrichedPost(req.params.id, this._getCurrentUser(req));
+        if (!post) throw { status: 404, message: 'Пост не найден' };
+        return { post };
+    });
 
-    repost = (req, res, io) => {
-        this._handleRequest(res, () => {
-            const post = PostService.repost(req.body.postId, req.user);
-            io.emit('new_post', post);
-            return { success: true, post };
-        });
-    }
+    create = withHandler((req, res, ctx) => {
+        const post = PostService.createPost(req.body, req.user);
+        ctx.io.emit('new_post', post); 
+        return { post };
+    });
 
-    delete = (req, res) => {
-        this._handleRequest(res, () => {
-            const io = req.app.get('io');
-            PostService.deletePost(req.body.postId, req.user);
-            io.emit('delete_post', req.body.postId);
-            return { success: true };
-        });
-    }
+    repost = withHandler((req, res, ctx) => {
+        const post = PostService.repost(req.body.postId, req.user);
+        ctx.io.emit('new_post', post);
+        return { post };
+    });
 
-    toggleVisibility = (req, res) => {
-        this._handleRequest(res, () => {
-            const io = req.app.get('io');
-            const newVisibility = PostService.toggleVisibility(req.body.postId, req.user);
-            const updatedPost = PostService.getEnrichedPost(req.body.postId, null);
-            if (updatedPost) io.emit('update_post', updatedPost);
-            return { success: true, visibility: newVisibility };
-        });
-    }
+    delete = withHandler((req, res, ctx) => {
+        PostService.deletePost(req.body.postId, req.user);
+        ctx.io.emit('delete_post', req.body.postId);
+    });
 
-    toggleLike = (req, res) => {
-        this._handleRequest(res, () => {
-            const io = req.app.get('io');
-            const result = PostService.toggleLike(req.body.postId, req.user, io);
-            const updatedPost = PostService.getEnrichedPost(req.body.postId, null);
-            if (updatedPost) io.emit('update_post', updatedPost);
-            return { success: true, ...result };
-        });
-    }
+    toggleVisibility = withHandler((req, res, ctx) => {
+        const newVisibility = PostService.toggleVisibility(req.body.postId, req.user);
+        const updatedPost = PostService.getEnrichedPost(req.body.postId, null);
+        if (updatedPost) ctx.io.emit('update_post', updatedPost);
+        return { visibility: newVisibility };
+    });
 
-    votePoll = (req, res) => {
-        this._handleRequest(res, () => {
-            const io = req.app.get('io');
-            const poll = PostService.votePoll(req.body.postId, req.body.optionId, req.user);
-            const updatedPost = PostService.getEnrichedPost(req.body.postId, null);
-            if (updatedPost) io.emit('update_post', updatedPost);
-            return { success: true, poll };
-        });
-    }
+    toggleLike = withHandler((req, res, ctx) => {
+        const result = PostService.toggleLike(req.body.postId, req.user, ctx.io);
+        const updatedPost = PostService.getEnrichedPost(req.body.postId, null);
+        if (updatedPost) ctx.io.emit('update_post', updatedPost);
+        return result;
+    });
 
-    addComment = (req, res) => {
-        this._handleRequest(res, () => {
-            const io = req.app.get('io');
-            const comment = PostService.addComment(req.body.postId, req.body.comment, req.user, io);
-            const updatedPost = PostService.getEnrichedPost(req.body.postId, null);
-            if (updatedPost) io.emit('update_post', updatedPost);
-            return { success: true, comment };
-        });
-    }
+    votePoll = withHandler((req, res, ctx) => {
+        const poll = PostService.votePoll(req.body.postId, req.body.optionId, req.user);
+        const updatedPost = PostService.getEnrichedPost(req.body.postId, null);
+        if (updatedPost) ctx.io.emit('update_post', updatedPost);
+        return { poll };
+    });
 
-    deleteComment = (req, res) => {
-        this._handleRequest(res, () => {
-            const io = req.app.get('io');
-            const postId = PostService.deleteComment(req.body.commentId, req.user);
-            const updatedPost = PostService.getEnrichedPost(postId, null);
-            if (updatedPost) io.emit('update_post', updatedPost);
-            return { success: true };
-        });
-    }
+    addComment = withHandler((req, res, ctx) => {
+        const comment = PostService.addComment(req.body.postId, req.body.comment, req.user, ctx.io);
+        const updatedPost = PostService.getEnrichedPost(req.body.postId, null);
+        if (updatedPost) ctx.io.emit('update_post', updatedPost);
+        return { comment };
+    });
 
-    reactComment = (req, res) => {
-        this._handleRequest(res, () => {
-            const io = req.app.get('io');
-            const { reactionsMap, postId } = PostService.reactComment(req.body.commentId, req.body.type, req.user);
-            const updatedPost = PostService.getEnrichedPost(postId, null);
-            if (updatedPost) io.emit('update_post', updatedPost);
-            return { success: true, reactionsMap };
-        });
-    }
+    deleteComment = withHandler((req, res, ctx) => {
+        const postId = PostService.deleteComment(req.body.commentId, req.user);
+        const updatedPost = PostService.getEnrichedPost(postId, null);
+        if (updatedPost) ctx.io.emit('update_post', updatedPost);
+    });
+
+    reactComment = withHandler((req, res, ctx) => {
+        const { reactionsMap, postId } = PostService.reactComment(req.body.commentId, req.body.type, req.user);
+        const updatedPost = PostService.getEnrichedPost(postId, null);
+        if (updatedPost) ctx.io.emit('update_post', updatedPost);
+        return { reactionsMap };
+    });
 }
 
 module.exports = new PostsController();

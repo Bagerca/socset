@@ -36,7 +36,7 @@ export class PostComponent {
         const commentsCount = this.element.querySelector('.comments-count');
         if (commentsCount) commentsCount.textContent = this.post.comments ? this.post.comments.length : 0;
         
-        this._renderComments();
+        this._renderComments(); // Вызывает УМНЫЙ рендер
 
         const pollContainer = this.element.querySelector('.poll-wrapper-container');
         if (pollContainer && this.post.poll) pollContainer.innerHTML = this._createPollHTML();
@@ -55,6 +55,56 @@ export class PostComponent {
             const pendingIcon = this.post.isPending ? `<i class="fa-regular fa-clock" title="Отправка..." style="color: var(--text-muted); font-size: 13px; margin-left: 6px;"></i>` : '';
             timeEl.innerHTML = `· ${formattedTime} ${pendingIcon}`;
         }
+    }
+
+    _parseMediaContent(rawContent) {
+        let textContent = rawContent || '';
+        let images = [];
+        let audios = [];
+
+        const imgRegex = /\[IMG:([^\]]+)\]/g;
+        let match;
+        while ((match = imgRegex.exec(textContent)) !== null) { images.push(match[1]); }
+        textContent = textContent.replace(imgRegex, '');
+
+        const audioRegex = /\[AUDIO:([^|]+)\|(\[.*?\])\]/g;
+        while ((match = audioRegex.exec(textContent)) !== null) { audios.push({ url: match[1], waveform: match[2] }); }
+        textContent = textContent.replace(audioRegex, '');
+
+        textContent = textContent.trim();
+
+        let mediaHTML = '';
+        
+        if (images.length > 0) {
+            let gridClass = '';
+            let imgsHTML = '';
+            const imagesAttr = escapeHTML(images.join(',')); 
+
+            if (images.length === 1) { gridClass = 'post-grid-1'; imgsHTML = `<img src="${images[0]}" class="cycle-media-img" data-url="${images[0]}">`; } 
+            else if (images.length === 2) { gridClass = 'post-grid-2'; imgsHTML = images.map(url => `<img src="${url}" class="cycle-media-img" data-url="${url}">`).join(''); } 
+            else if (images.length === 3) { gridClass = 'post-grid-3'; imgsHTML = images.map(url => `<img src="${url}" class="cycle-media-img" data-url="${url}">`).join(''); } 
+            else {
+                gridClass = 'post-grid-4';
+                const extraCount = images.length - 4;
+                imgsHTML = `
+                    <img src="${images[0]}" class="cycle-media-img" data-url="${images[0]}">
+                    <img src="${images[1]}" class="cycle-media-img" data-url="${images[1]}">
+                    <img src="${images[2]}" class="cycle-media-img" data-url="${images[2]}">
+                    <div class="post-grid-more-wrapper cycle-media-img" data-url="${images[3]}">
+                        <img src="${images[3]}">
+                        ${extraCount > 0 ? `<div class="post-grid-overlay">+${extraCount}</div>` : ''}
+                    </div>
+                `;
+            }
+            mediaHTML += `<div class="post-media-grid ${gridClass}" data-images="${imagesAttr}">${imgsHTML}</div>`;
+        }
+
+        if (audios.length > 0) {
+            let audiosHTML = audios.map(a => MessageBuilder.buildAudioPlayer(a.url, a.waveform)).join('');
+            mediaHTML += `<div style="display:flex; flex-direction:column; gap:8px; margin-top: 12px;">${audiosHTML}</div>`;
+        }
+
+        return { textContent, mediaHTML };
     }
 
     render() {
@@ -98,9 +148,11 @@ export class PostComponent {
                 </div>`;
         }
 
+        const { textContent, mediaHTML } = this._parseMediaContent(this.post.content);
+
         this.element.innerHTML = `
             ${optionsMenuHTML}
-            <div class="post-main-body">
+            <div class="post-main-body" style="cursor: pointer;">
                 <a href="${profileLink}" class="post-avatar-wrapper">
                     <div class="avatar"><img src="${authorData.avatar}" alt="Аватар" onerror="this.src='img/logo.svg'"></div>
                     ${this._createFrameHTML(authorData.frameId)}
@@ -113,7 +165,11 @@ export class PostComponent {
                         <a href="${profileLink}" class="post-username-link"><span class="post-username">@${escapeHTML(authorData.username)}</span></a>
                         <span class="post-time">· ${formattedTime} ${pendingIcon}</span>
                     </div>
-                    <div class="post-text">${this.post.content ? parseFormatting(this.post.content) : ''}</div>
+                    
+                    <div class="post-text">${textContent ? parseFormatting(textContent) : ''}</div>
+                    
+                    ${mediaHTML}
+
                     ${this._createAttachmentHTML(this.post.attachment)}
                     <div class="poll-wrapper-container">${this._createPollHTML()}</div>
                 </div>
@@ -140,32 +196,93 @@ export class PostComponent {
                 </div>
             </div>
         `;
+        // Вызываем рендер комментов первый раз (он добавит их в DOM)
+        this.element.querySelector('.comments-list').innerHTML = ''; 
         this._renderComments();
     }
 
+    // НОВЫЙ НЕРАЗРУШАЮЩИЙ РЕНДЕР КОММЕНТАРИЕВ
     _renderComments() {
         const list = this.element.querySelector('.comments-list');
-        if (list) {
-            const prevCount = list.children.length;
-            const newCount = this.post.comments ? this.post.comments.length : 0;
-            const currentScroll = list.scrollTop;
-            
-            list.innerHTML = this.post.comments ? this.post.comments.map(c => this._createCommentHTML(c)).join('') : '';
-            
-            if (newCount > prevCount) list.scrollTop = list.scrollHeight; 
-            else list.scrollTop = currentScroll;
+        if (!list) return;
 
-            // Загрузка метаданных для подсчета длительности ложится на AudioPlayerHandler (глобально)
-            list.querySelectorAll('audio').forEach(audio => {
-                audio.addEventListener('loadedmetadata', () => {
-                    const timeSpan = audio.parentElement.querySelector('.cycle-audio-time');
-                    if (timeSpan) {
-                        const m = Math.floor(audio.duration / 60);
-                        const s = Math.floor(audio.duration % 60);
-                        timeSpan.textContent = `${m}:${s < 10 ? '0' : ''}${s}`;
-                    }
-                });
-            });
+        if (!this.post.comments || this.post.comments.length === 0) {
+            list.innerHTML = '';
+            return;
+        }
+
+        // Собираем существующие ноды
+        const existingNodes = new Map();
+        Array.from(list.children).forEach(child => {
+            existingNodes.set(child.dataset.id, child);
+        });
+
+        const fragment = document.createDocumentFragment();
+        let addedNew = false;
+
+        this.post.comments.forEach(comment => {
+            if (existingNodes.has(comment.id)) {
+                // Если коммент уже есть, просто обновляем лайки и дату, не трогая плееры!
+                const el = existingNodes.get(comment.id);
+                this._updateCommentGranularly(el, comment);
+                fragment.appendChild(el);
+                existingNodes.delete(comment.id);
+            } else {
+                // Если это новый коммент - создаем
+                const temp = document.createElement('div');
+                temp.innerHTML = this._createCommentHTML(comment);
+                const el = temp.firstElementChild;
+                
+                // Инициализируем аудио
+                const audio = el.querySelector('audio');
+                if (audio) {
+                    audio.addEventListener('loadedmetadata', () => {
+                        const timeSpan = el.querySelector('.cycle-audio-time');
+                        if (timeSpan) {
+                            const m = Math.floor(audio.duration / 60);
+                            const s = Math.floor(audio.duration % 60);
+                            timeSpan.textContent = `${m}:${s < 10 ? '0' : ''}${s}`;
+                        }
+                    });
+                }
+                fragment.appendChild(el);
+                addedNew = true;
+            }
+        });
+
+        // Удаляем комменты, которых больше нет
+        existingNodes.forEach(node => node.remove());
+
+        const currentScroll = list.scrollTop;
+        const isAtBottom = list.scrollHeight - list.scrollTop - list.clientHeight <= 10;
+
+        // Добавляем готовый фрагмент в DOM
+        list.appendChild(fragment);
+
+        if (addedNew && isAtBottom) {
+            list.scrollTop = list.scrollHeight;
+        } else {
+            list.scrollTop = currentScroll;
+        }
+    }
+
+    // Точечное обновление коммента (без innerHTML)
+    _updateCommentGranularly(el, comment) {
+        const likeBtn = el.querySelector('.comment-action-btn[data-type="like"]');
+        const dislikeBtn = el.querySelector('.comment-action-btn[data-type="dislike"]');
+        
+        if (likeBtn) {
+            likeBtn.className = `comment-action-btn ${comment.userReaction === 'like' ? 'active-like' : ''}`;
+            likeBtn.innerHTML = `<i class="fa-solid fa-thumbs-up"></i> ${comment.likes || ''}`;
+        }
+        if (dislikeBtn) {
+            dislikeBtn.className = `comment-action-btn ${comment.userReaction === 'dislike' ? 'active-dislike' : ''}`;
+        }
+        
+        const dateSpan = el.querySelector('.comment-date');
+        if (dateSpan) {
+            const pendingIcon = comment.isPending ? `<i class="fa-regular fa-clock" style="color: var(--text-muted); font-size: 11px; margin-left: 4px;"></i>` : '';
+            dateSpan.innerHTML = `· ${formatTime(comment.timestamp)} ${pendingIcon}`;
         }
     }
 
@@ -308,6 +425,23 @@ export class PostComponent {
 
     handleClick(e) {
         const target = e.target;
+
+        if (target.closest('.post-main-body') && 
+            !target.closest('a') && 
+            !target.closest('button') && 
+            !target.closest('.poll-wrapper') && 
+            !target.closest('.post-music-play-btn') &&
+            !target.closest('.post-spoiler') &&
+            !target.closest('.cycle-media-img') && 
+            !target.closest('.cycle-audio-btn') && 
+            !target.closest('.post-game-card')) {
+            
+            if (!window.location.hash.startsWith(`#/post/${this.post.id}`)) {
+                window.location.hash = `/post/${this.post.id}`;
+            }
+            return;
+        }
+
         if (target.closest('.post-options-btn')) {
             const btn = target.closest('.post-options-btn');
             const menu = btn.nextElementSibling;
@@ -342,13 +476,16 @@ export class PostComponent {
         if (confirm('Удалить пост?')) {
             await this.stores.posts.deletePost(this.post.id);
             this.element.remove(); 
+            if (window.location.hash.startsWith(`#/post/${this.post.id}`)) {
+                window.history.back();
+            }
         }
     }
 
     async handleRepost() { if(confirm('Сделать репост этой записи к себе в ленту?')) await this.stores.posts.repostPost(this.post.id); }
 
     handleShare(btn) {
-        const postLink = `${window.location.origin}/#/?post=${this.post.id}`;
+        const postLink = `${window.location.origin}/#/post/${this.post.id}`;
         navigator.clipboard.writeText(postLink).then(() => {
             const icon = btn.querySelector('i');
             const originalClass = icon.className;

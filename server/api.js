@@ -106,7 +106,10 @@ api.get('/api/messages/:chatId', authenticateToken, (req, res, ctx) => MessagesC
 
 // ADMIN
 const adminMws = [authenticateToken, isAdmin];
-api.get('/api/admin/data', adminMws, AdminController.getAdminData);
+api.get('/api/admin/stats', adminMws, AdminController.getStats);
+api.get('/api/admin/graph', adminMws, AdminController.getGraph);
+api.get('/api/admin/users', adminMws, AdminController.searchUsers);
+api.get('/api/admin/user/:username/dossier', adminMws, AdminController.getDossier);
 api.post('/api/admin/update_user', adminMws, AdminController.updateUser);
 api.post('/api/admin/toggle_block', adminMws, AdminController.toggleBlock);
 api.post('/api/admin/mute', adminMws, AdminController.muteUser);
@@ -119,6 +122,7 @@ api.post('/api/admin/toggle_admin', adminMws, AdminController.toggleAdmin);
 
 // POSTS
 api.get('/api/posts', PostsController.getFeed);
+api.get('/api/post/:id', PostsController.getOne); // <--- НОВЫЙ МАРШРУТ
 api.post('/api/posts', authenticateToken, (req, res, ctx) => PostsController.create(req, res, ctx.io));
 api.post('/api/posts/repost', authenticateToken, (req, res, ctx) => PostsController.repost(req, res, ctx.io));
 api.post('/api/posts/delete', authenticateToken, PostsController.delete);

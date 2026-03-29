@@ -1,60 +1,33 @@
 // server/controllers/communities.controller.js
 const CommunityService = require('../services/CommunityService');
+const withHandler = require('../utils/responseHandler');
 
 class CommunitiesController {
     
-    _handleRequest = (res, serviceCall) => {
-        try {
-            const result = serviceCall();
-            // Возвращаем как есть (чтобы не сломать API фронта, который ждет массив в getAll)
-            res.json(result); 
-        } catch (e) {
-            console.error('CommunitiesController Error:', e);
-            res.status(e.status || 500).json({ success: false, error: e.message || 'Internal Server Error' });
-        }
-    }
+    // wrapSuccess: false означает, что мы возвращаем чистый массив, как и ждет фронтенд
+    getAll = withHandler((req) => CommunityService.getAll(req.query.q, req.user.username), { wrapSuccess: false });
 
-    getAll = (req, res) => {
-        this._handleRequest(res, () => {
-            return CommunityService.getAll(req.query.q, req.user.username);
-        });
-    }
+    getOne = withHandler((req) => CommunityService.getOne(req.params.handle, req.user), { wrapSuccess: false });
 
-    getOne = (req, res) => {
-        this._handleRequest(res, () => {
-            return CommunityService.getOne(req.params.handle, req.user);
-        });
-    }
+    create = withHandler((req) => {
+        const { handle, name, description } = req.body;
+        const community = CommunityService.create(handle, name, description, req.user);
+        return { community };
+    });
 
-    create = (req, res) => {
-        this._handleRequest(res, () => {
-            const { handle, name, description } = req.body;
-            const community = CommunityService.create(handle, name, description, req.user);
-            return { success: true, community };
-        });
-    }
+    update = withHandler((req) => {
+        const { communityId, name, description, avatar, banner } = req.body;
+        CommunityService.update(communityId, name, description, avatar, banner, req.user);
+    });
 
-    update = (req, res) => {
-        this._handleRequest(res, () => {
-            const { communityId, name, description, avatar, banner } = req.body;
-            CommunityService.update(communityId, name, description, avatar, banner, req.user);
-            return { success: true };
-        });
-    }
+    toggleJoin = withHandler((req) => {
+        const result = CommunityService.toggleJoin(req.body.communityId, req.user);
+        return result;
+    });
 
-    toggleJoin = (req, res) => {
-        this._handleRequest(res, () => {
-            const result = CommunityService.toggleJoin(req.body.communityId, req.user);
-            return { success: true, ...result };
-        });
-    }
-
-    delete = (req, res) => {
-        this._handleRequest(res, () => {
-            CommunityService.delete(req.body.communityId, req.user);
-            return { success: true };
-        });
-    }
+    delete = withHandler((req) => {
+        CommunityService.delete(req.body.communityId, req.user);
+    });
 }
 
 module.exports = new CommunitiesController();

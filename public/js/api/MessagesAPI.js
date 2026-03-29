@@ -3,7 +3,12 @@ import { httpClient } from './httpClient.js';
 
 export const MessagesAPI = {
     getChats: () => httpClient.get('/messages/chats'),
-    getMessages: (chatId) => httpClient.get(`/messages/${chatId}`),
+    // Обновленный метод getMessages
+    getMessages: (chatId, before = null) => {
+        let url = `/messages/${chatId}`;
+        if (before) url += `?before=${before}`;
+        return httpClient.get(url);
+    },
     getChatDetails: (chatId) => httpClient.get(`/messages/details/${chatId}`),
     getFriends: () => httpClient.get('/messages/friends'),
     

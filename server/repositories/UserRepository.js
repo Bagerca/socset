@@ -6,9 +6,18 @@ class UserRepository {
         return db.prepare('SELECT * FROM users WHERE username = ?').get(username);
     }
 
-    // Новый метод, который будет нужен для обогащения постов и комментов
     findAuthorData(username) {
         return db.prepare('SELECT username, name, avatar, frameId, isVerified, verifiedBadgeType FROM users WHERE username = ?').get(username);
+    }
+
+    // НОВЫЙ МЕТОД: Получение сразу нескольких авторов
+    findAuthorsByUsernames(usernames) {
+        if (!usernames || usernames.length === 0) return [];
+        const placeholders = usernames.map(() => '?').join(',');
+        return db.prepare(`
+            SELECT username, name, avatar, frameId, isVerified, verifiedBadgeType 
+            FROM users WHERE username IN (${placeholders})
+        `).all(...usernames);
     }
 
     create(user) {

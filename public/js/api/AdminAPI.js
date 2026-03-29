@@ -1,7 +1,12 @@
+// public/js/api/AdminAPI.js
 import { httpClient } from './httpClient.js';
 
 export const AdminAPI = {
-    getData: () => httpClient.get('/admin/data'),
+    getStats: () => httpClient.get('/admin/stats'),
+    getGraph: () => httpClient.get('/admin/graph'),
+    searchUsers: (query = '') => httpClient.get(`/admin/users?q=${encodeURIComponent(query)}`),
+    getDossier: (username) => httpClient.get(`/admin/user/${encodeURIComponent(username)}/dossier`),
+
     toggleBlock: (targetUsername) => httpClient.post('/admin/toggle_block', { targetUsername }),
     muteUser: (targetUsername, hours) => httpClient.post('/admin/mute', { targetUsername, hours }),
     warnUser: (targetUsername, reason) => httpClient.post('/admin/warn', { targetUsername, reason }),

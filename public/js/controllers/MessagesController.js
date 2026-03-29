@@ -9,7 +9,7 @@ import { ChatRenderer } from '../ui/renderers/ChatRenderer.js';
 import { ChatGalleryHandler } from '../ui/widgets/ChatGalleryHandler.js';
 import { ChatCreateHandler } from '../ui/widgets/ChatCreateHandler.js';
 import { GroupDetailsHandler } from '../ui/widgets/GroupDetailsHandler.js';
-import { MessageInputHandler } from '../ui/widgets/MessageInputHandler.js'; // НОВЫЙ КОМПОНЕНТ
+import { MessageInputHandler } from '../ui/widgets/MessageInputHandler.js';
 import { SocketService } from '../services/SocketService.js';
 
 export class MessagesController {
@@ -25,7 +25,9 @@ export class MessagesController {
         this.activeTargetUsername = null;
         this.pinnedChats = JSON.parse(localStorage.getItem('cycle_pinned_chats')) || [];
 
-        // DOM
+        this.isLoadingHistory = false;
+        this.hasMoreMessages = true;
+
         this.chatSearchInput = document.getElementById('msChatSearch');
         this.searchDropdown = document.getElementById('msSearchDropdown');
         this.searchWrapper = document.getElementById('msSearchWrapper');
@@ -48,7 +50,6 @@ export class MessagesController {
         this.detailsPanel = document.getElementById('chatDetailsPanel');
         this.detailsBody = document.getElementById('chatDetailsBody');
 
-        // ИНИЦИАЛИЗАЦИЯ НОВЫХ МОДУЛЕЙ
         this.galleryHandler = new ChatGalleryHandler();
         
         this.createChatHandler = new ChatCreateHandler((chatId, initialMessage) => {
@@ -60,18 +61,16 @@ export class MessagesController {
             this.openUserMiniProfile(username, true);
         });
 
-        // "ОСТРОВ ВВОДА"
         this.inputHandler = new MessageInputHandler({
             onSendMessage: async (content, replyToId) => this.sendMessage(content, replyToId),
             onEditMessage: async (msgId, content) => this.editMessage(msgId, content)
         });
 
-        // Подписки на сокеты
         this.socketHandlers = {
             new_message: (msg) => this.handleIncomingMessage(msg),
             messages_read: (data) => this.handleMessagesRead(data),
             chat_blocked: (data) => { if (data.chatId === this.activeChatId) this.updateChatStateUI(data.blocked_by, 'joined'); },
-            history_cleared: (data) => { if (data.chatId === this.activeChatId) { this.messages = []; this.renderMessages(); this.loadChats(); } },
+            history_cleared: (data) => { if (data.chatId === this.activeChatId) { this.messages = []; this.hasMoreMessages = true; this.renderMessages(true); this.loadChats(); } },
             chat_deleted: (data) => this.handleChatDeleted(data),
             group_updated: (data) => this.handleGroupUpdated(data),
             group_member_updated: (data) => { if (this.activeChatId === data.chatId && this.detailsPanel.classList.contains('open')) this.toggleDetails(true); }
@@ -97,7 +96,7 @@ export class MessagesController {
 
     destroy() {
         this.abortController.abort();
-        this.inputHandler.destroy(); // Уничтожаем дочерние слушатели острова
+        this.inputHandler.destroy(); 
         window.cycleActiveChatId = null;
         document.body.classList.remove('messenger-active-layout');
         document.body.classList.remove('chat-active-mobile');
@@ -108,7 +107,6 @@ export class MessagesController {
         }
     }
 
-    // --- СЕТЕВЫЕ ЗАПРОСЫ И ОБНОВЛЕНИЕ ДАННЫХ ---
     async loadChats() {
         const data = await MessagesAPI.getChats();
         if (data.success) {
@@ -157,10 +155,15 @@ export class MessagesController {
 
         if (window.innerWidth <= 768) { this.sidebarEl.classList.add('hidden'); this.chatAreaEl.classList.add('active'); document.body.classList.add('chat-active-mobile'); }
 
+        this.hasMoreMessages = true;
+        this.messagesList.innerHTML = '<div style="text-align:center; padding:20px; color:var(--text-muted);">Загрузка...</div>';
+
         const data = await MessagesAPI.getMessages(chatId);
         if (data.success) {
             this.messages = data.messages;
-            this.renderMessages();
+            if (this.messages.length < 50) this.hasMoreMessages = false;
+            
+            this.renderMessages(true); 
             this.updateChatStateUI(data.blocked_by, data.myStatus);
         }
     }
@@ -170,6 +173,7 @@ export class MessagesController {
         if (exist) return this.openChat(exist.id);
 
         this.activeChatId = 'new'; this.activeTargetUsername = username;
+        this.hasMoreMessages = false;
         this.inputHandler.cancelContext();
 
         const p = await ProfileAPI.getProfile(username);
@@ -177,15 +181,20 @@ export class MessagesController {
         document.getElementById('msChatFrameContainer').innerHTML = this.renderer._getFrameHTML(p.frameId);
         
         document.getElementById('msEmptyState').style.display = 'none'; document.getElementById('msActiveChat').style.display = 'flex';
-        this.messages = []; this.renderMessages();
+        this.messages = []; this.renderMessages(true);
         this.updateChatStateUI(null, 'joined'); 
 
         if (window.innerWidth <= 768) { this.sidebarEl.classList.add('hidden'); this.chatAreaEl.classList.add('active'); document.body.classList.add('chat-active-mobile'); }
     }
 
-    renderMessages() {
+    renderMessages(forceScrollBottom = false) {
+        const isAtBottom = this.messagesList.scrollHeight - this.messagesList.scrollTop - this.messagesList.clientHeight <= 50;
+        
         this.messagesList.innerHTML = this.renderer.renderMessages(this.messages, this.stores.auth.user.username);
-        this.messagesList.scrollTop = this.messagesList.scrollHeight;
+        
+        if (forceScrollBottom || isAtBottom) {
+            this.messagesList.scrollTop = this.messagesList.scrollHeight;
+        }
         
         this.messagesList.querySelectorAll('audio').forEach(audio => {
             audio.addEventListener('loadedmetadata', () => {
@@ -199,7 +208,32 @@ export class MessagesController {
         });
     }
 
-    // --- ОТПРАВКА И РЕДАКТИРОВАНИЕ (Вызывается из InputHandler) ---
+    // НОВЫЙ МЕТОД: Добавляет сообщение в DOM без перерендера (Не убивает голосовые!)
+    appendSingleMessage(msg) {
+        const isAtBottom = this.messagesList.scrollHeight - this.messagesList.scrollTop - this.messagesList.clientHeight <= 50;
+        
+        const temp = document.createElement('div');
+        temp.innerHTML = this.renderer.renderMessages([msg], this.stores.auth.user.username);
+        const newEl = temp.firstElementChild;
+        
+        newEl.querySelectorAll('audio').forEach(audio => {
+            audio.addEventListener('loadedmetadata', () => {
+                const timeSpan = audio.parentElement.querySelector('.cycle-audio-time');
+                if (timeSpan) {
+                    const m = Math.floor(audio.duration / 60);
+                    const s = Math.floor(audio.duration % 60);
+                    timeSpan.textContent = `${m}:${s < 10 ? '0' : ''}${s}`;
+                }
+            });
+        });
+        
+        this.messagesList.appendChild(newEl);
+        
+        if (isAtBottom) {
+            this.messagesList.scrollTop = this.messagesList.scrollHeight;
+        }
+    }
+
     async sendMessage(content, replyToId) {
         if (this.activeChatId === 'new') {
             const res = await MessagesAPI.createChat({ type: 'direct', members: [this.activeTargetUsername], initialMessage: content });
@@ -211,7 +245,8 @@ export class MessagesController {
             if (res.success) {
                 if (res.message && !this.messages.find(m => m.id === res.message.id)) {
                     this.messages.push(res.message);
-                    this.renderMessages();
+                    this.appendSingleMessage(res.message); // УМНО ДОБАВЛЯЕМ В КОНЕЦ
+                    this.messagesList.scrollTop = this.messagesList.scrollHeight; // Скроллим
                 }
                 this.loadChats(); 
             } else { Toast.show(res.error || 'Ошибка', 'error'); }
@@ -222,7 +257,6 @@ export class MessagesController {
         const res = await MessagesAPI.editMessage(msgId, this.activeChatId, content);
         if (!res.success && res.error) Toast.show(res.error, 'error');
     }
-
 
     updateChatStateUI(blockedBy = null, myStatus = 'joined') {
         const isBlocked = !!blockedBy;
@@ -246,6 +280,37 @@ export class MessagesController {
 
     bindCoreEvents() {
         const sig = this.abortController.signal;
+
+        this.messagesList.addEventListener('scroll', async () => {
+            if (this.messagesList.scrollTop === 0 && !this.isLoadingHistory && this.hasMoreMessages) {
+                this.isLoadingHistory = true;
+                
+                const oldestMsg = this.messages[0];
+                if (!oldestMsg) {
+                    this.isLoadingHistory = false;
+                    return;
+                }
+
+                const oldScrollHeight = this.messagesList.scrollHeight;
+
+                const res = await MessagesAPI.getMessages(this.activeChatId, oldestMsg.timestamp);
+                
+                if (res.success && res.messages.length > 0) {
+                    this.messages = [...res.messages, ...this.messages];
+                    this.renderMessages(false);
+                    
+                    const newScrollHeight = this.messagesList.scrollHeight;
+                    this.messagesList.scrollTop = newScrollHeight - oldScrollHeight;
+                    
+                    if (res.messages.length < 50) this.hasMoreMessages = false;
+                } else {
+                    this.hasMoreMessages = false;
+                }
+
+                this.isLoadingHistory = false;
+            }
+        }, { signal: sig });
+
 
         const btnToggleSearch = document.getElementById('btnToggleChatSearch');
         if (btnToggleSearch) {
@@ -332,7 +397,6 @@ export class MessagesController {
             if (this.msOptionsMenu && !e.target.closest('#msOptionsBtn')) this.msOptionsMenu.classList.remove('active');
             if (this.msgContextMenu) this.msgContextMenu.style.display = 'none';
 
-            // Прыжок к сообщению по клику на реплай
             const replyBlock = e.target.closest('.msg-module-reply');
             if (replyBlock) {
                 const targetId = replyBlock.dataset.targetId;
@@ -345,7 +409,6 @@ export class MessagesController {
                 return;
             }
         }, { signal: sig });
-
 
         const headerClickable = document.getElementById('msChatHeaderClickable');
         if (headerClickable) {
@@ -493,17 +556,24 @@ export class MessagesController {
         if (msg.chat_id === this.activeChatId) { 
             if (!this.messages.find(m => m.id === msg.id)) {
                 this.messages.push(msg); 
-                this.renderMessages(); 
+                this.appendSingleMessage(msg); 
             }
             MessagesAPI.markAsRead(this.activeChatId); 
         }
         this.loadChats();
     }
 
+    // НОВЫЙ МЕТОД: Обновляем статус прочтения (галочки), НЕ ломая DOM
     handleMessagesRead({ chatId }) {
         if (chatId === this.activeChatId) { 
             this.messages.forEach(m => { if(m.sender_username === this.stores.auth.user.username) m.is_read = 1; }); 
-            this.renderMessages(); 
+            
+            document.querySelectorAll('.msg-row.me .msg-meta').forEach(meta => {
+                if (meta.innerHTML.includes('fa-check"') && !meta.innerHTML.includes('fa-check-double"')) {
+                    meta.innerHTML = meta.innerHTML.replace('fa-check"', 'fa-check-double" style="color:#fff;"');
+                    meta.innerHTML = meta.innerHTML.replace('rgba(255,255,255,0.6)', '#fff');
+                }
+            });
         }
     }
 

@@ -1,8 +1,9 @@
-// js/controllers/CommunityController.js
+// public/js/controllers/CommunityController.js
 import { escapeHTML } from '../ui/utils/utils.js';
 import { CommunitiesAPI } from '../api/CommunitiesAPI.js';
 import { PostComponent } from '../ui/widgets/PostComponent.js';
 import { RichTextEditor } from '../ui/editors/RichTextEditor.js';
+import { UploadAPI } from '../api/UploadAPI.js'; 
 
 export class CommunityController {
     constructor(stores, handle) {
@@ -33,7 +34,10 @@ export class CommunityController {
             this.initSettingsModal();
             this.initEventListeners();
             
-            document.addEventListener('cycle:posts_updated', () => this.renderPosts(), { signal: this.abortController.signal });
+            // НОВЫЕ ТОЧЕЧНЫЕ СОБЫТИЯ
+            document.addEventListener('cycle:post_added', (e) => this.handlePostAdded(e.detail), { signal: this.abortController.signal });
+            document.addEventListener('cycle:post_deleted', (e) => this.handlePostDeleted(e.detail), { signal: this.abortController.signal });
+
         } catch (e) {
             document.querySelector('.profile-container').innerHTML = `<div style="text-align:center; padding: 40px; color: var(--text-muted);">Сообщество не найдено</div>`;
         }
@@ -44,6 +48,30 @@ export class CommunityController {
         if (this.editor) this.editor.destroy();
         if (this.stores.auth.user) {
             this.stores.auth.user.activeCommunityAdmin = null;
+        }
+    }
+
+    handlePostAdded(post) {
+        if (post.community_id !== this.community.id) return;
+        
+        const container = document.getElementById('postsContainer');
+        if (!container) return;
+
+        const empty = container.querySelector('.text-muted');
+        if (empty && empty.textContent.includes('нет записей')) empty.remove();
+
+        const comp = new PostComponent(post, this.stores);
+        container.prepend(comp.getElement());
+    }
+
+    handlePostDeleted(postId) {
+        const container = document.getElementById('postsContainer');
+        if (!container) return;
+
+        const el = container.querySelector(`.post[data-id="${postId}"]`);
+        if (el) el.remove();
+        if (container.children.length === 0) {
+            container.innerHTML = `<div style="text-align:center; padding: 40px; color: var(--text-muted);">В этом сообществе пока нет записей</div>`;
         }
     }
 
@@ -237,13 +265,22 @@ export class CommunityController {
         this.modalList = document.getElementById('modalList');
         
         this.currentAttachments = { music: null, game: null };
+        
+        this.pendingMedia = [];
+        this.postFileInput = document.getElementById('postFileInput');
+        this.attachMediaBtn = document.getElementById('attachMediaBtn');
 
         if (!this.input) return;
 
         this.editor = new RichTextEditor(this.input, () => this.checkPublishState());
         
-        this.publishBtn.addEventListener('click', () => {
-            const text = this.editor.getFormattedContent();
+        if (this.attachMediaBtn && this.postFileInput) {
+            this.attachMediaBtn.addEventListener('click', () => this.postFileInput.click());
+            this.postFileInput.addEventListener('change', async () => this.handleFileSelect());
+        }
+
+        this.publishBtn.addEventListener('click', async () => {
+            let text = this.editor.getFormattedContent();
             let attachData = null;
             if (this.currentAttachments.music || this.currentAttachments.game) {
                 attachData = {
@@ -252,12 +289,37 @@ export class CommunityController {
                 };
             }
 
+            if (this.pendingMedia && this.pendingMedia.length > 0) {
+                this.publishBtn.disabled = true; 
+                const origText = this.publishBtn.textContent;
+                this.publishBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i>';
+                
+                let hasErrors = false;
+                for (const att of this.pendingMedia) {
+                    try {
+                        const res = await UploadAPI.uploadFile(att.file);
+                        if (res && res.success) { 
+                            if (att.type === 'image') text += ` [IMG:${res.url}]`; 
+                            else if (att.type === 'audio') text += ` [AUDIO:${res.url}|[]]`;
+                        } else { hasErrors = true; }
+                    } catch (err) { hasErrors = true; }
+                }
+                this.publishBtn.textContent = origText;
+                if (hasErrors) { alert("Ошибка загрузки файлов"); return; }
+            }
+
             if (text.length > 0 || attachData) {
-                this.stores.posts.addPost(text, null, attachData, this.community.id);
-                this.editor.clear();
-                this.currentAttachments = { music: null, game: null };
-                this.updateAttachmentPreview();
-                this.checkPublishState();
+                this.publishBtn.disabled = true; this.publishBtn.textContent = 'Отправка...';
+                try {
+                    await this.stores.posts.addPost(text, null, attachData, this.community.id);
+                    this.editor.clear();
+                    this.currentAttachments = { music: null, game: null };
+                    this.pendingMedia = [];
+                    this.updateAttachmentPreview();
+                } catch(e) {}
+                finally {
+                    this.publishBtn.disabled = false; this.publishBtn.textContent = 'Опубликовать'; this.checkPublishState(); 
+                }
             }
         });
 
@@ -266,10 +328,28 @@ export class CommunityController {
         document.getElementById('closeModalBtn').addEventListener('click', () => this.modal.classList.remove('active'));
     }
 
+    async handleFileSelect() {
+        if (this.postFileInput.files.length > 0) {
+            const files = Array.from(this.postFileInput.files);
+            for (const f of files) {
+                if (f.type.startsWith('image/')) {
+                    const compressedFile = await this._compressImage(f);
+                    this.pendingMedia.push({ type: 'image', id: Math.random().toString(36).substr(2, 9), file: compressedFile, url: URL.createObjectURL(compressedFile) });
+                } else if (f.type.startsWith('audio/')) {
+                    this.pendingMedia.push({ type: 'audio', id: Math.random().toString(36).substr(2, 9), file: f, url: null, name: f.name });
+                }
+            }
+            this.postFileInput.value = '';
+            this.updateAttachmentPreview();
+            this.checkPublishState();
+        }
+    }
+
     checkPublishState() {
         const hasText = this.input.innerText.trim().length > 0;
         const hasAttach = this.currentAttachments.music || this.currentAttachments.game;
-        this.publishBtn.disabled = !(hasText || hasAttach);
+        const hasMedia = this.pendingMedia && this.pendingMedia.length > 0;
+        this.publishBtn.disabled = !(hasText || hasAttach || hasMedia);
     }
 
     initEventListeners() {
@@ -310,12 +390,14 @@ export class CommunityController {
     }
 
     updateAttachmentPreview() {
-        if (!this.currentAttachments.music && !this.currentAttachments.game) {
+        if (!this.currentAttachments.music && !this.currentAttachments.game && this.pendingMedia.length === 0) {
             this.attachmentPreview.style.display = 'none';
+            this.attachmentPreview.innerHTML = '';
             return;
         }
         this.attachmentPreview.style.display = 'flex';
         this.attachmentPreview.style.gap = '10px';
+        this.attachmentPreview.style.flexWrap = 'wrap';
         this.attachmentPreview.innerHTML = '';
         
         const addPreview = (type, data) => {
@@ -337,5 +419,28 @@ export class CommunityController {
 
         addPreview('music', this.currentAttachments.music);
         addPreview('game', this.currentAttachments.game);
+
+        this.pendingMedia.forEach(media => {
+            const el = document.createElement('div');
+            el.className = 'attached-content-preview';
+            let imgHTML = media.type === 'image' 
+                ? `<img src="${media.url}" style="width:32px; height:32px; border-radius:4px; object-fit:cover;">`
+                : `<div style="width:32px; height:32px; border-radius:4px; background:rgba(255,255,255,0.1); display:flex; align-items:center; justify-content:center; color:var(--accent-games);"><i class="fa-solid fa-music"></i></div>`;
+            let title = media.type === 'image' ? 'Фотография' : media.name;
+            
+            el.innerHTML = `
+                ${imgHTML}
+                <div style="font-size:14px; flex:1; min-width:0;">
+                    <div style="white-space:nowrap; overflow:hidden; text-overflow:ellipsis;"><strong>${escapeHTML(title)}</strong></div>
+                </div>
+                <div class="remove-btn"><i class="fa-solid fa-xmark"></i></div>
+            `;
+            el.querySelector('.remove-btn').addEventListener('click', () => {
+                this.pendingMedia = this.pendingMedia.filter(m => m.id !== media.id);
+                this.updateAttachmentPreview();
+                this.checkPublishState();
+            });
+            this.attachmentPreview.appendChild(el);
+        });
     }
 }

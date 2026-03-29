@@ -5,12 +5,13 @@ class WSManager {
     constructor(server) {
         this.wss = new WebSocketServer({ server });
         this.clients = new Set();
+        this.rooms = new Map(); // O(1) доступ к комнатам
+        this.listeners = {};
         
         this.wss.on('connection', (ws) => {
-            ws.rooms = new Set();
+            ws.joinedRooms = new Set(); // В каких комнатах состоит этот сокет
             this.clients.add(ws);
 
-            // Обработка входящих сообщений
             ws.on('message', (message) => {
                 try {
                     const data = JSON.parse(message);
@@ -24,24 +25,44 @@ class WSManager {
 
             ws.on('close', () => {
                 this.clients.delete(ws);
+                // Удаляем сокет из всех комнат при отключении
+                for (const room of ws.joinedRooms) {
+                    this.leaveRoom(ws, room);
+                }
                 if (this.onCloseListener) this.onCloseListener(ws);
             });
         });
-
-        this.listeners = {};
     }
 
-    // Слушать события от клиента
     on(event, callback) {
         this.listeners[event] = callback;
     }
 
-    // Событие при отключении
     onClose(callback) {
         this.onCloseListener = callback;
     }
 
-    // Отправить всем подключенным (эмуляция io.emit)
+    // Добавляем сокет в комнату
+    joinRoom(ws, room) {
+        if (!this.rooms.has(room)) {
+            this.rooms.set(room, new Set());
+        }
+        this.rooms.get(room).add(ws);
+        ws.joinedRooms.add(room);
+    }
+
+    // Удаляем сокет из комнаты
+    leaveRoom(ws, room) {
+        if (this.rooms.has(room)) {
+            const roomSet = this.rooms.get(room);
+            roomSet.delete(ws);
+            if (roomSet.size === 0) {
+                this.rooms.delete(room);
+            }
+        }
+        ws.joinedRooms.delete(room);
+    }
+
     emit(event, payload) {
         const msg = JSON.stringify({ event, payload });
         for (const client of this.clients) {
@@ -51,13 +72,15 @@ class WSManager {
         }
     }
 
-    // Отправить в конкретную "комнату" (эмуляция io.to(room).emit)
+    // Мгновенная отправка только нужным клиентам
     to(room) {
         return {
             emit: (event, payload) => {
+                if (!this.rooms.has(room)) return;
                 const msg = JSON.stringify({ event, payload });
-                for (const client of this.clients) {
-                    if (client.rooms.has(room) && client.readyState === WebSocket.OPEN) {
+                
+                for (const client of this.rooms.get(room)) {
+                    if (client.readyState === WebSocket.OPEN) {
                         client.send(msg);
                     }
                 }

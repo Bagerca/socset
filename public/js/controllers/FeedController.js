@@ -3,6 +3,7 @@ import { escapeHTML, debounce } from '../ui/utils/utils.js';
 import { PostComponent } from '../ui/widgets/PostComponent.js';
 import { RichTextEditor } from '../ui/editors/RichTextEditor.js';
 import { CommentContextMenu } from '../ui/widgets/CommentContextMenu.js';
+import { UploadAPI } from '../api/UploadAPI.js';
 
 export class FeedController {
     constructor(stores) {
@@ -39,11 +40,14 @@ export class FeedController {
         this.isPollActive = false;
         this.currentAttachments = { music: null, game: null };
         
+        this.pendingMedia = [];
+        this.postFileInput = document.getElementById('postFileInput');
+        this.attachMediaBtn = document.getElementById('attachMediaBtn');
+
         this.currentFeedType = 'main'; 
         this.page = 1;
         this.isLoadingMore = false;
 
-        // Инициализация новых универсальных компонентов
         this.editor = new RichTextEditor(this.input, () => this.checkPublishState());
         this.commentMenu = new CommentContextMenu(this.stores, (postId) => {
             const postEl = document.querySelector(`.post[data-id="${postId}"]`);
@@ -61,7 +65,10 @@ export class FeedController {
         this.renderAll();
         
         window.addEventListener('scroll', this.handleScroll.bind(this), { signal: this.abortController.signal });
-        document.addEventListener('cycle:posts_updated', () => this.renderAll(), { signal: this.abortController.signal });
+        
+        // НОВЫЕ ТОЧЕЧНЫЕ СОБЫТИЯ ВМЕСТО cycle:posts_updated
+        document.addEventListener('cycle:post_added', (e) => this.handlePostAdded(e.detail), { signal: this.abortController.signal });
+        document.addEventListener('cycle:post_deleted', (e) => this.handlePostDeleted(e.detail), { signal: this.abortController.signal });
     }
 
     destroy() {
@@ -69,6 +76,28 @@ export class FeedController {
         if (this.editor) this.editor.destroy();
         if (this.commentMenu) this.commentMenu.destroy();
         if (this.closeSelectHandler) document.removeEventListener('click', this.closeSelectHandler);
+    }
+
+    handlePostAdded(post) {
+        // Фильтруем, если пост не для этой ленты
+        if (this.currentFeedType === 'main' && post.community_id && !post.attachment_data?.type === 'repost') return;
+        if (this.currentFeedType === 'communities' && !post.community_id) return;
+
+        // Удаляем заглушку "пока нет записей", если она есть
+        const empty = this.container.querySelector('.text-muted');
+        if (empty && empty.textContent.includes('нет записей')) empty.remove();
+
+        const comp = new PostComponent(post, this.stores);
+        this.container.prepend(comp.getElement());
+    }
+
+    handlePostDeleted(postId) {
+        const el = this.container.querySelector(`.post[data-id="${postId}"]`);
+        if (el) el.remove();
+        if (this.container.children.length === 0) {
+            let msg = this.currentFeedType === 'main' ? 'В этой ленте пока нет записей.' : 'Вы не состоите в сообществах или в них нет постов.';
+            this.container.innerHTML = `<div style="text-align:center; padding: 40px; color: var(--text-muted);">${msg}</div>`;
+        }
     }
 
     async handleScroll() {
@@ -230,10 +259,53 @@ export class FeedController {
         
         if (this.modal) this.modal.addEventListener('click', (e) => { if (e.target === this.modal) this.closeModal(); });
 
-        // Вызов контекстного меню комментария
+        if (this.attachMediaBtn && this.postFileInput) {
+            this.attachMediaBtn.addEventListener('click', () => this.postFileInput.click());
+            this.postFileInput.addEventListener('change', async () => this.handleFileSelect());
+        }
+
         this.container.addEventListener('contextmenu', (e) => this.commentMenu.handleContextMenu(e));
 
         this.initCustomSelect();
+    }
+
+    async handleFileSelect() {
+        if (this.postFileInput.files.length > 0) {
+            const files = Array.from(this.postFileInput.files);
+            for (const f of files) {
+                if (f.type.startsWith('image/')) {
+                    const compressedFile = await this._compressImage(f);
+                    this.pendingMedia.push({ type: 'image', id: Math.random().toString(36).substr(2, 9), file: compressedFile, url: URL.createObjectURL(compressedFile) });
+                } else if (f.type.startsWith('audio/')) {
+                    this.pendingMedia.push({ type: 'audio', id: Math.random().toString(36).substr(2, 9), file: f, url: null, name: f.name });
+                }
+            }
+            this.postFileInput.value = '';
+            this.updateAttachmentPreview();
+            this.checkPublishState();
+        }
+    }
+
+    async _compressImage(file) {
+        return new Promise((resolve) => {
+            const reader = new FileReader();
+            reader.readAsDataURL(file);
+            reader.onload = (e) => {
+                const img = new Image();
+                img.src = e.target.result;
+                img.onload = () => {
+                    const canvas = document.createElement('canvas');
+                    let w = img.width, h = img.height;
+                    const max = 1200;
+                    if (w > max || h > max) { const ratio = Math.min(max / w, max / h); w *= ratio; h *= ratio; }
+                    canvas.width = w; canvas.height = h;
+                    const ctx = canvas.getContext('2d'); ctx.drawImage(img, 0, 0, w, h);
+                    canvas.toBlob((blob) => { resolve(new File([blob], "image.jpg", { type: "image/jpeg" })); }, 'image/jpeg', 0.85);
+                };
+                img.onerror = () => resolve(file); 
+            };
+            reader.onerror = () => resolve(file);
+        });
     }
 
     async renderCommunities(query = '') {
@@ -295,7 +367,7 @@ export class FeedController {
     }
 
     updateAttachmentPreview() {
-        if (!this.currentAttachments.music && !this.currentAttachments.game) {
+        if (!this.currentAttachments.music && !this.currentAttachments.game && this.pendingMedia.length === 0) {
             this.attachmentPreview.style.display = 'none';
             this.attachmentPreview.innerHTML = '';
             return;
@@ -305,18 +377,16 @@ export class FeedController {
         this.attachmentPreview.style.flexWrap = 'wrap';
         this.attachmentPreview.innerHTML = '';
 
-        const renderPreview = (type, data) => {
+        const addPreview = (type, data) => {
             if (!data) return;
-            const img = type === 'music' ? data.cover : data.icon;
-            const sub = type === 'music' ? data.artist : data.genre;
             const el = document.createElement('div');
             el.className = 'attached-content-preview';
             const imgStyle = type === 'game' ? 'width:32px; height:42px; border-radius:4px; object-fit:cover;' : 'width:32px; height:32px; border-radius:4px; object-fit:cover;';
             el.innerHTML = `
-                <img src="${img}" style="${imgStyle}">
+                <img src="${type === 'music' ? data.cover : data.icon}" style="${imgStyle}">
                 <div style="font-size:14px; flex:1; min-width:0;">
                     <div style="white-space:nowrap; overflow:hidden; text-overflow:ellipsis;"><strong>${escapeHTML(data.title)}</strong></div>
-                    <div style="color:var(--text-muted); font-size:12px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${escapeHTML(sub)}</div>
+                    <div style="color:var(--text-muted); font-size:12px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">Прикреплено из каталога</div>
                 </div>
                 <div class="remove-btn" data-type="${type}"><i class="fa-solid fa-xmark"></i></div>
             `;
@@ -328,12 +398,37 @@ export class FeedController {
             this.attachmentPreview.appendChild(el);
         };
 
-        renderPreview('music', this.currentAttachments.music);
-        renderPreview('game', this.currentAttachments.game);
+        addPreview('music', this.currentAttachments.music);
+        addPreview('game', this.currentAttachments.game);
+
+        this.pendingMedia.forEach(media => {
+            const el = document.createElement('div');
+            el.className = 'attached-content-preview';
+            let imgHTML = media.type === 'image' 
+                ? `<img src="${media.url}" style="width:32px; height:32px; border-radius:4px; object-fit:cover;">`
+                : `<div style="width:32px; height:32px; border-radius:4px; background:rgba(255,255,255,0.1); display:flex; align-items:center; justify-content:center; color:var(--accent-games);"><i class="fa-solid fa-music"></i></div>`;
+            let title = media.type === 'image' ? 'Фотография' : media.name;
+            
+            el.innerHTML = `
+                ${imgHTML}
+                <div style="font-size:14px; flex:1; min-width:0;">
+                    <div style="white-space:nowrap; overflow:hidden; text-overflow:ellipsis;"><strong>${escapeHTML(title)}</strong></div>
+                    <div style="color:var(--text-muted); font-size:12px;">Загруженный файл</div>
+                </div>
+                <div class="remove-btn"><i class="fa-solid fa-xmark"></i></div>
+            `;
+            el.querySelector('.remove-btn').addEventListener('click', () => {
+                this.pendingMedia = this.pendingMedia.filter(m => m.id !== media.id);
+                this.updateAttachmentPreview();
+                this.checkPublishState();
+            });
+            this.attachmentPreview.appendChild(el);
+        });
     }
 
-    publishPost() {
-        const text = this.editor.getFormattedContent();
+    async publishPost() {
+        let text = this.editor.getFormattedContent();
+        
         let pollData = null;
         if (this.isPollActive) {
             const options = Array.from(this.pollInputsContainer.querySelectorAll('.poll-input')).map(i => i.value.trim()).filter(v => v !== '');
@@ -345,14 +440,43 @@ export class FeedController {
             attachData = { music: this.currentAttachments.music ? this.currentAttachments.music.id : null, game: this.currentAttachments.game ? this.currentAttachments.game.id : null };
         }
 
-        if (text.length > 0 || pollData || attachData) {
-            this.stores.posts.addPost(text, pollData, attachData);
+        if (this.pendingMedia && this.pendingMedia.length > 0) {
+            this.publishBtn.disabled = true; 
+            const origText = this.publishBtn.textContent;
+            this.publishBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i>';
             
-            this.editor.clear();
-            this.currentAttachments = { music: null, game: null };
-            this.updateAttachmentPreview();
-            this.closePoll();
-            this.checkPublishState();
+            let hasErrors = false;
+            for (const att of this.pendingMedia) {
+                try {
+                    const res = await UploadAPI.uploadFile(att.file);
+                    if (res && res.success) { 
+                        if (att.type === 'image') text += ` [IMG:${res.url}]`; 
+                        else if (att.type === 'audio') text += ` [AUDIO:${res.url}|[]]`;
+                    } else { hasErrors = true; }
+                } catch (err) { hasErrors = true; }
+            }
+            this.publishBtn.textContent = origText;
+            if (hasErrors) {
+                alert("Ошибка загрузки некоторых файлов");
+                this.publishBtn.disabled = false;
+                return; 
+            }
+        }
+
+        if (text.trim().length > 0 || pollData || attachData) {
+            this.publishBtn.disabled = true; this.publishBtn.textContent = 'Отправка...';
+            try {
+                await this.stores.posts.addPost(text.trim(), pollData, attachData);
+                
+                this.editor.clear();
+                this.currentAttachments = { music: null, game: null };
+                this.pendingMedia = [];
+                this.updateAttachmentPreview();
+                this.closePoll();
+            } catch (error) { console.error(error); } 
+            finally { 
+                this.publishBtn.disabled = false; this.publishBtn.textContent = 'Опубликовать'; this.checkPublishState(); 
+            }
         }
     }
 
@@ -364,7 +488,8 @@ export class FeedController {
         }
         const hasText = this.input.innerText.trim().length > 0;
         const hasAttachment = this.currentAttachments.music || this.currentAttachments.game;
-        this.publishBtn.disabled = !(hasText || hasAttachment || isPollValid);
+        const hasMedia = this.pendingMedia.length > 0;
+        this.publishBtn.disabled = !(hasText || hasAttachment || isPollValid || hasMedia);
     }
 
     togglePoll() { this.isPollActive = !this.isPollActive; this.pollCreator.style.display = this.isPollActive ? "flex" : "none"; this.togglePollBtn.classList.toggle("active", this.isPollActive); this.checkPublishState(); }

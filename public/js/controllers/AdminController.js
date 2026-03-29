@@ -1,7 +1,6 @@
 // public/js/controllers/AdminController.js
 import { AdminAPI } from '../api/AdminAPI.js';
 import { escapeHTML, formatTime, debounce } from '../ui/utils/utils.js';
-import { SearchEngine } from '../ui/utils/SearchEngine.js';
 import { AdminPhysics } from '../ui/widgets/AdminPhysics.js';
 import { AdminRenderer } from '../ui/renderers/AdminRenderer.js';
 import { Toast } from '../ui/utils/Toast.js';
@@ -15,7 +14,6 @@ export class AdminController {
             return;
         }
 
-        this.searchEngine = new SearchEngine();
         this.physics = new AdminPhysics();
         this.renderer = new AdminRenderer('adminRadarCanvas');
         this.abortController = new AbortController();
@@ -28,13 +26,12 @@ export class AdminController {
         this.searchDropdown = document.getElementById('adminSearchDropdown');
         this.radarContainer = document.getElementById('adminRadarContainer');
 
-        this.users = [];
-        this.links = [];
-        this.communities = [];
+        this.sidebarUsers = []; // Юзеры для списка слева
+        this.graphNodes = [];   // Юзеры для радара
 
         this.uiState = {
             searchResults: null,
-            selectedUser: null,
+            selectedUserDossier: null, // Теперь здесь хранится ПОЛНОЕ досье
             hoveredUser: null,
         };
 
@@ -52,11 +49,10 @@ export class AdminController {
     async init() {
         window.addEventListener('resize', () => this.renderer.resize(), { signal: this.abortController.signal });
         
-        await this.loadData();
+        await this.loadInitialData();
         this.startEngine();
         this.bindEvents();
 
-        // ПОДКЛЮЧАЕМСЯ ЧЕРЕЗ СЕРВИС
         SocketService.on('new_post', this.socketPostHandler);
         SocketService.on('radar_update', this.socketRadarHandler);
         
@@ -67,61 +63,67 @@ export class AdminController {
         if (this.animationId) cancelAnimationFrame(this.animationId);
         if (this.syncInterval) clearInterval(this.syncInterval);
         
-        // ОТКЛЮЧАЕМСЯ ЧЕРЕЗ СЕРВИС
         SocketService.off('new_post', this.socketPostHandler);
         SocketService.off('radar_update', this.socketRadarHandler);
         
         this.abortController.abort(); 
     }
 
-    async loadData() {
+    async loadInitialData() {
         try {
-            const data = await AdminAPI.getData();
-            this.users = data.users; 
-            this.links = data.links; 
-            this.communities = data.communities;
+            // Загружаем статистику, граф и дефолтный список параллельно
+            const [statsRes, graphRes, searchRes] = await Promise.all([
+                AdminAPI.getStats(),
+                AdminAPI.getGraph(),
+                AdminAPI.searchUsers('')
+            ]);
+
+            this.updateTopStats(statsRes);
             
-            this.updateTopStats();
-            this.physics.buildGraph(this.users, this.links, this.communities, this.renderer.canvas.width, this.renderer.canvas.height);
-            this.renderSearchList(this.users);
+            if (graphRes.success) {
+                this.graphNodes = graphRes.nodes;
+                this.physics.buildGraph(this.graphNodes, graphRes.links, graphRes.communities, this.renderer.canvas.width, this.renderer.canvas.height);
+            }
+
+            if (searchRes.success) {
+                this.sidebarUsers = searchRes.users;
+                this.renderSearchList(this.sidebarUsers);
+            }
         } catch (e) { console.error('Radar init failed', e); }
     }
 
     async silentSync() {
         try {
-            const data = await AdminAPI.getData();
-            this.users = data.users; 
-            this.links = data.links; 
-            this.communities = data.communities;
-            
-            this.updateTopStats();
+            const [statsRes, graphRes] = await Promise.all([
+                AdminAPI.getStats(),
+                AdminAPI.getGraph()
+            ]);
 
-            if (this.searchInput && this.searchInput.value.trim()) {
-                this.uiState.searchResults = this.searchEngine.search(this.users, this.searchInput.value.trim(),[{ field: 'username', weight: 5 }, { field: 'name', weight: 3 }]);
-            } else { 
-                this.uiState.searchResults = null; 
+            this.updateTopStats(statsRes);
+
+            if (graphRes.success) {
+                this.graphNodes = graphRes.nodes;
+                this.physics.buildGraph(this.graphNodes, graphRes.links, graphRes.communities, this.renderer.canvas.width, this.renderer.canvas.height);
             }
 
-            this.physics.buildGraph(this.users, this.links, this.communities, this.renderer.canvas.width, this.renderer.canvas.height);
-            this.renderSearchList(this.uiState.searchResults || this.users);
-
-            if (this.uiState.selectedUser) this.uiState.selectedUser = this.users.find(u => u.username === this.uiState.selectedUser.username);
+            // Восстанавливаем ссылки на объекты после обновления графа
             if (this.uiState.hoveredUser) this.uiState.hoveredUser = this.physics.nodes.find(n => n.username === this.uiState.hoveredUser.username);
             if (this.dragNode) this.dragNode = this.physics.nodes.find(n => n.username === this.dragNode.username);
+            
+            // Если открыто досье — тихо обновляем его
+            if (this.uiState.selectedUserDossier) {
+                const dossierRes = await AdminAPI.getDossier(this.uiState.selectedUserDossier.username);
+                if (dossierRes.success) {
+                    this.uiState.selectedUserDossier = dossierRes.dossier;
+                    this.renderDossier(this.uiState.selectedUserDossier); // Перерисовываем без дерганий
+                }
+            }
+
         } catch (e) {}
     }
 
     handleRadarUpdate(data) {
-        const user = this.users.find(u => u.username === data.username);
         const node = this.physics.nodes.find(n => n.username === data.username);
-        
-        if (user) {
-            if (data.type === 'online') user.isOnline = true;
-            if (data.type === 'offline') { user.isOnline = false; user.playingMusicId = null; }
-            if (data.type === 'music') user.playingMusicId = data.currentTrack;
-            this.updateTopStats(); 
-        }
-
         if (node) {
             if (data.type === 'online') {
                 node.isOnline = true; node.lastActive = Date.now();
@@ -130,27 +132,32 @@ export class AdminController {
             if (data.type === 'offline') { node.isOnline = false; node.playingMusicId = null; }
             if (data.type === 'music') node.playingMusicId = data.currentTrack;
         }
+        // Статистика обновится при следующем silentSync
     }
 
     startEngine() {
         const loop = () => {
             this.physics.update(this.dragNode);
-            this.renderer.draw(this.physics, this.uiState);
+            // Собираем фейковый стейт для рендерера
+            const renderState = {
+                searchResults: this.uiState.searchResults,
+                selectedUser: this.uiState.selectedUserDossier,
+                hoveredUser: this.uiState.hoveredUser
+            };
+            this.renderer.draw(this.physics, renderState);
             this.animationId = requestAnimationFrame(loop);
         };
         loop();
     }
 
-    updateTopStats() {
-        const total = this.users.length;
-        const banned = this.users.filter(u => u.isBlocked).length;
-        const onlineCount = this.users.filter(u => u.isOnline).length;
+    updateTopStats(statsRes) {
+        if (!statsRes || !statsRes.success) return;
         const statsEl = document.getElementById('admTopStats');
         if (statsEl) {
             statsEl.innerHTML = `
-                <div class="adm-stat">Всего узлов <b>${total}</b></div>
-                <div class="adm-stat">В сети <b style="color:#44bd32;">${onlineCount}</b></div>
-                <div class="adm-stat">Изолировано <b style="color:var(--danger);">${banned}</b></div>
+                <div class="adm-stat">Всего узлов <b>${statsRes.totalUsers}</b></div>
+                <div class="adm-stat">В сети <b style="color:#44bd32;">${statsRes.onlineUsers}</b></div>
+                <div class="adm-stat">Изолировано <b style="color:var(--danger);">${statsRes.bannedUsers}</b></div>
             `;
         }
     }
@@ -167,6 +174,7 @@ export class AdminController {
             }
         }, { signal });
 
+        // Навигация по канвасу
         canvas.addEventListener('wheel', (e) => {
             e.preventDefault();
             const delta = -e.deltaY * 0.001;
@@ -194,7 +202,7 @@ export class AdminController {
         canvas.addEventListener('mousedown', () => {
             if (this.uiState.hoveredUser) {
                 this.dragNode = this.uiState.hoveredUser;
-                this.openDossier(this.uiState.hoveredUser);
+                this.openDossier(this.uiState.hoveredUser.username); // Открываем по клику на радар
             } else {
                 this.isPanning = true;
             }
@@ -203,58 +211,58 @@ export class AdminController {
         canvas.addEventListener('mouseup', () => { this.isPanning = false; this.dragNode = null; canvas.style.cursor = this.uiState.hoveredUser ? 'pointer' : 'grab'; }, { signal });
         canvas.addEventListener('mouseleave', () => { this.isPanning = false; this.dragNode = null; this.uiState.hoveredUser = null; }, { signal });
 
+        // Поиск
         if (this.searchInput && this.searchDropdown) {
-            const handleDropdownSearch = debounce((query) => {
-                if (!query.trim()) { this.searchDropdown.style.display = 'none'; return; }
-                const results = this.searchEngine.search(this.users, query,[{ field: 'username', weight: 5 }, { field: 'name', weight: 3 }]);
-                
-                if (results.length > 0) {
-                    this.searchDropdown.innerHTML = results.slice(0, 6).map(u => `
-                        <div class="search-dropdown-item" data-username="${escapeHTML(u.username)}">
-                            <img src="${u.avatar}" onerror="this.src='https://placehold.co/24/333/fff?text=U'" style="width:24px;height:24px;border-radius:50%;object-fit:cover;">
-                            <span style="font-size:14px; color:#fff;">${escapeHTML(u.username)}</span>
-                        </div>
-                    `).join('');
-                    this.searchDropdown.style.display = 'block';
-                } else {
-                    this.searchDropdown.innerHTML = `<div style="padding:12px; text-align:center; color:var(--text-muted); font-size:13px;">Ничего не найдено</div>`;
-                    this.searchDropdown.style.display = 'block';
+            const executeSearch = async (query) => {
+                const res = await AdminAPI.searchUsers(query);
+                if (res.success) {
+                    this.sidebarUsers = res.users;
+                    // Подсвечиваем на радаре только если есть запрос
+                    this.uiState.searchResults = query ? this.sidebarUsers : null; 
+                    this.renderSearchList(this.sidebarUsers);
+                    
+                    if (query && this.sidebarUsers.length > 0) {
+                        this.searchDropdown.innerHTML = this.sidebarUsers.slice(0, 6).map(u => `
+                            <div class="search-dropdown-item" data-username="${escapeHTML(u.username)}">
+                                <img src="${u.avatar}" onerror="this.src='https://placehold.co/24/333/fff?text=U'" style="width:24px;height:24px;border-radius:50%;object-fit:cover;">
+                                <span style="font-size:14px; color:#fff;">${escapeHTML(u.username)}</span>
+                            </div>
+                        `).join('');
+                        this.searchDropdown.style.display = 'block';
+                    } else {
+                        this.searchDropdown.innerHTML = query ? `<div style="padding:12px; text-align:center; color:var(--text-muted); font-size:13px;">Ничего не найдено</div>` : '';
+                        this.searchDropdown.style.display = query ? 'block' : 'none';
+                    }
                 }
-            }, 200);
+            };
+
+            const handleDropdownSearch = debounce((query) => executeSearch(query.trim()), 300);
 
             this.searchInput.addEventListener('input', (e) => handleDropdownSearch(e.target.value), { signal });
 
             this.searchInput.addEventListener('keydown', (e) => {
                 if (e.key === 'Enter') {
                     this.searchDropdown.style.display = 'none';
-                    const query = e.target.value.trim();
-                    if (query) {
-                        this.uiState.searchResults = this.searchEngine.search(this.users, query,[{ field: 'username', weight: 5 }, { field: 'name', weight: 3 }]);
-                        this.renderSearchList(this.uiState.searchResults);
-                    } else {
-                        this.uiState.searchResults = null;
-                        this.renderSearchList(this.users);
-                    }
+                    executeSearch(e.target.value.trim());
                 }
             }, { signal });
         }
 
+        // Клик по выпадашке поиска
         document.addEventListener('click', (e) => {
             const dropItem = e.target.closest('#adminSearchDropdown .search-dropdown-item');
             if (dropItem) {
-                const user = this.users.find(u => u.username === dropItem.dataset.username);
-                if (user) {
-                    this.searchInput.value = user.username;
-                    this.uiState.searchResults = [user]; 
-                    this.searchDropdown.style.display = 'none';
-                    this.renderSearchList(this.uiState.searchResults);
-                    const node = this.physics.nodes.find(n => n.username === user.username);
-                    if (node) {
-                        this.renderer.camera.x = (this.renderer.canvas.clientWidth / 2) - (node.x * this.renderer.camera.zoom);
-                        this.renderer.camera.y = (this.renderer.canvas.clientHeight / 2) - (node.y * this.renderer.camera.zoom);
-                    }
-                    this.openDossier(user);
+                const username = dropItem.dataset.username;
+                this.searchInput.value = username;
+                this.searchDropdown.style.display = 'none';
+                
+                // Фокусируем камеру
+                const node = this.physics.nodes.find(n => n.username === username);
+                if (node) {
+                    this.renderer.camera.x = (this.renderer.canvas.clientWidth / 2) - (node.x * this.renderer.camera.zoom);
+                    this.renderer.camera.y = (this.renderer.canvas.clientHeight / 2) - (node.y * this.renderer.camera.zoom);
                 }
+                this.openDossier(username);
                 return;
             }
             if (!e.target.closest('.adm-search-input-wrapper') && this.searchDropdown) {
@@ -262,6 +270,7 @@ export class AdminController {
             }
         }, { signal });
 
+        // Взаимодействие с досье
         if (this.dossierPanel) {
             this.dossierPanel.addEventListener('click', async (e) => {
                 if (e.target.closest('#admBtnCloseDossier')) { this.closeDossier(); return; }
@@ -273,8 +282,8 @@ export class AdminController {
                     return;
                 }
 
-                if (!this.uiState.selectedUser) return;
-                const targetUsername = this.uiState.selectedUser.username;
+                if (!this.uiState.selectedUserDossier) return;
+                const targetUsername = this.uiState.selectedUserDossier.username;
 
                 const withFeedback = async (btn, actionPromise) => {
                     const origHTML = btn.innerHTML;
@@ -283,6 +292,13 @@ export class AdminController {
                         await actionPromise();
                         btn.innerHTML = '<i class="fa-solid fa-check"></i> Ок';
                         btn.style.background = '#44bd32'; btn.style.color = '#fff';
+                        
+                        // Перезагружаем досье после успешного действия
+                        const dossierRes = await AdminAPI.getDossier(targetUsername);
+                        if (dossierRes.success) {
+                            this.uiState.selectedUserDossier = dossierRes.dossier;
+                            this.renderDossier(this.uiState.selectedUserDossier);
+                        }
                     } catch(e) {
                         btn.innerHTML = '<i class="fa-solid fa-xmark"></i> Ошибка';
                         btn.style.background = 'var(--danger)'; btn.style.color = '#fff';
@@ -290,76 +306,65 @@ export class AdminController {
                     setTimeout(() => {
                         btn.innerHTML = origHTML; btn.disabled = false;
                         btn.style.background = ''; btn.style.color = '';
-                        this.openDossier(this.uiState.selectedUser);
                     }, 1500);
                 };
 
                 if (e.target.closest('#admBtnBlock')) { 
-                    await withFeedback(e.target.closest('#admBtnBlock'), async () => {
-                        await AdminAPI.toggleBlock(targetUsername);
-                        await this.silentSync();
-                    });
+                    await withFeedback(e.target.closest('#admBtnBlock'), () => AdminAPI.toggleBlock(targetUsername));
                 }
                 if (e.target.closest('#admBtnMute')) { 
                     const hours = prompt('На сколько часов выдать мут? (0 чтобы снять)'); 
                     if (hours !== null) { 
-                        await withFeedback(e.target.closest('#admBtnMute'), async () => {
-                            await AdminAPI.muteUser(targetUsername, parseInt(hours) || 0);
-                            await this.silentSync();
-                        });
+                        await withFeedback(e.target.closest('#admBtnMute'), () => AdminAPI.muteUser(targetUsername, parseInt(hours) || 0));
                     } 
                 }
                 if (e.target.closest('#admBtnWarn')) { 
                     const reason = document.getElementById('admWarnInput').value.trim(); 
                     if (reason) { 
-                        await withFeedback(e.target.closest('#admBtnWarn'), async () => {
-                            await AdminAPI.warnUser(targetUsername, reason);
-                            document.getElementById('admWarnInput').value = '';
-                            await this.silentSync();
-                        });
+                        await withFeedback(e.target.closest('#admBtnWarn'), () => AdminAPI.warnUser(targetUsername, reason));
                     } 
                 }
                 if (e.target.closest('.adm-remove-warn')) { 
                     const warnBtn = e.target.closest('.adm-remove-warn');
                     await AdminAPI.removeWarning(targetUsername, warnBtn.dataset.id); 
-                    await this.silentSync(); 
-                    this.openDossier(this.uiState.selectedUser); 
+                    // Ручное обновление, чтобы не писать withFeedback
+                    const dossierRes = await AdminAPI.getDossier(targetUsername);
+                    if (dossierRes.success) {
+                        this.uiState.selectedUserDossier = dossierRes.dossier;
+                        this.renderDossier(this.uiState.selectedUserDossier);
+                    }
                 }
                 if (e.target.closest('#admSaveEcon')) {
-                    await withFeedback(e.target.closest('#admSaveEcon'), async () => {
-                        await AdminAPI.updateUser({ 
-                            targetUsername, 
-                            coins: document.getElementById('admInputCoins').value, 
-                            isVerified: document.getElementById('admCheckVerif').checked, 
-                            verifiedBadgeType: document.getElementById('admSelectBadge').value 
-                        });
-                        await this.silentSync();
-                    });
+                    await withFeedback(e.target.closest('#admSaveEcon'), () => AdminAPI.updateUser({ 
+                        targetUsername, 
+                        coins: document.getElementById('admInputCoins').value, 
+                        isVerified: document.getElementById('admCheckVerif').checked, 
+                        verifiedBadgeType: document.getElementById('admSelectBadge').value 
+                    }));
                 }
                 if (e.target.closest('#admBtnToggleAdmin')) {
                     if (confirm('Изменить права Администратора для этого пользователя?')) {
-                        await withFeedback(e.target.closest('#admBtnToggleAdmin'), async () => {
-                            await AdminAPI.toggleAdmin(targetUsername);
-                            await this.silentSync();
-                        });
+                        await withFeedback(e.target.closest('#admBtnToggleAdmin'), () => AdminAPI.toggleAdmin(targetUsername));
                     }
                 }
                 if (e.target.closest('#admBtnResetMedia')) {
                     if (confirm('Сбросить аватар и баннер на стандартные?')) {
-                        await withFeedback(e.target.closest('#admBtnResetMedia'), async () => {
-                            await AdminAPI.resetMedia(targetUsername);
-                            await this.silentSync();
-                        });
+                        await withFeedback(e.target.closest('#admBtnResetMedia'), () => AdminAPI.resetMedia(targetUsername));
                     }
                 }
                 if (e.target.closest('#admBtnNuke') && confirm('☢️ ТОЧНО СТЕРЕТЬ ВЕСЬ КОНТЕНТ ЮЗЕРА?')) { 
                     await AdminAPI.nukeUser(targetUsername); 
-                    this.silentSync(); 
+                    this.closeDossier();
                 }
                 if (e.target.closest('#admBtnDelete') && confirm('Удалить аккаунт навсегда?')) { 
                     await AdminAPI.deleteUser(targetUsername); 
                     this.closeDossier(); 
-                    this.silentSync(); 
+                    // Обновляем список слева
+                    const searchRes = await AdminAPI.searchUsers('');
+                    if (searchRes.success) {
+                        this.sidebarUsers = searchRes.users;
+                        this.renderSearchList(this.sidebarUsers);
+                    }
                 }
             }, { signal });
         }
@@ -368,8 +373,10 @@ export class AdminController {
     renderSearchList(list) {
         if (!this.searchList) return;
         const currentScroll = this.searchList.scrollTop;
+        const selectedName = this.uiState.selectedUserDossier ? this.uiState.selectedUserDossier.username : null;
+
         this.searchList.innerHTML = list.map(u => `
-            <div class="adm-list-item ${this.uiState.selectedUser && this.uiState.selectedUser.username === u.username ? 'selected' : ''}" data-username="${escapeHTML(u.username)}">
+            <div class="adm-list-item ${selectedName === u.username ? 'selected' : ''}" data-username="${escapeHTML(u.username)}">
                 <img src="${u.avatar}" onerror="this.src='https://placehold.co/32/333/fff?text=U'">
                 <div style="flex:1; min-width:0;">
                     <div style="font-weight:600; font-size:14px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">
@@ -381,28 +388,42 @@ export class AdminController {
                 </div>
             </div>
         `).join('');
+        
         this.searchList.scrollTop = currentScroll;
         
         this.searchList.querySelectorAll('.adm-list-item').forEach(el => {
             el.addEventListener('click', () => {
-                const user = this.users.find(u => u.username === el.dataset.username);
-                if (user) {
-                    const node = this.physics.nodes.find(n => n.username === user.username);
-                    if (node) { 
-                        this.renderer.camera.x = (this.renderer.canvas.clientWidth / 2) - (node.x * this.renderer.camera.zoom); 
-                        this.renderer.camera.y = (this.renderer.canvas.clientHeight / 2) - (node.y * this.renderer.camera.zoom); 
-                    }
-                    this.openDossier(user);
+                const username = el.dataset.username;
+                const node = this.physics.nodes.find(n => n.username === username);
+                if (node) { 
+                    this.renderer.camera.x = (this.renderer.canvas.clientWidth / 2) - (node.x * this.renderer.camera.zoom); 
+                    this.renderer.camera.y = (this.renderer.canvas.clientHeight / 2) - (node.y * this.renderer.camera.zoom); 
                 }
+                this.openDossier(username);
             });
         });
     }
 
-    openDossier(user) {
-        this.uiState.selectedUser = user;
-        this.renderSearchList(this.uiState.searchResults || this.users); 
+    async openDossier(username) {
+        // Показываем лоадер
         this.dossierPanel.classList.add('open');
+        this.dossierBody.innerHTML = '<div style="text-align:center; padding:40px; color:var(--text-muted);"><i class="fa-solid fa-spinner fa-spin"></i> Сбор данных...</div>';
+        
+        // Подсвечиваем в списке
+        this.uiState.selectedUserDossier = { username }; // Временная заглушка для подсветки
+        this.renderSearchList(this.uiState.searchResults || this.sidebarUsers);
 
+        // Загружаем тяжелые данные
+        const res = await AdminAPI.getDossier(username);
+        if (res.success) {
+            this.uiState.selectedUserDossier = res.dossier;
+            this.renderDossier(this.uiState.selectedUserDossier);
+        } else {
+            this.dossierBody.innerHTML = '<div style="text-align:center; padding:40px; color:var(--danger);">Ошибка загрузки досье</div>';
+        }
+    }
+
+    renderDossier(user) {
         const now = Date.now();
         const isMuted = user.muteUntil > now;
         const muteText = isMuted ? `Снимется: ${formatTime(user.muteUntil)}` : 'Может писать в ленту';
@@ -493,7 +514,7 @@ export class AdminController {
 
             ${(musicHtml || gamesHtml) ? `
                 <div class="adm-ds-card">
-                    <div class="adm-ds-card-title"><i class="fa-solid fa-compact-disc"></i> Медиа Контекст</div>
+                    <div class="adm-ds-card-title"><i class="fa-solid fa-compact-disc"></i> Меди Контекст</div>
                     ${musicHtml}
                     ${gamesHtml}
                 </div>
@@ -571,8 +592,8 @@ export class AdminController {
     }
 
     closeDossier() {
-        this.uiState.selectedUser = null;
-        this.renderSearchList(this.uiState.searchResults || this.users);
+        this.uiState.selectedUserDossier = null;
+        this.renderSearchList(this.uiState.searchResults || this.sidebarUsers);
         if (this.dossierPanel) this.dossierPanel.classList.remove('open');
     }
 }

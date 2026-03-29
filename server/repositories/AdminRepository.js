@@ -2,40 +2,65 @@
 const db = require('../database');
 
 class AdminRepository {
-    // --- Получение агрегированных данных ---
-    getAllUsers() {
-        return db.prepare('SELECT id, username, name, avatar, banner, coins, isAdmin, isVerified, verifiedBadgeType, isBlocked, muteUntil, warnings, showcaseGames, musicId, created_at FROM users').all();
-    }
-    
-    getAllFollows() {
-        return db.prepare('SELECT follower_username as source, following_username as target FROM follows').all();
+    // --- ОПТИМИЗИРОВАННЫЕ ЗАПРОСЫ ДЛЯ ЧТЕНИЯ ---
+
+    getStats() {
+        // Считаем общее количество и забаненных за один быстрый проход
+        return db.prepare(`
+            SELECT 
+                COUNT(*) as totalUsers, 
+                SUM(isBlocked) as bannedUsers 
+            FROM users
+        `).get();
     }
 
-    getAllMemberships() {
-        return db.prepare('SELECT community_id, username FROM community_members').all();
+    getGraphUsers() {
+        // Для радара нужны только легкие данные (без био, баннеров и даты регистрации)
+        return db.prepare(`
+            SELECT username, avatar, isBlocked, isAdmin, muteUntil, showcaseGames, musicId 
+            FROM users
+        `).all();
+    }
+
+    searchUsers(query, limit = 50) {
+        // Поиск на стороне БД. Быстро и возвращает только 50 результатов
+        const searchTerm = `%${query}%`;
+        return db.prepare(`
+            SELECT username, name, avatar, isBlocked, isAdmin, muteUntil 
+            FROM users 
+            WHERE username LIKE ? OR name LIKE ? 
+            ORDER BY created_at DESC 
+            LIMIT ?
+        `).all(searchTerm, searchTerm, limit);
+    }
+
+    getUserDossier(username) {
+        // Тяжелый запрос только для ОДНОГО юзера. 
+        // Подсчет постов и комментов происходит прямо в базе (очень быстро).
+        return db.prepare(`
+            SELECT u.*, 
+                (SELECT COUNT(*) FROM posts WHERE author_username = ?) as postCount,
+                (SELECT COUNT(*) FROM comments WHERE author_username = ?) as commentCount,
+                (SELECT MAX(timestamp) FROM posts WHERE author_username = ?) as lastPostTime,
+                (SELECT MAX(timestamp) FROM comments WHERE author_username = ?) as lastCommentTime
+            FROM users u 
+            WHERE u.username = ?
+        `).get(username, username, username, username, username);
+    }
+
+    getAllFollows() {
+        return db.prepare('SELECT follower_username as source, following_username as target FROM follows').all();
     }
 
     getAllCommunities() {
         return db.prepare('SELECT id, name, handle FROM communities').all();
     }
 
-    getLastPosts() {
-        return db.prepare('SELECT author_username, MAX(timestamp) as ts FROM posts GROUP BY author_username').all();
+    getAllMemberships() {
+        return db.prepare('SELECT community_id, username FROM community_members').all();
     }
 
-    getLastComments() {
-        return db.prepare('SELECT author_username, MAX(timestamp) as ts FROM comments GROUP BY author_username').all();
-    }
-
-    getPostCounts() {
-        return db.prepare('SELECT author_username, COUNT(*) as c FROM posts GROUP BY author_username').all();
-    }
-
-    getCommentCounts() {
-        return db.prepare('SELECT author_username, COUNT(*) as c FROM comments GROUP BY author_username').all();
-    }
-
-    // --- Точечные операции ---
+    // --- ТОЧЕЧНЫЕ ОПЕРАЦИИ (Остаются без изменений) ---
     updateUserEcon(username, coins, isVerified, verifiedBadgeType) {
         db.prepare('UPDATE users SET coins = ?, isVerified = ?, verifiedBadgeType = ? WHERE username = ?')
           .run(coins, isVerified, verifiedBadgeType, username);
@@ -73,7 +98,6 @@ class AdminRepository {
         db.prepare('UPDATE users SET isAdmin = ? WHERE username = ?').run(state, username);
     }
 
-    // --- Деструктивные транзакции ---
     nukeUserTransaction(username) {
         db.transaction(() => {
             db.prepare('DELETE FROM posts WHERE author_username = ?').run(username);

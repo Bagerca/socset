@@ -8,6 +8,8 @@ const db = require('../database');
 const { randomUUID } = require('crypto');
 
 class PostService {
+    
+    // Форматирование одного поста (осталось для одиночного getOne)
     _enrichPost(post, currentUser) {
         if (!post) return null;
         const author = UserRepository.findAuthorData(post.author_username);
@@ -18,6 +20,7 @@ class PostService {
             author: { username: c.author_username, name: c.name, avatar: c.avatar, frameId: c.frameId, isVerified: c.isVerified, verifiedBadgeType: c.verifiedBadgeType }
         }));
         const communityInfo = post.community_id ? CommunityRepository.findById(post.community_id) : null;
+        
         return {
             id: post.id, author, content: post.content, visibility: post.visibility, views: post.views, timestamp: post.timestamp,
             attachment: post.attachment_data ? JSON.parse(post.attachment_data) : null,
@@ -32,20 +35,68 @@ class PostService {
         return this._enrichPost(post, currentUser);
     }
 
+    // НОВЫЙ ВЫСОКОПРОИЗВОДИТЕЛЬНЫЙ МЕТОД ЛЕНТЫ (Без N+1)
     getFeed(queryParams, currentUser) {
+        // 1. Получаем саму ленту
         const postsFromDb = PostRepository.getFeed({ ...queryParams, currentViewer: currentUser?.username });
-        if (currentUser && postsFromDb.length > 0) {
-            const transaction = db.transaction((posts) => {
-                for (const post of posts) {
-                    if (PostRepository.addView(post.id, currentUser.username)) {
-                        PostRepository.incrementViewCount(post.id);
-                        post.views += 1; 
-                    }
-                }
-            });
-            transaction(postsFromDb);
+        if (postsFromDb.length === 0) return [];
+
+        const postIds = postsFromDb.map(p => p.id);
+        const authorUsernames = [...new Set(postsFromDb.map(p => p.author_username))];
+        const communityIds = [...new Set(postsFromDb.map(p => p.community_id).filter(Boolean))];
+
+        // 2. Делаем всего 4 батч-запроса к БД для всей ленты! (Вместо 60+)
+        const allLikes = PostRepository.getLikesForPosts(postIds);
+        const allComments = CommentRepository.findByPostIds(postIds);
+        const allAuthors = UserRepository.findAuthorsByUsernames(authorUsernames);
+        
+        // Кэшируем сообщества в Map
+        const communitiesMap = new Map();
+        for (const cid of communityIds) {
+            communitiesMap.set(cid, CommunityRepository.findById(cid));
         }
-        return postsFromDb.map(post => this._enrichPost(post, currentUser));
+
+        // Превращаем массивы в словари (Map) для быстрого доступа O(1)
+        const authorsMap = new Map(allAuthors.map(a => [a.username, a]));
+        const likesMap = new Map();
+        const commentsMap = new Map();
+
+        allLikes.forEach(l => {
+            if (!likesMap.has(l.post_id)) likesMap.set(l.post_id, []);
+            likesMap.get(l.post_id).push(l.username);
+        });
+
+        allComments.forEach(c => {
+            if (!commentsMap.has(c.post_id)) commentsMap.set(c.post_id, []);
+            commentsMap.get(c.post_id).push({
+                id: c.id, content: c.content, type: c.type, waveform: c.waveform ? JSON.parse(c.waveform) : null,
+                reactionsMap: c.reactions ? JSON.parse(c.reactions) : {}, timestamp: c.timestamp,
+                author: { username: c.author_username, name: c.name, avatar: c.avatar, frameId: c.frameId, isVerified: c.isVerified, verifiedBadgeType: c.verifiedBadgeType }
+            });
+        });
+
+        // 3. Собираем посты
+        const enrichedPosts = postsFromDb.map(post => {
+            // Накручиваем просмотры
+            if (currentUser && PostRepository.addView(post.id, currentUser.username)) {
+                PostRepository.incrementViewCount(post.id);
+                post.views += 1;
+            }
+
+            return {
+                id: post.id, 
+                author: authorsMap.get(post.author_username) || { username: post.author_username, name: 'Unknown' }, 
+                content: post.content, visibility: post.visibility, views: post.views, timestamp: post.timestamp,
+                attachment: post.attachment_data ? JSON.parse(post.attachment_data) : null,
+                poll: post.poll_data ? JSON.parse(post.poll_data) : null,
+                community: post.community_id ? communitiesMap.get(post.community_id) : null, 
+                community_id: post.community_id,
+                likedBy: likesMap.get(post.id) || [], 
+                comments: commentsMap.get(post.id) || []
+            };
+        });
+
+        return enrichedPosts;
     }
     
     createPost(postData, user) {
@@ -80,7 +131,7 @@ class PostService {
         let canDelete = false;
         if (post.author_username === user.username || user.isAdmin) canDelete = true;
         else if (post.community_id) {
-            const member = CommunityRepository.findMember(post.community_id, user.username);
+            const member = CommunityRepository.getMemberRole(post.community_id, user.username);
             if (member && member.role === 'admin') canDelete = true;
         }
         if (!canDelete) throw { status: 403, message: 'Forbidden' };
@@ -150,7 +201,7 @@ class PostService {
         else {
             const post = PostRepository.findById(comment.post_id);
             if (post && post.community_id) {
-                const member = CommunityRepository.findMember(post.community_id, user.username);
+                const member = CommunityRepository.getMemberRole(post.community_id, user.username);
                 if (member && member.role === 'admin') canDelete = true;
             }
         }

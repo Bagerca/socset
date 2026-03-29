@@ -2,7 +2,7 @@
 const http = require('http');
 const requestHandler = require('./router');
 const WSManager = require('./utils/wsManager');
-const seedInitialData = require('./seed'); // Подключаем сидирование
+const seedInitialData = require('./seed');
 
 const PORT = process.env.PORT || 3000;
 
@@ -12,7 +12,6 @@ const io = new WSManager(server);
 const onlineUsers = new Map();
 const appContext = { io, onlineUsers };
 
-// Запускаем заполнение БД после старта
 seedInitialData();
 
 server.on('request', (req, res) => {
@@ -21,7 +20,9 @@ server.on('request', (req, res) => {
 
 io.on('register', (username, ws) => {
     ws.currentUsername = username;
-    ws.rooms.add(`user_${username}`);
+    // Используем НОВЫЙ метод для добавления в комнату
+    io.joinRoom(ws, `user_${username}`);
+    
     onlineUsers.set(username, { isOnline: true, currentTrack: null });
     io.emit('radar_update', { username, type: 'online' });
 });
@@ -44,6 +45,6 @@ io.onClose((ws) => {
 
 server.listen(PORT, '0.0.0.0', () => {
     console.log(`---------------------------------------`);
-    console.log(`🚀 (Native HTTP + WS) Server running on port ${PORT}`);
+    console.log(`🚀 Server running on port ${PORT}`);
     console.log(`---------------------------------------`);
 });

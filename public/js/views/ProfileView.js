@@ -1,5 +1,4 @@
 // public/js/views/ProfileView.js
-
 import { ProfileController } from '../controllers/ProfileController.js';
 
 export const ProfileView = {
@@ -24,12 +23,9 @@ export const ProfileView = {
                 <!-- КНОПКИ ДЛЯ ГОСТЕЙ -->
                 <div id="visitorActions" class="visitor-actions" style="display:none;">
                     <button id="followBtn" class="btn-post" style="background: var(--accent-games); color: #fff;"></button>
-                    
-                    <!-- НОВАЯ КНОПКА МЕССЕНДЖЕРА -->
                     <a id="messageBtn" href="#/messages" class="btn-post" style="background: rgba(255,255,255,0.1); color: #fff; display: flex; align-items: center; justify-content: center; text-decoration: none;" title="Написать сообщение">
                         <i class="fa-regular fa-paper-plane"></i>
                     </a>
-
                     <button id="giftBtn" class="btn-post" style="background: var(--accent-shop); color: #000;" title="Подарить монеты"><i class="fa-solid fa-gift"></i></button>
                 </div>
 
@@ -46,15 +42,12 @@ export const ProfileView = {
                 
                 <div class="profile-meta-row">
                     <span id="profileUsername" class="profile-username">@loading</span>
-                    
                     <div id="profileCommunitiesBadge" class="comm-count-badge" style="display:none;" title="Сообщества">
                         <i class="fa-solid fa-users-rectangle"></i> <span id="commCountVal">0</span>
                     </div>
-                    
                     <span class="meta-divider">•</span>
                     <div id="profileStats" class="profile-stats-inline"></div>
                 </div>
-
                 <p id="profileBio" class="profile-bio"></p>
             </div>
 
@@ -72,13 +65,16 @@ export const ProfileView = {
                 <!-- Блок создания поста (Только для владельца) -->
                 <div id="profileComposeBox" style="padding: 0 24px 24px 24px;">
                     <div class="compose-box" style="box-shadow: none; border: 1px solid var(--border-color); background: #1a1a1c;">
+                        <input type="file" id="postFileInput" style="display: none;" accept="image/*, audio/*" multiple>
                         <div id="postInput" class="compose-input" contenteditable="true" placeholder="Написать в профиль..."></div>
+                        <div id="attachmentPreview" style="display: none; flex-wrap: wrap; gap: 10px; margin-top: 10px;"></div>
                         <div class="compose-actions">
                             <div class="action-icons">
+                                <button id="attachMediaBtn" class="icon-btn" title="Прикрепить фото/аудио"><i class="fa-solid fa-image"></i></button>
                                 <button id="attachMusicBtn" class="icon-btn" disabled><i class="fa-solid fa-music"></i></button>
                                 <button id="attachGameBtn" class="icon-btn" disabled><i class="fa-solid fa-gamepad"></i></button>
                             </div>
-                            <button id="publishBtn" class="btn-post" disabled>Post</button>
+                            <button id="publishBtn" class="btn-post" disabled>Опубликовать</button>
                         </div>
                     </div>
                 </div>
@@ -96,7 +92,6 @@ export const ProfileView = {
                 </div>
                 <div id="wallPostsList" class="wall-posts-list"></div>
             </div>
-
         </div>
 
         <!-- МОДАЛКИ -->
@@ -107,7 +102,6 @@ export const ProfileView = {
                     <button id="closeSettingsBtn" class="icon-btn-small"><i class="fa-solid fa-xmark"></i></button>
                 </div>
                 <div class="modal-body" style="gap: 16px;">
-                    
                     <div class="settings-section">
                         <div class="settings-section-title">Профиль и изображения</div>
                         <input type="text" id="editName" class="poll-input" placeholder="Отображаемое имя">
@@ -129,7 +123,6 @@ export const ProfileView = {
                         </div>
                         <textarea id="editBio" class="poll-input" placeholder="О себе..."></textarea>
                     </div>
-
                     <div class="settings-section">
                         <div class="settings-section-title">Внешний вид и Статус</div>
                         <div class="settings-grid">
@@ -149,7 +142,6 @@ export const ProfileView = {
                             </div>
                         </div>
                     </div>
-
                     <div class="settings-section">
                         <div class="settings-section-title">Настройки приватности</div>
                         <label style="display: flex; align-items: center; gap: 10px; cursor: pointer;">
@@ -157,7 +149,6 @@ export const ProfileView = {
                             <span>Включить стену (гостевую книгу)</span>
                         </label>
                     </div>
-
                     <div class="settings-section">
                         <div class="settings-section-title">Виджеты и Ссылки</div>
                         <div style="display:flex; gap:16px; margin-bottom: 8px;">
@@ -169,7 +160,6 @@ export const ProfileView = {
                             <input type="text" id="editGithub" class="poll-input" placeholder="GitHub">
                         </div>
                     </div>
-
                     <div class="settings-section">
                         <div class="settings-section-title">Главный трек</div>
                         <div id="settingsCurrentTrack" class="settings-current-item" style="display:none; margin-bottom:10px;"></div>
@@ -181,7 +171,6 @@ export const ProfileView = {
                         <div id="settingsGamesList" class="settings-games-list"></div>
                         <button id="settingsAddGameBtn" class="btn-post" style="width:100%; margin-top:10px; background:#222; border:1px solid var(--border-color); color:#fff;"><i class="fa-solid fa-plus"></i> Добавить игру</button>
                     </div>
-
                     <div style="border-top: 1px solid var(--border-color); margin-top: 16px; padding-top: 16px;">
                         <button id="logoutBtn" class="btn-post" style="width: 100%; background: rgba(255, 69, 58, 0.15); color: var(--danger); border: 1px solid rgba(255, 69, 58, 0.3);"><i class="fa-solid fa-arrow-right-from-bracket"></i> Выйти</button>
                     </div>

@@ -3,52 +3,85 @@ const AdminRepository = require('../repositories/AdminRepository');
 const { randomUUID } = require('crypto');
 
 class AdminService {
-    getAdminData(onlineUsersMap) {
-        const users = AdminRepository.getAllUsers();
+    
+    getStats(onlineUsersMap) {
+        const dbStats = AdminRepository.getStats();
+        // Считаем онлайн прямо из Map в памяти (мгновенно)
+        let onlineCount = 0;
+        for (const [_, state] of onlineUsersMap) {
+            if (state.isOnline) onlineCount++;
+        }
+        return {
+            totalUsers: dbStats.totalUsers || 0,
+            bannedUsers: dbStats.bannedUsers || 0,
+            onlineUsers: onlineCount
+        };
+    }
+
+    getGraphData(onlineUsersMap) {
+        const users = AdminRepository.getGraphUsers();
         const follows = AdminRepository.getAllFollows();
         const memberships = AdminRepository.getAllMemberships();
         const communities = AdminRepository.getAllCommunities();
-        
-        const lastPosts = AdminRepository.getLastPosts();
-        const lastComments = AdminRepository.getLastComments();
-        const postCounts = AdminRepository.getPostCounts();
-        const commentCounts = AdminRepository.getCommentCounts();
-        
-        const pMap = {}; postCounts.forEach(p => pMap[p.author_username] = p.c);
-        const cMap = {}; commentCounts.forEach(c => cMap[c.author_username] = c.c);
 
-        const activityMap = {};
-        lastPosts.forEach(p => { activityMap[p.author_username] = p.ts; });
-        lastComments.forEach(c => {
-            if (!activityMap[c.author_username] || c.ts > activityMap[c.author_username]) {
-                activityMap[c.author_username] = c.ts;
-            }
-        });
-
-        const safeUsers = users.map(u => {
+        // Обогащаем онлайном только для отрисовки физики
+        const graphNodes = users.map(u => {
             const liveState = onlineUsersMap.get(u.username);
             return {
                 ...u,
                 isAdmin: u.isAdmin === 1,
-                isVerified: u.isVerified === 1,
                 isBlocked: u.isBlocked === 1,
-                warnings: JSON.parse(u.warnings || '[]'),
                 showcaseGames: JSON.parse(u.showcaseGames || '[]'),
-                lastActive: activityMap[u.username] || u.created_at || Date.now(),
-                postCount: pMap[u.username] || 0,
-                commentCount: cMap[u.username] || 0,
-                isOnline: !!liveState,
-                playingMusicId: liveState ? liveState.currentTrack : null
+                isOnline: !!liveState?.isOnline,
+                playingMusicId: liveState?.isOnline ? liveState.currentTrack : null
             };
         });
 
         const enrichedCommunities = communities.map(c => ({
-            ...c, members: memberships.filter(m => m.community_id === c.id).map(m => m.username)
+            ...c, 
+            members: memberships.filter(m => m.community_id === c.id).map(m => m.username)
         }));
 
-        return { users: safeUsers, links: follows, communities: enrichedCommunities };
+        return { nodes: graphNodes, links: follows, communities: enrichedCommunities };
     }
 
+    searchUsers(query, onlineUsersMap) {
+        const users = AdminRepository.searchUsers(query || '');
+        return users.map(u => {
+            const liveState = onlineUsersMap.get(u.username);
+            return {
+                ...u,
+                isAdmin: u.isAdmin === 1,
+                isBlocked: u.isBlocked === 1,
+                isOnline: !!liveState?.isOnline
+            };
+        });
+    }
+
+    getUserDossier(username, onlineUsersMap) {
+        const user = AdminRepository.getUserDossier(username);
+        if (!user) throw { status: 404, message: 'Пользователь не найден' };
+
+        const liveState = onlineUsersMap.get(user.username);
+        const lastActiveDb = Math.max(user.lastPostTime || 0, user.lastCommentTime || 0, user.created_at || 0);
+
+        return {
+            ...user,
+            isAdmin: user.isAdmin === 1,
+            isVerified: user.isVerified === 1,
+            isBlocked: user.isBlocked === 1,
+            warnings: JSON.parse(user.warnings || '[]'),
+            showcaseGames: JSON.parse(user.showcaseGames || '[]'),
+            socials: JSON.parse(user.socials || '{}'),
+            postCount: user.postCount || 0,
+            commentCount: user.commentCount || 0,
+            lastActive: liveState?.isOnline ? Date.now() : lastActiveDb,
+            isOnline: !!liveState?.isOnline,
+            playingMusicId: liveState?.isOnline ? liveState.currentTrack : null
+        };
+    }
+
+    // --- МУТАЦИИ ОСТАЛИСЬ КАК БЫЛИ ---
     updateUser(targetUsername, coins, isVerified, verifiedBadgeType) {
         const safeCoins = parseInt(coins) || 0;
         const safeBadge = verifiedBadgeType || 'badge-1';
@@ -77,8 +110,7 @@ class AdminService {
         if (!user) throw { status: 404, message: 'Пользователь не найден' };
 
         const warnings = JSON.parse(user.warnings || '[]');
-        const newWarn = { id: randomUUID(), reason, timestamp: Date.now(), admin: adminUsername };
-        warnings.push(newWarn);
+        warnings.push({ id: randomUUID(), reason, timestamp: Date.now(), admin: adminUsername });
         AdminRepository.setWarnings(targetUsername, JSON.stringify(warnings));
         return { warnings };
     }

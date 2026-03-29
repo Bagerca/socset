@@ -1,4 +1,4 @@
-// js/controllers/GameController.js
+// public/js/controllers/GameController.js
 import { escapeHTML } from '../ui/utils/utils.js';
 import { GAME_CONSTANTS } from '../config/GameConstants.js';
 import { MUSIC_CONSTANTS } from '../config/MusicConstants.js';
@@ -52,7 +52,9 @@ export class GameController {
         
         this.initEventListeners();
         
-        document.addEventListener('cycle:posts_updated', () => this.renderPosts(), { signal: this.abortController.signal });
+        // НОВЫЕ ТОЧЕЧНЫЕ СОБЫТИЯ
+        document.addEventListener('cycle:post_added', (e) => this.handlePostAdded(e.detail), { signal: this.abortController.signal });
+        document.addEventListener('cycle:post_deleted', (e) => this.handlePostDeleted(e.detail), { signal: this.abortController.signal });
     }
 
     destroy() {
@@ -61,6 +63,34 @@ export class GameController {
         if (trailerContainer) trailerContainer.innerHTML = ''; 
         if (this.editor) this.editor.destroy();
         if (this.commentMenu) this.commentMenu.destroy();
+    }
+
+    handlePostAdded(post) {
+        // Проверяем, относится ли пост к игре (прикреплена игра или трек из игры)
+        const hasGame = post.attachment && post.attachment.game === this.gameId;
+        const hasMusic = post.attachment && post.attachment.music && this.musicTracks.some(m => m.id === post.attachment.music);
+        
+        if (!hasGame && !hasMusic) return;
+
+        const container = document.getElementById('postsContainer');
+        if (!container) return;
+
+        const empty = container.querySelector('.text-muted');
+        if (empty && empty.textContent.includes('Будьте первым')) empty.remove();
+
+        const comp = new PostComponent(post, this.stores);
+        container.prepend(comp.getElement());
+    }
+
+    handlePostDeleted(postId) {
+        const container = document.getElementById('postsContainer');
+        if (!container) return;
+
+        const el = container.querySelector(`.post[data-id="${postId}"]`);
+        if (el) el.remove();
+        if (container.children.length === 0) {
+            container.innerHTML = `<div style="text-align:center; padding: 40px; color: var(--text-muted);">Будьте первым, кто оставит запись!</div>`;
+        }
     }
 
     renderHero() {

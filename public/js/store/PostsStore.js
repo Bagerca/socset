@@ -13,12 +13,13 @@ export class PostsStore {
     }
 
     initSocket() {
-        // Заменили window.socket на SocketService
         SocketService.on('new_post', (post) => {
             const justCreatedLocally = this.posts.some(p => p.isPending && p.content === post.content && p.author.username === post.author.username);
             if (!this.posts.find(p => p.id === post.id) && !justCreatedLocally) {
-                this.posts.unshift(this._personalize(post));
-                document.dispatchEvent(new CustomEvent('cycle:posts_updated')); 
+                const enriched = this._personalize(post);
+                this.posts.unshift(enriched);
+                // ВМЕСТО posts_updated кидаем точечное событие
+                document.dispatchEvent(new CustomEvent('cycle:post_added', { detail: enriched })); 
             }
         });
 
@@ -32,7 +33,8 @@ export class PostsStore {
 
         SocketService.on('delete_post', (postId) => {
             this.posts = this.posts.filter(p => p.id !== postId);
-            document.dispatchEvent(new CustomEvent('cycle:posts_updated'));
+            // Точечное удаление
+            document.dispatchEvent(new CustomEvent('cycle:post_deleted', { detail: postId }));
         });
     }
 
@@ -160,8 +162,11 @@ export class PostsStore {
         const tempId = 'local_' + generateId();
         const payload = { content, pollData, attachment, communityId };
         const optimisticPost = this.createOptimisticPostObj(tempId, payload);
-        this.posts.unshift(this._personalize(optimisticPost));
-        document.dispatchEvent(new CustomEvent('cycle:posts_updated'));
+        const enriched = this._personalize(optimisticPost);
+        this.posts.unshift(enriched);
+        
+        // Точечное событие добавления
+        document.dispatchEvent(new CustomEvent('cycle:post_added', { detail: enriched }));
 
         const task = { action: 'addPost', payload: { content, poll: optimisticPost.poll, attachment, communityId }, tempId, timestamp: Date.now() };
         PostsAPI.createPost(task.payload).then(data => {
