@@ -18,7 +18,6 @@ export class PostsStore {
             if (!this.posts.find(p => p.id === post.id) && !justCreatedLocally) {
                 const enriched = this._personalize(post);
                 this.posts.unshift(enriched);
-                // ВМЕСТО posts_updated кидаем точечное событие
                 document.dispatchEvent(new CustomEvent('cycle:post_added', { detail: enriched })); 
             }
         });
@@ -33,7 +32,6 @@ export class PostsStore {
 
         SocketService.on('delete_post', (postId) => {
             this.posts = this.posts.filter(p => p.id !== postId);
-            // Точечное удаление
             document.dispatchEvent(new CustomEvent('cycle:post_deleted', { detail: postId }));
         });
     }
@@ -85,7 +83,13 @@ export class PostsStore {
                     }
                 }
             } catch (e) {
-                this.offlineQueue.push(task);
+                // ИСПРАВЛЕНИЕ: Защита от бесконечного цикла 500 ошибок
+                task.retries = (task.retries || 0) + 1;
+                if (task.retries < 3) {
+                    this.offlineQueue.push(task);
+                } else {
+                    console.warn('[OfflineQueue] Битый запрос удален после 3 попыток:', task);
+                }
                 if (window.localforage) await localforage.setItem('cycle_offline_queue', this.offlineQueue);
             }
         }
@@ -165,7 +169,6 @@ export class PostsStore {
         const enriched = this._personalize(optimisticPost);
         this.posts.unshift(enriched);
         
-        // Точечное событие добавления
         document.dispatchEvent(new CustomEvent('cycle:post_added', { detail: enriched }));
 
         const task = { action: 'addPost', payload: { content, poll: optimisticPost.poll, attachment, communityId }, tempId, timestamp: Date.now() };

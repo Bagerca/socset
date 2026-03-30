@@ -51,6 +51,14 @@ body.messenger-active-layout .app-container { max-width: 1200px; }
 .ms-header-name { font-weight: 800; color: #fff; font-size: 16px; margin-bottom: 2px; }
 .ms-header-status { font-size: 12px; color: var(--accent-games); font-weight: 600; opacity: 0.8; }
 
+/* ПЛАШКА ЗАКРЕПА */
+.ms-pinned-bar { display: flex; align-items: center; gap: 12px; background: rgba(20,20,22,0.95); padding: 8px 20px; border-bottom: 1px solid rgba(255,255,255,0.05); cursor: pointer; transition: 0.2s; z-index: 9; }
+.ms-pinned-bar:hover { background: rgba(255,255,255,0.05); }
+.ms-pinned-icon { color: var(--accent-games); font-size: 14px; }
+.ms-pinned-content { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+.ms-pinned-title { font-size: 12px; font-weight: 700; color: var(--accent-games); }
+.ms-pinned-text { font-size: 13px; color: #fff; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
 /* СООБЩЕНИЯ */
 .ms-messages-list { flex: 1; overflow-y: auto; overflow-x: hidden; padding: 20px 20px 100px 20px; display: flex; flex-direction: column; gap: 16px; scroll-behavior: smooth; scrollbar-width: none; -ms-overflow-style: none; }
 .ms-messages-list::-webkit-scrollbar { display: none; }
@@ -68,8 +76,8 @@ body.messenger-active-layout .app-container { max-width: 1200px; }
     max-width: 100%; width: fit-content; font-size: 15px; line-height: 1.45; 
     position: relative; box-shadow: 0 4px 15px rgba(0,0,0,0.15); 
     display: flex; flex-direction: column; 
-    padding: 0; /* ВАЖНО: 0 */
-    overflow: hidden; /* Картинки режутся по углам пузыря */
+    padding: 0;
+    overflow: hidden;
 }
 .msg-bubble.me { background: linear-gradient(135deg, var(--accent-games), #9356ff); color: #fff; border-radius: 20px 20px 4px 20px; }
 .msg-bubble.them { background: #1c1c1e; color: #e0e0e0; border-radius: 20px 20px 20px 4px; border: 1px solid rgba(255,255,255,0.05); }
@@ -154,8 +162,8 @@ body.messenger-active-layout .app-container { max-width: 1200px; }
 /* Контекстная шторка (Ответ/Редакт) */
 .ms-context-bar {
     background: rgba(30, 30, 34, 0.95); backdrop-filter: blur(10px);
-    width: calc(100% - 40px); /* Чуть уже пилюли */
-    padding: 10px 14px 26px 14px; /* Нижний отступ прячется под пилюлей */
+    width: calc(100% - 40px);
+    padding: 10px 14px 26px 14px;
     margin-bottom: -16px; 
     border-radius: 16px 16px 0 0; border: 1px solid var(--border-color); border-bottom: none;
     display: flex; align-items: center; gap: 12px;
@@ -376,3 +384,69 @@ body.chat-active-mobile .sidebar-wrapper { display: none !important; }
 
 .chat-recording-widget { display: flex; align-items: center; gap: 8px; width: 100%; flex: 1; animation: slideInRight 0.3s ease; padding-right: 8px; }
 .chat-recording-widget.done { color: #44bd32; }
+
+/* РЕАКЦИИ */
+.ctx-reactions-bar { display: flex; align-items: center; justify-content: space-between; padding: 6px 10px; border-bottom: 1px solid rgba(255,255,255,0.05); background: rgba(0,0,0,0.2); }
+.ctx-reaction-btn { cursor: pointer; font-size: 18px; padding: 4px; border-radius: 50%; transition: 0.2s; user-select: none; }
+.ctx-reaction-btn:hover { transform: scale(1.2); background: rgba(255,255,255,0.1); }
+.ctx-reaction-btn:active { transform: scale(0.9); }
+
+.msg-reactions-list { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 4px; }
+.msg-reaction-badge { display: inline-flex; align-items: center; gap: 4px; background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.05); border-radius: 12px; padding: 2px 6px; font-size: 12px; color: #fff; cursor: pointer; transition: 0.2s; user-select: none; }
+.msg-reaction-badge:hover { background: rgba(255,255,255,0.15); }
+.msg-reaction-badge.active { background: rgba(124, 58, 237, 0.2); border-color: var(--accent-games); }
+.msg-bubble.me .msg-reaction-badge { background: rgba(0,0,0,0.15); border-color: rgba(255,255,255,0.1); }
+.msg-bubble.me .msg-reaction-badge.active { background: rgba(255,255,255,0.2); border-color: #fff; }
+
+/* ========================================= */
+/* КИНОЗАЛ (SCREENING ROOM)                  */
+/* ========================================= */
+
+/* Кнопка запуска в шапке чата */
+#btnToggleScreeningRoom { color: var(--accent-games); }
+#btnToggleScreeningRoom:hover { background: rgba(124, 58, 237, 0.2); }
+
+/* Баннер "Присоединиться" (для зрителей) */
+.sr-join-banner {
+    background: linear-gradient(90deg, rgba(124, 58, 237, 0.8), rgba(68, 189, 50, 0.8));
+    color: #fff; padding: 12px 20px; display: flex; align-items: center; justify-content: space-between;
+    font-weight: 600; font-size: 14px; box-shadow: 0 4px 15px rgba(0,0,0,0.5); z-index: 10;
+}
+.sr-join-banner button { background: #fff; color: #000; border: none; padding: 6px 16px; border-radius: 20px; font-weight: 700; cursor: pointer; transition: 0.2s; }
+.sr-join-banner button:hover { transform: scale(1.05); }
+
+/* Контейнер кинозала (Сплит-скрин) */
+.sr-container {
+    display: flex; flex-direction: column; width: 100%; background: #000;
+    border-bottom: 1px solid var(--border-color); z-index: 9;
+    transition: height 0.3s ease; position: relative;
+}
+
+/* Изменение чата, когда открыт кинозал */
+.ms-messages-list.sr-active {
+    height: 40vh; /* Чат занимает 40% экрана снизу */
+    flex: none;
+}
+.sr-container {
+    height: calc(100% - 40vh - 68px - 70px); /* 100% минус чат, минус шапка, минус поле ввода */
+    min-height: 200px;
+}
+
+/* Панель настройки (для Хоста) */
+.sr-controls-area {
+    padding: 20px; display: flex; flex-direction: column; gap: 15px; align-items: center; justify-content: center; height: 100%; text-align: center;
+}
+.sr-controls-area h3 { color: #fff; font-size: 18px; margin-bottom: 10px; }
+.sr-input-row { display: flex; gap: 10px; width: 100%; max-width: 500px; }
+.sr-input-row input { flex: 1; background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.2); border-radius: 8px; color: #fff; padding: 10px; outline: none; }
+.sr-input-row input:focus { border-color: var(--accent-games); }
+
+/* Зона видео */
+.sr-video-area { width: 100%; height: 100%; position: relative; }
+.sr-btn-close { position: absolute; top: 10px; right: 10px; z-index: 60; background: rgba(0,0,0,0.6); color: #fff; border: none; width: 36px; height: 36px; border-radius: 50%; display: flex; align-items: center; justify-content: center; cursor: pointer; transition: 0.2s; backdrop-filter: blur(4px); }
+.sr-btn-close:hover { background: var(--danger); transform: scale(1.1); }
+
+@media (max-width: 768px) {
+    .ms-messages-list.sr-active { height: 30vh; }
+    .sr-container { height: calc(100dvh - 30vh - 68px - 60px); }
+}

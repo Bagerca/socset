@@ -2,7 +2,7 @@
 const fs = require('fs');
 const path = require('path');
 const { parseJsonBody } = require('./utils/requestUtils');
-const api = require('./api'); // Импорт наших маршрутов
+const api = require('./api');
 
 const PUBLIC_DIR = path.join(__dirname, '../public');
 const UPLOADS_DIR = path.join(__dirname, '../uploads');

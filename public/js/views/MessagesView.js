@@ -50,20 +50,59 @@ export const MessagesView = {
                             </div>
                         </div>
 
-                        <div class="ms-header-options" style="position: relative;">
+                        <div class="ms-header-options" style="position: relative; display: flex; align-items: center; gap: 4px;">
+                            <!-- НОВАЯ КНОПКА: Кинозал -->
+                            <button id="btnToggleScreeningRoom" class="icon-btn" title="Запустить кинозал" style="display:none;"><i class="fa-solid fa-film"></i></button>
+                            
                             <button id="msOptionsBtn" class="icon-btn"><i class="fa-solid fa-ellipsis-vertical"></i></button>
                             <div id="msOptionsMenu" class="options-menu" style="top: 45px; right: 0; width: 240px; z-index: 100;">
-                                <div class="menu-item" id="optPinChat"><i class="fa-solid fa-thumbtack"></i><span id="pinText">Закрепить</span></div>
+                                <div class="menu-item" id="optPinChat"><i class="fa-solid fa-thumbtack"></i><span id="pinText">Закрепить в списке</span></div>
                                 <div class="menu-item" id="optLinkGroup" style="display:none;"><i class="fa-solid fa-link"></i><span>Привязать группу</span></div>
                                 <div class="menu-item" id="optBlockUser"><i class="fa-solid fa-ban"></i><span id="blockText">Заблокировать</span></div>
                                 <div class="menu-item menu-item-danger" id="optClearHistory"><i class="fa-solid fa-eraser"></i><span>Стереть переписку</span></div>
-                                <div class="menu-item menu-item-danger" id="optDeleteChat"><i class="fa-solid fa-trash-can"></i><span>Удалить диалог</span></div>
+                                <div class="menu-item menu-item-danger" id="optDeleteChat"><i class="fa-solid fa-person-walking-arrow-right"></i><span>Покинуть чат</span></div>
                             </div>
+                        </div>
+                    </div>
+                    
+                    <div id="msPinnedMessageBar" class="ms-pinned-bar" style="display: none;">
+                        <div class="ms-pinned-icon"><i class="fa-solid fa-thumbtack"></i></div>
+                        <div class="ms-pinned-content">
+                            <span class="ms-pinned-title">Закрепленное сообщение</span>
+                            <span class="ms-pinned-text" id="msPinnedText">...</span>
+                        </div>
+                        <button id="msUnpinMsgBtn" class="icon-btn-small" style="display: none;"><i class="fa-solid fa-xmark"></i></button>
+                    </div>
+
+                    <!-- НОВОЕ: БАННЕР КИНОЗАЛА -->
+                    <div id="srJoinBanner" class="sr-join-banner" style="display: none;">
+                        <span><i class="fa-solid fa-popcorn"></i> В этом чате идет Кинозал</span>
+                        <button id="srBtnJoin">Присоединиться</button>
+                    </div>
+
+                    <!-- НОВОЕ: КОНТЕЙНЕР КИНОЗАЛА -->
+                    <div id="srContainer" class="sr-container" style="display: none;">
+                        <!-- Панель Хоста -->
+                        <div id="srControlsArea" class="sr-controls-area">
+                            <h3><i class="fa-solid fa-film" style="color:var(--accent-games);"></i> Запуск Кинозала</h3>
+                            <div class="sr-input-row">
+                                <input type="text" id="srInputUrl" placeholder="Ссылка на YouTube">
+                                <button id="srBtnStart" class="btn-post" style="background: var(--accent-games); color: #fff;">Запуск</button>
+                            </div>
+                            <div style="margin: 10px 0; color: var(--text-muted);">ИЛИ</div>
+                            <input type="file" id="srInputFile" accept="video/mp4,video/webm" style="display:none;">
+                            <button id="srBtnUpload" class="btn-post" style="background: rgba(255,255,255,0.1); color: #fff;"><i class="fa-solid fa-upload"></i> Загрузить видеофайл (MP4)</button>
+                        </div>
+                        <!-- Плеер -->
+                        <div id="srVideoArea" class="sr-video-area" style="display: none;">
+                            <button id="srBtnClose" class="sr-btn-close" title="Закрыть кинозал"><i class="fa-solid fa-xmark"></i></button>
+                            <div id="srVideoTarget" style="width: 100%; height: 100%; position: relative;"></div>
                         </div>
                     </div>
                     
                     <div class="ms-messages-list" id="messagesList"></div>
 
+                    <!-- Дальше без изменений... -->
                     <div id="msBlockedState" class="ms-blocked-state" style="display:none;">
                         <p id="msBlockedText">Чат заблокирован</p>
                         <button id="msUnblockBtn" class="btn-post" style="display:none; margin-top:10px;">Разблокировать</button>
@@ -80,12 +119,10 @@ export const MessagesView = {
                         </div>
                     </div>
 
-                    <!-- СОСТОЯНИЕ: ТОЛЬКО ЧТЕНИЕ (КАНАЛ) -->
                     <div id="msReadOnlyState" class="ms-readonly-state" style="display:none; position: absolute; bottom: 0; left: 0; width: 100%; padding: 20px; background: rgba(20,20,24,0.85); backdrop-filter: blur(10px); border-top: 1px solid rgba(255,255,255,0.05); text-align: center; color: var(--text-muted); font-size: 14px; font-weight: 600; z-index: 100;">
-                        <i class="fa-solid fa-bullhorn" style="margin-right: 8px;"></i> Вы подписчик этого канала
+                        <i class="fa-solid fa-lock" style="margin-right: 8px;"></i> Писать сообщения запрещено
                     </div>
 
-                    <!-- ПЛАВАЮЩИЙ ОСТРОВ ВВОДА -->
                     <div class="ms-input-island" id="msInputContainer">
                         <div id="msContextBar" class="ms-context-bar">
                             <div class="context-icon" id="msContextIcon"><i class="fa-solid fa-reply"></i></div>
@@ -120,15 +157,24 @@ export const MessagesView = {
             </div>
         </div>
 
-        <!-- МОДАЛКИ -->
-        <div id="msgContextMenu" class="options-menu" style="display:none; position:fixed; z-index:999999; width:150px;">
+        <div id="msgContextMenu" class="options-menu" style="display:none; position:fixed; z-index:999999; width:180px;">
+            <div class="ctx-reactions-bar">
+                <div class="ctx-reaction-btn">👍</div>
+                <div class="ctx-reaction-btn">❤️</div>
+                <div class="ctx-reaction-btn">😂</div>
+                <div class="ctx-reaction-btn">😯</div>
+                <div class="ctx-reaction-btn">😢</div>
+                <div class="ctx-reaction-btn">😡</div>
+            </div>
             <div class="menu-item" id="ctxMsgReply"><i class="fa-solid fa-reply"></i><span>Ответить</span></div>
+            <div class="menu-item" id="ctxMsgPin" style="display:none;"><i class="fa-solid fa-thumbtack"></i><span>Закрепить</span></div>
             <div class="menu-item" id="ctxMsgCopy"><i class="fa-regular fa-copy"></i><span>Копировать</span></div>
             <div class="menu-item" id="ctxMsgEdit" style="display:none;"><i class="fa-solid fa-pen"></i><span>Изменить</span></div>
             <div class="menu-item menu-item-danger" id="ctxMsgDelete" style="display:none;"><i class="fa-solid fa-trash"></i><span>Удалить</span></div>
         </div>
 
         <div id="createChatModal" class="modal-overlay">
+            <!-- (Модалки создания чата и тд остаются без изменений, пропускаю для краткости) -->
             <div class="modal-content" style="max-width: 400px;">
                 <div class="modal-header">
                     <span class="modal-title">Создать...</span>
@@ -144,15 +190,12 @@ export const MessagesView = {
                         <input type="text" id="ccGroupName" class="poll-input" placeholder="Название (Канала / Группы)...">
                     </div>
                     <div id="ccFriendsList" style="display: flex; flex-direction: column; gap: 8px; max-height: 250px; overflow-y: auto;"></div>
-                    
                     <textarea id="ccInitialMessage" class="poll-input" placeholder="Написать первое сообщение... (необязательно)" style="margin-top: 15px; resize: vertical; min-height: 60px;"></textarea>
-
                     <button id="submitCreateChatBtn" class="btn-post" style="width: 100%; margin-top: 15px;" disabled>Создать</button>
                 </div>
             </div>
         </div>
 
-        <!-- Модалка Привязки Группы -->
         <div id="linkGroupModal" class="modal-overlay">
             <div class="modal-content" style="max-width: 400px; background: #141416;">
                 <div class="modal-header">
@@ -160,19 +203,6 @@ export const MessagesView = {
                     <button id="closeLinkGroupModalBtn" class="icon-btn-small"><i class="fa-solid fa-xmark"></i></button>
                 </div>
                 <div class="modal-body" id="adminGroupsList" style="max-height: 400px; overflow-y: auto; padding: 10px; display: flex; flex-direction: column; gap: 8px;">
-                </div>
-            </div>
-        </div>
-
-        <div id="chatImageModal" class="modal-overlay" style="z-index: 9999999;">
-            <div class="modal-content" style="max-width: 95vw; max-height: 95vh; background: transparent; box-shadow: none; border: none; align-items: center; justify-content: center; padding: 0; position: relative;">
-                <div id="chatImageCounter" style="position: absolute; top: -30px; left: 50%; transform: translateX(-50%); color: #fff; background: rgba(0,0,0,0.5); padding: 4px 12px; border-radius: 12px; font-size: 14px; font-weight: 600; display: none;">1 / 1</div>
-                <img id="chatFullImage" src="" style="max-width: 100%; max-height: 85vh; border-radius: 12px; box-shadow: 0 20px 80px rgba(0,0,0,0.8); object-fit: contain;">
-                <div style="margin-top: 20px; display: flex; gap: 16px; background: rgba(0,0,0,0.5); padding: 10px 20px; border-radius: 100px; backdrop-filter: blur(10px);">
-                    <button id="prevChatImageBtn" class="icon-btn" style="width: 44px; height: 44px; display: none;"><i class="fa-solid fa-chevron-left"></i></button>
-                    <button id="closeChatImageModal" class="icon-btn" style="width: 44px; height: 44px;"><i class="fa-solid fa-xmark"></i></button>
-                    <a id="downloadChatImageBtn" href="" download class="icon-btn" style="width: 44px; height: 44px;" title="Скачать"><i class="fa-solid fa-download"></i></a>
-                    <button id="nextChatImageBtn" class="icon-btn" style="width: 44px; height: 44px; display: none;"><i class="fa-solid fa-chevron-right"></i></button>
                 </div>
             </div>
         </div>

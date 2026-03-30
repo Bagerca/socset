@@ -57,6 +57,7 @@ export class ChatRenderer {
             const isPinned = pinnedChats.includes(chat.id);
             const frameId = chat.type === 'direct' ? chat.targetUser?.frameId : null;
             const inviteDot = chat.myStatus === 'invited' ? `<div style="width:10px;height:10px;border-radius:50%;background:#44bd32;margin-right:5px;" title="Новое приглашение"></div>` : '';
+            const muteIcon = chat.is_muted ? '<i class="fa-solid fa-bell-slash" style="color:var(--text-muted); font-size: 11px; margin-left: 6px;" title="Уведомления отключены"></i>' : '';
             
             const msgClass = chat.myStatus === 'invited' ? 'ms-chat-item-msg is-invite-msg' : 'ms-chat-item-msg';
             
@@ -71,7 +72,7 @@ export class ChatRenderer {
                     </div>
                     <div class="ms-chat-item-info">
                         <div class="ms-chat-item-top">
-                            <span class="ms-chat-item-name" style="display:flex;align-items:center;">${namePrefix}${inviteDot}${escapeHTML(chat.chatName)}</span>
+                            <span class="ms-chat-item-name" style="display:flex;align-items:center;">${namePrefix}${inviteDot}${escapeHTML(chat.chatName)}${muteIcon}</span>
                             <span class="ms-chat-item-time">${isPinned ? '<i class="fa-solid fa-thumbtack"></i> ' : ''}${formatTime(chat.updated_at)}</span>
                         </div>
                         <div class="ms-chat-item-bottom">
@@ -82,6 +83,21 @@ export class ChatRenderer {
                 </div>
             `;
         }).join('');
+    }
+
+    renderMessageReactions(msgId, reactionsJson, currentUserUsername) {
+        if (!reactionsJson || reactionsJson === '{}') return '';
+        let rx;
+        try { rx = JSON.parse(reactionsJson); } catch (e) { return ''; }
+        if (Object.keys(rx).length === 0) return '';
+        
+        let html = `<div class="msg-reactions-list" id="rx-${msgId}">`;
+        for (const [emoji, users] of Object.entries(rx)) {
+            const iReacted = users.includes(currentUserUsername);
+            html += `<button class="msg-reaction-badge ${iReacted ? 'active' : ''}" data-emoji="${emoji}"><span>${emoji}</span> <span>${users.length}</span></button>`;
+        }
+        html += `</div>`;
+        return html;
     }
 
     renderMessages(messages, currentUserUsername, chatType, linkedChatId) {
@@ -165,7 +181,6 @@ export class ChatRenderer {
             }
 
             let avatarHTML = '';
-            // В канале не показываем аватарки, если это не группа
             if (!isMe && !isChannel) {
                 avatarHTML = `
                     <div class="msg-avatar-wrapper" data-username="${escapeHTML(msg.sender_username)}" style="position:relative; width:36px; height:36px; flex-shrink:0; align-self:flex-end; margin-bottom: 20px; cursor:pointer;">
@@ -189,6 +204,8 @@ export class ChatRenderer {
                 forwardedHTML = `<div style="font-size:11px; color:var(--accent-games); padding: 6px 14px 0 14px; font-weight:600;"><i class="fa-solid fa-share" style="margin-right:4px;"></i> Переслано из канала</div>`;
             }
 
+            const reactionsHTML = this.renderMessageReactions(msg.id, msg.reactions, currentUserUsername);
+
             return `
                 <div class="msg-row ${isMe && !isChannel ? 'me' : 'them'} message-item" data-id="${msg.id}">
                     ${avatarHTML}
@@ -196,6 +213,7 @@ export class ChatRenderer {
                         <div class="msg-bubble ${isMe && !isChannel ? 'me' : 'them'}" data-id="${msg.id}" data-sender="${msg.sender_username}" data-author="${escapeHTML(msg.authorName || msg.sender_username)}" data-raw="${escapeHTML(msg.content)}">
                             ${forwardedHTML}
                             ${contentHTML}
+                            <div class="msg-reactions-container">${reactionsHTML}</div>
                             ${commentBtnHTML}
                         </div>
                         <div class="msg-meta">${formatTime(msg.timestamp)} ${msg.is_edited ? '<i>(изм.)</i>' : ''} ${statusIcon}</div>
@@ -281,13 +299,15 @@ export class ChatRenderer {
         `;
     }
 
-    renderGroupDetails(chatInfo, myRole, members, media, stats) {
+    renderGroupDetails(chatInfo, myRole, isMuted, members, media, stats) {
         const isAdmin = myRole === 'admin' || myRole === 'moderator';
         const groupDesc = chatInfo.description || '';
         const groupAvatar = chatInfo.avatar || (chatInfo.type === 'channel' ? 'https://placehold.co/150/e8115b/fff?text=CH' : 'https://placehold.co/150/7c3aed/fff?text=G');
         const groupName = chatInfo.name || (chatInfo.type === 'channel' ? 'Канал' : 'Группа');
         const typeLabel = chatInfo.type === 'channel' ? 'Канал' : 'Группа';
 
+        const bellIcon = isMuted ? '<i class="fa-solid fa-bell-slash"></i>' : '<i class="fa-solid fa-bell"></i>';
+        
         const infoCardHTML = `
             <div class="cd-group-info-card" id="cdGroupInfoCard">
                 <div class="cd-gic-view" id="cdGicView">
@@ -297,7 +317,10 @@ export class ChatRenderer {
                             <div class="cd-gic-name">${escapeHTML(groupName)} <span style="font-size: 10px; background: rgba(255,255,255,0.1); padding: 2px 6px; border-radius: 4px; vertical-align: middle;">${typeLabel}</span></div>
                             <div class="cd-gic-stats">${stats.activeMembers} участников • ${stats.totalMessages} сообщений • ${stats.totalMedia} медиа</div>
                         </div>
-                        ${isAdmin ? `<button id="btnEditGroupProfile" class="icon-btn cd-gic-edit-btn" title="Редактировать"><i class="fa-solid fa-pen"></i></button>` : ''}
+                        <div style="display:flex; gap:8px;">
+                            <button class="icon-btn cd-gic-bell-btn" title="Уведомления">${bellIcon}</button>
+                            ${isAdmin ? `<button id="btnEditGroupProfile" class="icon-btn" title="Редактировать"><i class="fa-solid fa-pen"></i></button>` : ''}
+                        </div>
                     </div>
                     <div class="cd-gic-desc ${groupDesc ? '' : 'empty'}">${groupDesc ? parseFormatting(groupDesc) : 'Описание отсутствует'}</div>
                 </div>
@@ -358,6 +381,20 @@ export class ChatRenderer {
             </div>
         `;
 
+        const dangerZoneHTML = `
+            <div class="cd-divider"></div>
+            <div class="cd-panel-section" style="padding: 0 20px; display:flex; flex-direction:column; gap:10px;">
+                <button id="btnLeaveGroup" class="btn-post" style="background: rgba(255,69,58,0.1); color: var(--danger); border: 1px solid rgba(255,69,58,0.3);">
+                    <i class="fa-solid fa-person-walking-arrow-right"></i> Покинуть чат
+                </button>
+                ${myRole === 'admin' ? `
+                <button id="btnDestroyGroup" class="btn-post" style="background: var(--danger); color: #fff;">
+                    <i class="fa-solid fa-skull"></i> Уничтожить для всех
+                </button>
+                ` : ''}
+            </div>
+        `;
+
         return `
             <div style="padding-top: 20px;">
                 ${infoCardHTML}
@@ -370,6 +407,7 @@ export class ChatRenderer {
                 </div>
                 ${mediaHTML}
             </div>
+            ${dangerZoneHTML}
         `;
     }
 
@@ -395,7 +433,7 @@ export class ChatRenderer {
             return (roleWeight[b.role] || 0) - (roleWeight[a.role] || 0);
         });
 
-        const amIAdmin = myRole === 'admin';
+        const amIAdmin = myRole === 'admin' || myRole === 'moderator';
 
         return sortedMembers.map(m => {
             let roleBadge = '';
@@ -424,15 +462,19 @@ export class ChatRenderer {
             const bannerUrl = m.banner || 'https://placehold.co/400x150/111/fff?text=Banner';
 
             let optsBtnHTML = '';
-            if (amIAdmin && m.username !== myUsername) {
+            if (amIAdmin && m.username !== myUsername && !isInvited) {
                 const nextRole = m.role === 'member' ? 'moderator' : 'member';
                 const nextRoleText = m.role === 'member' ? 'Сделать модератором' : 'Забрать права';
+                const muteText = m.can_write === 1 ? 'Ограничить (Mute)' : 'Снять ограничения';
+                
+                const canManageRoles = myRole === 'admin';
                 
                 optsBtnHTML = `
                     <button class="cd-member-opts-btn" data-username="${m.username}"><i class="fa-solid fa-ellipsis-vertical"></i></button>
                     <div class="cd-member-menu" id="mm-${m.username}">
-                        <div class="cd-mm-item btn-change-role" data-username="${m.username}" data-role="${nextRole}"><i class="fa-solid fa-shield"></i> ${nextRoleText}</div>
-                        <div class="cd-mm-item danger btn-kick-user" data-username="${m.username}"><i class="fa-solid fa-boot"></i> Исключить</div>
+                        ${canManageRoles ? `<div class="cd-mm-item btn-change-role" data-username="${m.username}" data-role="${nextRole}"><i class="fa-solid fa-shield"></i> ${nextRoleText}</div>` : ''}
+                        <div class="cd-mm-item btn-mute-user" data-username="${m.username}"><i class="fa-solid fa-microphone-slash"></i> ${muteText}</div>
+                        ${canManageRoles || m.role === 'member' ? `<div class="cd-mm-item danger btn-kick-user" data-username="${m.username}"><i class="fa-solid fa-boot"></i> Исключить</div>` : ''}
                     </div>
                 `;
             }
@@ -452,7 +494,6 @@ export class ChatRenderer {
                     </div>
                     
                     <div class="cd-member-role-badge">${roleBadge}</div>
-                    
                     ${optsBtnHTML}
                 </div>
             `;

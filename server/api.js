@@ -14,7 +14,6 @@ const NotificationsController = require('./controllers/notifications.controller'
 const ConfigController = require('./controllers/config.controller');
 const MessagesController = require('./controllers/messages.controller'); 
 
-// Обертка для multer
 function runMulter(req, res) {
     return new Promise((resolve, reject) => {
         upload.single('file')(req, res, (err) => {
@@ -81,26 +80,30 @@ api.get('/api/notifications', authenticateToken, NotificationsController.getNoti
 api.post('/api/notifications/read', authenticateToken, NotificationsController.markAsRead);
 api.get('/api/notifications/unread', authenticateToken, NotificationsController.getUnreadCount);
 
-// MESSAGES (Добавлены новые маршруты для каналов)
+// ИСПРАВЛЕНО: Убрали сломанные обертки
 api.get('/api/messages/chats', authenticateToken, MessagesController.getChats);
 api.get('/api/messages/friends', authenticateToken, MessagesController.getFriends);
 api.get('/api/messages/admin_groups', authenticateToken, MessagesController.getAdminGroups);
-api.post('/api/messages/create', authenticateToken, (req, res, ctx) => MessagesController.createChat(req, res, ctx.io));
-api.post('/api/messages/send', authenticateToken, (req, res, ctx) => MessagesController.sendMessage(req, res, ctx.io));
-api.post('/api/messages/read', authenticateToken, (req, res, ctx) => MessagesController.markAsRead(req, res, ctx.io));
+api.post('/api/messages/create', authenticateToken, MessagesController.createChat);
+api.post('/api/messages/send', authenticateToken, MessagesController.sendMessage);
+api.post('/api/messages/read', authenticateToken, MessagesController.markAsRead);
 api.post('/api/messages/view', authenticateToken, MessagesController.viewMessage);
-api.post('/api/messages/typing', authenticateToken, (req, res, ctx) => MessagesController.typing(req, res, ctx.io));
-api.post('/api/messages/toggle_block', authenticateToken, (req, res, ctx) => MessagesController.toggleBlock(req, res, ctx.io));
-api.post('/api/messages/delete', authenticateToken, (req, res, ctx) => MessagesController.deleteMessage(req, res, ctx.io));
-api.post('/api/messages/edit', authenticateToken, (req, res, ctx) => MessagesController.editMessage(req, res, ctx.io));
-api.post('/api/messages/clear', authenticateToken, (req, res, ctx) => MessagesController.clearHistory(req, res, ctx.io));
-api.post('/api/messages/invite_respond', authenticateToken, (req, res, ctx) => MessagesController.respondInvite(req, res, ctx.io));
-api.post('/api/messages/delete_chat', authenticateToken, (req, res, ctx) => MessagesController.deleteChat(req, res, ctx.io));
-api.post('/api/messages/update_group', authenticateToken, (req, res, ctx) => MessagesController.updateGroup(req, res, ctx.io));
-api.post('/api/messages/manage_member', authenticateToken, (req, res, ctx) => MessagesController.manageMember(req, res, ctx.io));
-api.post('/api/messages/link_group', authenticateToken, (req, res, ctx) => MessagesController.linkGroup(req, res, ctx.io));
+api.post('/api/messages/typing', authenticateToken, MessagesController.typing);
+api.post('/api/messages/toggle_block', authenticateToken, MessagesController.toggleBlock);
+api.post('/api/messages/delete', authenticateToken, MessagesController.deleteMessage);
+api.post('/api/messages/edit', authenticateToken, MessagesController.editMessage);
+api.post('/api/messages/clear', authenticateToken, MessagesController.clearHistory);
+api.post('/api/messages/invite_respond', authenticateToken, MessagesController.respondInvite);
+api.post('/api/messages/delete_chat', authenticateToken, MessagesController.deleteChat);
+api.post('/api/messages/update_group', authenticateToken, MessagesController.updateGroup);
+api.post('/api/messages/manage_member', authenticateToken, MessagesController.manageMember);
+api.post('/api/messages/link_group', authenticateToken, MessagesController.linkGroup);
 api.get('/api/messages/details/:chatId', authenticateToken, MessagesController.getChatDetails);
-api.get('/api/messages/:chatId', authenticateToken, (req, res, ctx) => MessagesController.getMessages(req, res, ctx.io));
+api.get('/api/messages/:chatId', authenticateToken, MessagesController.getMessages);
+api.post('/api/messages/destroy_group', authenticateToken, MessagesController.destroyGroup);
+api.post('/api/messages/mute_notifs', authenticateToken, MessagesController.muteNotifs);
+api.post('/api/messages/pin_message', authenticateToken, MessagesController.pinMessage);
+api.post('/api/messages/react', authenticateToken, MessagesController.reactMessage);
 
 const adminMws = [authenticateToken, isAdmin];
 api.get('/api/admin/stats', adminMws, AdminController.getStats);
@@ -117,10 +120,11 @@ api.post('/api/admin/delete_user', adminMws, AdminController.deleteUser);
 api.post('/api/admin/reset_media', adminMws, AdminController.resetMedia);
 api.post('/api/admin/toggle_admin', adminMws, AdminController.toggleAdmin);
 
+// ИСПРАВЛЕНО
 api.get('/api/posts', PostsController.getFeed);
 api.get('/api/post/:id', PostsController.getOne);
-api.post('/api/posts', authenticateToken, (req, res, ctx) => PostsController.create(req, res, ctx.io));
-api.post('/api/posts/repost', authenticateToken, (req, res, ctx) => PostsController.repost(req, res, ctx.io));
+api.post('/api/posts', authenticateToken, PostsController.create);
+api.post('/api/posts/repost', authenticateToken, PostsController.repost);
 api.post('/api/posts/delete', authenticateToken, PostsController.delete);
 api.post('/api/posts/visibility', authenticateToken, PostsController.toggleVisibility);
 api.post('/api/posts/like', authenticateToken, PostsController.toggleLike);

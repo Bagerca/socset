@@ -3,10 +3,10 @@ import { escapeHTML, formatTime, parseFormatting } from '../ui/utils/utils.js';
 import { PostComponent } from '../ui/widgets/PostComponent.js';
 import { ProfileRenderer } from '../ui/renderers/ProfileRenderer.js';
 import { ProfileAPI } from '../api/ProfileAPI.js';
-import { RichTextEditor } from '../ui/editors/RichTextEditor.js';
 import { CommentContextMenu } from '../ui/widgets/CommentContextMenu.js';
 import { ProfileSettingsModal } from '../ui/modals/ProfileSettingsModal.js';
-import { UploadAPI } from '../api/UploadAPI.js';
+import { PostComposeHandler } from '../ui/widgets/PostComposeHandler.js';
+import { Toast } from '../ui/utils/Toast.js';
 
 export class ProfileController {
     constructor(stores, targetUsername) {
@@ -37,10 +37,7 @@ export class ProfileController {
         this.closeSelectionBtn = document.getElementById('closeSelectionBtn');
         this.selectionModalTitle = document.getElementById('modalTitle');
         
-        this.publishBtn = document.getElementById('publishBtn');
-        this.postInput = document.getElementById('postInput');
         this.composeBox = document.getElementById('profileComposeBox');
-        this.attachmentPreview = document.getElementById('attachmentPreview');
 
         this.tabBtns = document.querySelectorAll('.profile-tab');
         this.tabPosts = document.getElementById('tabContentPosts');
@@ -49,14 +46,6 @@ export class ProfileController {
         this.wallSendBtn = document.getElementById('wallSendBtn');
         this.wallList = document.getElementById('wallPostsList');
         this.wallUserAvatar = document.getElementById('wallUserAvatar');
-
-        this.pendingMedia = [];
-        this.postFileInput = document.getElementById('postFileInput');
-        this.attachMediaBtn = document.getElementById('attachMediaBtn');
-
-        if (this.postInput) {
-            this.editor = new RichTextEditor(this.postInput, () => this.checkPublishState());
-        }
 
         this.commentMenu = new CommentContextMenu(this.stores, (postId) => {
             const postEl = document.querySelector(`.post[data-id="${postId}"]`);
@@ -83,6 +72,20 @@ export class ProfileController {
         if (this.isMyProfile) {
             this.currentUser = await ProfileAPI.getProfile(this.stores.auth.user.username);
             this.stores.auth.user = { ...this.stores.auth.user, ...this.currentUser };
+            
+            // Инициализация композитора постов для своего профиля
+            if (this.openSettingsBtn) this.openSettingsBtn.style.display = 'flex';
+            if (this.composeBox) {
+                this.composeBox.style.display = 'block';
+                this.composer = new PostComposeHandler(this.stores, {
+                    onSubmit: async (text, pollData, attachData) => {
+                        await this.stores.posts.addPost(text, pollData, attachData);
+                    }
+                });
+            }
+            const visitorActions = document.getElementById('visitorActions');
+            if (visitorActions) visitorActions.style.display = 'none';
+
         } else {
             try {
                 this.currentUser = await ProfileAPI.getProfile(this.targetUsername);
@@ -90,6 +93,10 @@ export class ProfileController {
                 document.querySelector('.profile-container').innerHTML = `<div style="text-align:center; padding: 40px; color: var(--text-muted);">Пользователь не найден</div>`;
                 return;
             }
+            if (this.openSettingsBtn) this.openSettingsBtn.style.display = 'none';
+            if (this.composeBox) this.composeBox.style.display = 'none';
+            const visitorActions = document.getElementById('visitorActions');
+            if (visitorActions) visitorActions.style.display = 'flex';
         }
 
         this.renderProfileHeader();
@@ -106,36 +113,18 @@ export class ProfileController {
             if (wallTab) wallTab.style.display = 'none';
         }
 
-        if (this.isMyProfile) {
-            if (this.openSettingsBtn) this.openSettingsBtn.style.display = 'flex';
-            if (this.composeBox) this.composeBox.style.display = 'block';
-            const visitorActions = document.getElementById('visitorActions');
-            if (visitorActions) visitorActions.style.display = 'none';
-        } else {
-            if (this.openSettingsBtn) this.openSettingsBtn.style.display = 'none';
-            if (this.composeBox) this.composeBox.style.display = 'none';
-            const visitorActions = document.getElementById('visitorActions');
-            if (visitorActions) visitorActions.style.display = 'flex';
-        }
-
         this.initEventListeners();
         
-        // НОВЫЕ ТОЧЕЧНЫЕ СОБЫТИЯ
         document.addEventListener('cycle:post_added', (e) => this.handlePostAdded(e.detail), { signal: this.abortController.signal });
         document.addEventListener('cycle:post_deleted', (e) => this.handlePostDeleted(e.detail), { signal: this.abortController.signal });
-        // Оставляем это на случай глобального рефреша (но оно больше не дергается при добавлении/удалении)
-        document.addEventListener('cycle:posts_updated', () => this.renderPosts(), { signal: this.abortController.signal });
-
         document.addEventListener('cycle:wall_updated', (e) => {
-            if (e.detail === this.currentUser.username) {
-                this.renderWall();
-            }
+            if (e.detail === this.currentUser.username) this.renderWall();
         }, { signal: this.abortController.signal });
     }
 
     destroy() {
         this.abortController.abort();
-        if (this.editor) this.editor.destroy();
+        if (this.composer) this.composer.destroy();
         if (this.commentMenu) this.commentMenu.destroy();
         if (this.bgLayer) {
             this.bgLayer.style.backgroundImage = 'none';
@@ -158,14 +147,6 @@ export class ProfileController {
         if (el) el.remove();
         if (this.postsContainer.children.length === 0) {
             this.postsContainer.innerHTML = `<div style="text-align:center; padding: 40px; color: var(--text-muted);">Нет публикаций</div>`;
-        }
-    }
-
-    checkPublishState() { 
-        if (this.publishBtn && this.postInput) {
-            const hasText = this.postInput.innerText.trim().length > 0;
-            const hasMedia = this.pendingMedia.length > 0;
-            this.publishBtn.disabled = !(hasText || hasMedia); 
         }
     }
 
@@ -401,7 +382,7 @@ export class ProfileController {
             }).join('');
 
             this.wallList.querySelectorAll('.wall-delete-btn').forEach(btn => {
-                btn.addEventListener('click', async (e) => {
+                btn.addEventListener('click', async () => {
                     if (confirm('Удалить запись?')) {
                         const res = await ProfileAPI.deleteFromWall(btn.dataset.id);
                         if (res.success) this.renderWall();
@@ -501,81 +482,6 @@ export class ProfileController {
         modal.classList.add('active');
     }
 
-    async handleFileSelect() {
-        if (this.postFileInput.files.length > 0) {
-            const files = Array.from(this.postFileInput.files);
-            for (const f of files) {
-                if (f.type.startsWith('image/')) {
-                    const compressedFile = await this._compressImage(f);
-                    this.pendingMedia.push({ type: 'image', id: Math.random().toString(36).substr(2, 9), file: compressedFile, url: URL.createObjectURL(compressedFile) });
-                } else if (f.type.startsWith('audio/')) {
-                    this.pendingMedia.push({ type: 'audio', id: Math.random().toString(36).substr(2, 9), file: f, url: null, name: f.name });
-                }
-            }
-            this.postFileInput.value = '';
-            this.updateAttachmentPreview();
-            this.checkPublishState();
-        }
-    }
-
-    async _compressImage(file) {
-        return new Promise((resolve) => {
-            const reader = new FileReader();
-            reader.readAsDataURL(file);
-            reader.onload = (e) => {
-                const img = new Image();
-                img.src = e.target.result;
-                img.onload = () => {
-                    const canvas = document.createElement('canvas');
-                    let w = img.width, h = img.height;
-                    const max = 1200;
-                    if (w > max || h > max) { const ratio = Math.min(max / w, max / h); w *= ratio; h *= ratio; }
-                    canvas.width = w; canvas.height = h;
-                    const ctx = canvas.getContext('2d'); ctx.drawImage(img, 0, 0, w, h);
-                    canvas.toBlob((blob) => { resolve(new File([blob], "image.jpg", { type: "image/jpeg" })); }, 'image/jpeg', 0.85);
-                };
-                img.onerror = () => resolve(file); 
-            };
-            reader.onerror = () => resolve(file);
-        });
-    }
-
-    updateAttachmentPreview() {
-        if (this.pendingMedia.length === 0) {
-            this.attachmentPreview.style.display = 'none';
-            this.attachmentPreview.innerHTML = '';
-            return;
-        }
-        this.attachmentPreview.style.display = 'flex';
-        this.attachmentPreview.style.gap = '10px';
-        this.attachmentPreview.style.flexWrap = 'wrap';
-        this.attachmentPreview.innerHTML = '';
-
-        this.pendingMedia.forEach(media => {
-            const el = document.createElement('div');
-            el.className = 'attached-content-preview';
-            let imgHTML = media.type === 'image' 
-                ? `<img src="${media.url}" style="width:32px; height:32px; border-radius:4px; object-fit:cover;">`
-                : `<div style="width:32px; height:32px; border-radius:4px; background:rgba(255,255,255,0.1); display:flex; align-items:center; justify-content:center; color:var(--accent-games);"><i class="fa-solid fa-music"></i></div>`;
-            let title = media.type === 'image' ? 'Фотография' : media.name;
-            
-            el.innerHTML = `
-                ${imgHTML}
-                <div style="font-size:14px; flex:1; min-width:0;">
-                    <div style="white-space:nowrap; overflow:hidden; text-overflow:ellipsis;"><strong>${escapeHTML(title)}</strong></div>
-                    <div style="color:var(--text-muted); font-size:12px;">Загруженный файл</div>
-                </div>
-                <div class="remove-btn"><i class="fa-solid fa-xmark"></i></div>
-            `;
-            el.querySelector('.remove-btn').addEventListener('click', () => {
-                this.pendingMedia = this.pendingMedia.filter(m => m.id !== media.id);
-                this.updateAttachmentPreview();
-                this.checkPublishState();
-            });
-            this.attachmentPreview.appendChild(el);
-        });
-    }
-
     initEventListeners() {
         const signal = this.abortController.signal;
 
@@ -611,7 +517,7 @@ export class ProfileController {
                     this.wallInput.value = '';
                     this.renderWall();
                 } else {
-                    alert(res.error || 'Ошибка');
+                    Toast.show(res.error || 'Ошибка', 'error');
                 }
             }, { signal });
         }
@@ -674,16 +580,17 @@ export class ProfileController {
             if (sendGiftBtn) {
                 sendGiftBtn.addEventListener('click', async () => {
                     const amount = parseInt(giftAmountInput.value);
-                    if (isNaN(amount) || amount <= 0) return alert("Введите корректное число больше 0.");
-                    if (amount > this.stores.auth.user.coins) return alert("Недостаточно монет на балансе.");
+                    if (isNaN(amount) || amount <= 0) return Toast.show("Введите корректное число больше 0.", "error");
+                    if (amount > this.stores.auth.user.coins) return Toast.show("Недостаточно монет на балансе.", "error");
+                    
                     sendGiftBtn.disabled = true; sendGiftBtn.textContent = 'Отправка...';
                     const res = await ProfileAPI.giftCoins(this.currentUser.username, amount);
                     if (res.success) { 
-                        alert(`Успешно! Вы подарили ${amount} монет.`); 
+                        Toast.show(`Успешно! Вы подарили ${amount} монет.`, 'success'); 
                         this.stores.auth.user.coins = res.newBalance; 
                         giftModal.classList.remove('active'); 
                     } else { 
-                        alert(res.message || res.error || "Ошибка перевода"); 
+                        Toast.show(res.message || res.error || "Ошибка перевода", "error"); 
                     }
                     sendGiftBtn.disabled = false; sendGiftBtn.innerHTML = '<i class="fa-solid fa-gift"></i> Отправить подарок';
                 }, { signal });
@@ -691,7 +598,7 @@ export class ProfileController {
             return;
         }
 
-        // Для своего профиля
+        // Кнопки для своего профиля (Настройки)
         if (this.openSettingsBtn) {
             this.openSettingsBtn.addEventListener('click', () => this.settingsModal.open(this.currentUser), { signal });
         }
@@ -701,49 +608,6 @@ export class ProfileController {
         
         if (this.closeSelectionBtn) {
             this.closeSelectionBtn.addEventListener('click', () => { if(this.selectionModal) this.selectionModal.classList.remove('active'); }, { signal });
-        }
-        
-        if (this.attachMediaBtn && this.postFileInput) {
-            this.attachMediaBtn.addEventListener('click', () => this.postFileInput.click());
-            this.postFileInput.addEventListener('change', async () => this.handleFileSelect());
-        }
-
-        if (this.publishBtn && this.editor) {
-            this.publishBtn.addEventListener('click', async () => { 
-                let text = this.editor.getFormattedContent(); 
-
-                if (this.pendingMedia && this.pendingMedia.length > 0) {
-                    this.publishBtn.disabled = true; 
-                    const origText = this.publishBtn.textContent;
-                    this.publishBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i>';
-                    
-                    let hasErrors = false;
-                    for (const att of this.pendingMedia) {
-                        try {
-                            const res = await UploadAPI.uploadFile(att.file);
-                            if (res && res.success) { 
-                                if (att.type === 'image') text += ` [IMG:${res.url}]`; 
-                                else if (att.type === 'audio') text += ` [AUDIO:${res.url}|[]]`;
-                            } else { hasErrors = true; }
-                        } catch (err) { hasErrors = true; }
-                    }
-                    this.publishBtn.textContent = origText;
-                    if (hasErrors) { alert("Ошибка загрузки файлов"); return; }
-                }
-
-                if (text.trim()) { 
-                    this.publishBtn.disabled = true; this.publishBtn.textContent = 'Отправка...';
-                    try {
-                        await this.stores.posts.addPost(text.trim()); 
-                        this.editor.clear(); 
-                        this.pendingMedia = [];
-                        this.updateAttachmentPreview();
-                    } catch(e){}
-                    finally {
-                        this.publishBtn.disabled = false; this.publishBtn.textContent = 'Опубликовать'; this.checkPublishState(); 
-                    }
-                } 
-            });
         }
     }
 }

@@ -3,6 +3,7 @@ const http = require('http');
 const requestHandler = require('./router');
 const WSManager = require('./utils/wsManager');
 const seedInitialData = require('./seed');
+const ScreeningRoomService = require('./services/ScreeningRoomService');
 
 const PORT = process.env.PORT || 3000;
 
@@ -14,13 +15,15 @@ const appContext = { io, onlineUsers };
 
 seedInitialData();
 
+// Передаем инстанс сокетов в сервис кинозала для сборщика мусора
+ScreeningRoomService.init(io);
+
 server.on('request', (req, res) => {
     requestHandler(req, res, appContext);
 });
 
 io.on('register', (username, ws) => {
     ws.currentUsername = username;
-    // Используем НОВЫЙ метод для добавления в комнату
     io.joinRoom(ws, `user_${username}`);
     
     onlineUsers.set(username, { isOnline: true, currentTrack: null });
@@ -36,10 +39,25 @@ io.on('music_state', (data, ws) => {
     }
 });
 
+// НОВОЕ: Ping-Pong для синхронизации времени
+io.on('ping', (data, ws) => {
+    ws.send(JSON.stringify({ 
+        event: 'pong', 
+        payload: { clientTime: data.clientTime, serverTime: Date.now() } 
+    }));
+});
+
+// Обработка команд Кинозала
+io.on('sr_action', (data, ws) => {
+    ScreeningRoomService.handleAction(data, ws, io);
+});
+
 io.onClose((ws) => {
     if (ws.currentUsername) {
         onlineUsers.delete(ws.currentUsername);
         io.emit('radar_update', { username: ws.currentUsername, type: 'offline' });
+        // Закрываем кинозал, если хост вышел
+        ScreeningRoomService.handleDisconnect(ws.currentUsername, io);
     }
 });
 

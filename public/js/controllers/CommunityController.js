@@ -2,8 +2,8 @@
 import { escapeHTML } from '../ui/utils/utils.js';
 import { CommunitiesAPI } from '../api/CommunitiesAPI.js';
 import { PostComponent } from '../ui/widgets/PostComponent.js';
-import { RichTextEditor } from '../ui/editors/RichTextEditor.js';
-import { UploadAPI } from '../api/UploadAPI.js'; 
+import { PostComposeHandler } from '../ui/widgets/PostComposeHandler.js';
+import { Toast } from '../ui/utils/Toast.js';
 
 export class CommunityController {
     constructor(stores, handle) {
@@ -34,7 +34,6 @@ export class CommunityController {
             this.initSettingsModal();
             this.initEventListeners();
             
-            // НОВЫЕ ТОЧЕЧНЫЕ СОБЫТИЯ
             document.addEventListener('cycle:post_added', (e) => this.handlePostAdded(e.detail), { signal: this.abortController.signal });
             document.addEventListener('cycle:post_deleted', (e) => this.handlePostDeleted(e.detail), { signal: this.abortController.signal });
 
@@ -45,7 +44,7 @@ export class CommunityController {
 
     destroy() {
         this.abortController.abort();
-        if (this.editor) this.editor.destroy();
+        if (this.composer) this.composer.destroy();
         if (this.stores.auth.user) {
             this.stores.auth.user.activeCommunityAdmin = null;
         }
@@ -108,18 +107,12 @@ export class CommunityController {
         }
 
         const composeBox = document.getElementById('commComposeBox');
-        if (c.isMember || c.isCreator) {
-            composeBox.style.display = 'block';
-        } else {
-            composeBox.style.display = 'none';
+        if (composeBox) {
+            composeBox.style.display = (c.isMember || c.isCreator) ? 'block' : 'none';
         }
 
         const settingsBtn = document.getElementById('commSettingsBtn');
-        if (c.role === 'admin' || c.isCreator || this.stores.auth.user.isAdmin) {
-            settingsBtn.style.display = 'flex';
-        } else {
-            settingsBtn.style.display = 'none';
-        }
+        settingsBtn.style.display = (c.role === 'admin' || c.isCreator || this.stores.auth.user.isAdmin) ? 'flex' : 'none';
     }
 
     renderPosts() {
@@ -136,6 +129,17 @@ export class CommunityController {
                 fragment.appendChild(comp.getElement());
             });
             container.appendChild(fragment);
+        }
+    }
+
+    initComposeBox() {
+        const composeBox = document.getElementById('commComposeBox');
+        if (composeBox) {
+            this.composer = new PostComposeHandler(this.stores, {
+                onSubmit: async (text, pollData, attachData) => {
+                    await this.stores.posts.addPost(text, pollData, attachData, this.community.id);
+                }
+            });
         }
     }
 
@@ -185,7 +189,7 @@ export class CommunityController {
             const name = document.getElementById('editCommName').value.trim();
             const description = document.getElementById('editCommDesc').value.trim();
 
-            if (!name) return alert('Название обязательно');
+            if (!name) return Toast.show('Название обязательно', 'warning');
 
             const btn = document.getElementById('saveCommSettingsBtn');
             btn.disabled = true;
@@ -207,8 +211,9 @@ export class CommunityController {
                 this.community.banner = this.tempBanner;
                 this.renderHeader();
                 document.getElementById('commSettingsModal').classList.remove('active');
+                Toast.show('Настройки сохранены', 'success');
             } else {
-                alert(res.error || 'Ошибка сохранения');
+                Toast.show(res.error || 'Ошибка сохранения', 'error');
             }
 
             btn.disabled = false;
@@ -225,7 +230,7 @@ export class CommunityController {
                         document.getElementById('commSettingsModal').classList.remove('active');
                         window.location.hash = '/'; 
                     } else {
-                        alert('Ошибка удаления');
+                        Toast.show('Ошибка удаления', 'error');
                     }
                 }
             }, { signal });
@@ -255,103 +260,6 @@ export class CommunityController {
         });
     }
 
-    initComposeBox() {
-        this.input = document.getElementById('postInput');
-        this.publishBtn = document.getElementById('publishBtn');
-        this.attachMusicBtn = document.getElementById('attachMusicBtn');
-        this.attachGameBtn = document.getElementById('attachGameBtn');
-        this.attachmentPreview = document.getElementById('attachmentPreview');
-        this.modal = document.getElementById('selectionModal');
-        this.modalList = document.getElementById('modalList');
-        
-        this.currentAttachments = { music: null, game: null };
-        
-        this.pendingMedia = [];
-        this.postFileInput = document.getElementById('postFileInput');
-        this.attachMediaBtn = document.getElementById('attachMediaBtn');
-
-        if (!this.input) return;
-
-        this.editor = new RichTextEditor(this.input, () => this.checkPublishState());
-        
-        if (this.attachMediaBtn && this.postFileInput) {
-            this.attachMediaBtn.addEventListener('click', () => this.postFileInput.click());
-            this.postFileInput.addEventListener('change', async () => this.handleFileSelect());
-        }
-
-        this.publishBtn.addEventListener('click', async () => {
-            let text = this.editor.getFormattedContent();
-            let attachData = null;
-            if (this.currentAttachments.music || this.currentAttachments.game) {
-                attachData = {
-                    music: this.currentAttachments.music ? this.currentAttachments.music.id : null,
-                    game: this.currentAttachments.game ? this.currentAttachments.game.id : null
-                };
-            }
-
-            if (this.pendingMedia && this.pendingMedia.length > 0) {
-                this.publishBtn.disabled = true; 
-                const origText = this.publishBtn.textContent;
-                this.publishBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i>';
-                
-                let hasErrors = false;
-                for (const att of this.pendingMedia) {
-                    try {
-                        const res = await UploadAPI.uploadFile(att.file);
-                        if (res && res.success) { 
-                            if (att.type === 'image') text += ` [IMG:${res.url}]`; 
-                            else if (att.type === 'audio') text += ` [AUDIO:${res.url}|[]]`;
-                        } else { hasErrors = true; }
-                    } catch (err) { hasErrors = true; }
-                }
-                this.publishBtn.textContent = origText;
-                if (hasErrors) { alert("Ошибка загрузки файлов"); return; }
-            }
-
-            if (text.length > 0 || attachData) {
-                this.publishBtn.disabled = true; this.publishBtn.textContent = 'Отправка...';
-                try {
-                    await this.stores.posts.addPost(text, null, attachData, this.community.id);
-                    this.editor.clear();
-                    this.currentAttachments = { music: null, game: null };
-                    this.pendingMedia = [];
-                    this.updateAttachmentPreview();
-                } catch(e) {}
-                finally {
-                    this.publishBtn.disabled = false; this.publishBtn.textContent = 'Опубликовать'; this.checkPublishState(); 
-                }
-            }
-        });
-
-        this.attachMusicBtn.addEventListener('click', () => this.openModal('music'));
-        this.attachGameBtn.addEventListener('click', () => this.openModal('game'));
-        document.getElementById('closeModalBtn').addEventListener('click', () => this.modal.classList.remove('active'));
-    }
-
-    async handleFileSelect() {
-        if (this.postFileInput.files.length > 0) {
-            const files = Array.from(this.postFileInput.files);
-            for (const f of files) {
-                if (f.type.startsWith('image/')) {
-                    const compressedFile = await this._compressImage(f);
-                    this.pendingMedia.push({ type: 'image', id: Math.random().toString(36).substr(2, 9), file: compressedFile, url: URL.createObjectURL(compressedFile) });
-                } else if (f.type.startsWith('audio/')) {
-                    this.pendingMedia.push({ type: 'audio', id: Math.random().toString(36).substr(2, 9), file: f, url: null, name: f.name });
-                }
-            }
-            this.postFileInput.value = '';
-            this.updateAttachmentPreview();
-            this.checkPublishState();
-        }
-    }
-
-    checkPublishState() {
-        const hasText = this.input.innerText.trim().length > 0;
-        const hasAttach = this.currentAttachments.music || this.currentAttachments.game;
-        const hasMedia = this.pendingMedia && this.pendingMedia.length > 0;
-        this.publishBtn.disabled = !(hasText || hasAttach || hasMedia);
-    }
-
     initEventListeners() {
         const signal = this.abortController.signal;
 
@@ -361,86 +269,10 @@ export class CommunityController {
             await this.stores.communities.toggleJoin(this.community.id);
             this.community = await CommunitiesAPI.getOne(this.handle);
             this.renderHeader();
-        }, { signal });
-    }
-
-    openModal(type) {
-        this.modal.classList.add('active');
-        this.modalList.innerHTML = ''; 
-        document.getElementById('modalTitle').textContent = type === 'music' ? 'Прикрепить музыку' : 'Прикрепить игру';
-        const items = type === 'music' ? this.stores.catalogs.music : this.stores.catalogs.games;
-
-        items.forEach(item => {
-            const el = document.createElement('div');
-            el.className = 'select-item';
-            el.innerHTML = `
-                <img src="${type === 'music' ? item.cover : item.icon}">
-                <div class="select-info">
-                    <span class="select-title">${escapeHTML(item.title)}</span>
-                </div>
-            `;
-            el.addEventListener('click', () => {
-                this.currentAttachments[type] = item;
-                this.modal.classList.remove('active');
-                this.updateAttachmentPreview();
-                this.checkPublishState();
-            });
-            this.modalList.appendChild(el);
-        });
-    }
-
-    updateAttachmentPreview() {
-        if (!this.currentAttachments.music && !this.currentAttachments.game && this.pendingMedia.length === 0) {
-            this.attachmentPreview.style.display = 'none';
-            this.attachmentPreview.innerHTML = '';
-            return;
-        }
-        this.attachmentPreview.style.display = 'flex';
-        this.attachmentPreview.style.gap = '10px';
-        this.attachmentPreview.style.flexWrap = 'wrap';
-        this.attachmentPreview.innerHTML = '';
-        
-        const addPreview = (type, data) => {
-            if (!data) return;
-            const el = document.createElement('div');
-            el.className = 'attached-content-preview';
-            el.innerHTML = `
-                <img src="${type === 'music' ? data.cover : data.icon}" style="width:32px; height:32px; object-fit:cover; border-radius:4px;">
-                <div style="font-size:14px; flex:1;"><strong>${escapeHTML(data.title)}</strong></div>
-                <div class="remove-btn" style="cursor:pointer;"><i class="fa-solid fa-xmark"></i></div>
-            `;
-            el.querySelector('.remove-btn').addEventListener('click', () => {
-                this.currentAttachments[type] = null;
-                this.updateAttachmentPreview();
-                this.checkPublishState();
-            });
-            this.attachmentPreview.appendChild(el);
-        };
-
-        addPreview('music', this.currentAttachments.music);
-        addPreview('game', this.currentAttachments.game);
-
-        this.pendingMedia.forEach(media => {
-            const el = document.createElement('div');
-            el.className = 'attached-content-preview';
-            let imgHTML = media.type === 'image' 
-                ? `<img src="${media.url}" style="width:32px; height:32px; border-radius:4px; object-fit:cover;">`
-                : `<div style="width:32px; height:32px; border-radius:4px; background:rgba(255,255,255,0.1); display:flex; align-items:center; justify-content:center; color:var(--accent-games);"><i class="fa-solid fa-music"></i></div>`;
-            let title = media.type === 'image' ? 'Фотография' : media.name;
             
-            el.innerHTML = `
-                ${imgHTML}
-                <div style="font-size:14px; flex:1; min-width:0;">
-                    <div style="white-space:nowrap; overflow:hidden; text-overflow:ellipsis;"><strong>${escapeHTML(title)}</strong></div>
-                </div>
-                <div class="remove-btn"><i class="fa-solid fa-xmark"></i></div>
-            `;
-            el.querySelector('.remove-btn').addEventListener('click', () => {
-                this.pendingMedia = this.pendingMedia.filter(m => m.id !== media.id);
-                this.updateAttachmentPreview();
-                this.checkPublishState();
-            });
-            this.attachmentPreview.appendChild(el);
-        });
+            // Если вышли из группы, убираем поле ввода поста
+            const composeBox = document.getElementById('commComposeBox');
+            if (composeBox) composeBox.style.display = (this.community.isMember || this.community.isCreator) ? 'block' : 'none';
+        }, { signal });
     }
 }
