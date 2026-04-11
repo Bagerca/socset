@@ -1,4 +1,3 @@
-// server/controllers/posts.controller.js
 const PostService = require('../services/PostService');
 const jwt = require('../utils/jwt'); 
 const withHandler = require('../utils/responseHandler');
@@ -18,11 +17,13 @@ class PostsController {
 
     getFeed = withHandler((req) => {
         const queryParams = {
-            page: parseInt(req.query.page) || 1, limit: parseInt(req.query.limit) || 10,
-            communityId: req.query.communityId || null, feedType: req.query.feedType || 'main',
-            gameId: req.query.gameId, musicIds: req.query.musicIds ? req.query.musicIds.split(',') :[]
+            beforeTimestamp: req.query.before ? parseInt(req.query.before) : null,
+            limit: parseInt(req.query.limit) || 10,
+            communityId: req.query.communityId || null, 
+            feedType: req.query.feedType || 'main',
+            gameId: req.query.gameId, 
+            musicIds: req.query.musicIds ? req.query.musicIds.split(',') : []
         };
-        // Возвращаем просто массив постов, как ждет фронт
         return PostService.getFeed(queryParams, this._getCurrentUser(req));
     }, { wrapSuccess: false });
 

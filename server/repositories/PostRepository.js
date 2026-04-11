@@ -1,46 +1,57 @@
-// server/repositories/PostRepository.js
 const db = require('../database');
 
 class PostRepository {
     findById(id) { return db.prepare('SELECT * FROM posts WHERE id = ?').get(id); }
 
-    getFeed({ page, limit, communityId, feedType, gameId, musicIds, currentViewer }) {
-        const offset = (page - 1) * limit;
+    getFeed({ limit, beforeTimestamp, communityId, feedType, gameId, musicIds, currentViewer }) {
+        let whereClauses = [];
+        let params = [];
 
+        // 1. Курсор пагинации (берем посты старше определенного времени)
+        if (beforeTimestamp) {
+            whereClauses.push('timestamp < ?');
+            params.push(beforeTimestamp);
+        }
+
+        // 2. Фильтрация по типу ленты
         if (feedType === 'game') {
-            let whereClause = `(attachment_type = 'game' AND json_extract(attachment_data, '$.game') = ?)`;
-            let params = [gameId];
+            let gameClause = `(attachment_type = 'game' AND json_extract(attachment_data, '$.game') = ?)`;
+            params.push(gameId);
 
             if (musicIds && musicIds.length > 0) {
                 const placeholders = musicIds.map(() => '?').join(',');
-                whereClause += ` OR (attachment_type = 'music' AND json_extract(attachment_data, '$.music') IN (${placeholders}))`;
+                gameClause += ` OR (attachment_type = 'music' AND json_extract(attachment_data, '$.music') IN (${placeholders}))`;
                 params.push(...musicIds);
             }
-            return db.prepare(`SELECT * FROM posts WHERE ${whereClause} ORDER BY timestamp DESC LIMIT ? OFFSET ?`).all(...params, limit, offset);
-        
-        } else if (communityId) {
-            return db.prepare(`SELECT * FROM posts WHERE community_id = ? ORDER BY timestamp DESC LIMIT ? OFFSET ?`).all(communityId, limit, offset);
-        
-        } else if (feedType === 'communities') {
+            whereClauses.push(`(${gameClause})`);
+        } 
+        else if (communityId) {
+            whereClauses.push('community_id = ?');
+            params.push(communityId);
+        } 
+        else if (feedType === 'communities') {
             if (currentViewer) {
-                return db.prepare(`
-                    SELECT * FROM posts 
-                    WHERE community_id IN (SELECT community_id FROM community_members WHERE username = ?)
-                    ORDER BY timestamp DESC LIMIT ? OFFSET ?
-                `).all(currentViewer, limit, offset);
+                whereClauses.push(`community_id IN (SELECT community_id FROM community_members WHERE username = ?)`);
+                params.push(currentViewer);
+            } else {
+                return []; // Гость не имеет ленты сообществ
             }
-            return [];
-        } else {
+        } 
+        else {
+            // Главная лента (main)
             if (currentViewer) {
-                return db.prepare(`
-                    SELECT * FROM posts 
-                    WHERE community_id IS NULL 
-                       OR community_id IN (SELECT community_id FROM community_members WHERE username = ?)
-                    ORDER BY timestamp DESC LIMIT ? OFFSET ?
-                `).all(currentViewer, limit, offset);
+                whereClauses.push(`(community_id IS NULL OR community_id IN (SELECT community_id FROM community_members WHERE username = ?))`);
+                params.push(currentViewer);
+            } else {
+                whereClauses.push('community_id IS NULL');
             }
-            return db.prepare(`SELECT * FROM posts WHERE community_id IS NULL ORDER BY timestamp DESC LIMIT ? OFFSET ?`).all(limit, offset);
         }
+
+        const whereString = whereClauses.length > 0 ? `WHERE ${whereClauses.join(' AND ')}` : '';
+        const query = `SELECT * FROM posts ${whereString} ORDER BY timestamp DESC LIMIT ?`;
+        params.push(limit);
+
+        return db.prepare(query).all(...params);
     }
 
     create(post) {
@@ -75,7 +86,6 @@ class PostRepository {
     removeLike(postId, username) { db.prepare('DELETE FROM likes WHERE post_id = ? AND username = ?').run(postId, username); }
     getLikedBy(postId) { return db.prepare('SELECT username FROM likes WHERE post_id = ?').all(postId).map(l => l.username); }
 
-    // НОВЫЙ МЕТОД: Получаем лайки для массива постов ОДНИМ запросом
     getLikesForPosts(postIds) {
         if (!postIds || postIds.length === 0) return [];
         const placeholders = postIds.map(() => '?').join(',');

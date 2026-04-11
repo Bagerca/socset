@@ -1,11 +1,10 @@
-// public/js/controllers/ProfileController.js
 import { escapeHTML, formatTime, parseFormatting } from '../ui/utils/utils.js';
 import { PostComponent } from '../ui/widgets/PostComponent.js';
 import { ProfileRenderer } from '../ui/renderers/ProfileRenderer.js';
 import { ProfileAPI } from '../api/ProfileAPI.js';
 import { CommentContextMenu } from '../ui/widgets/CommentContextMenu.js';
 import { ProfileSettingsModal } from '../ui/modals/ProfileSettingsModal.js';
-import { PostComposeHandler } from '../ui/widgets/PostComposeHandler.js';
+import { ComposeWidget } from '../ui/widgets/ComposeWidget.js'; // Изменено
 import { Toast } from '../ui/utils/Toast.js';
 
 export class ProfileController {
@@ -29,6 +28,7 @@ export class ProfileController {
         this.playerContainer = document.getElementById('profileAudioPlayerContainer');
         this.modulesContainer = document.getElementById('profileModules');
         this.postsContainer = document.getElementById('profilePostsContainer');
+        this.composeContainer = document.getElementById('profileComposeContainer'); // Изменено
         
         this.openSettingsBtn = document.getElementById('openSettingsBtn');
         
@@ -37,8 +37,6 @@ export class ProfileController {
         this.closeSelectionBtn = document.getElementById('closeSelectionBtn');
         this.selectionModalTitle = document.getElementById('modalTitle');
         
-        this.composeBox = document.getElementById('profileComposeBox');
-
         this.tabBtns = document.querySelectorAll('.profile-tab');
         this.tabPosts = document.getElementById('tabContentPosts');
         this.tabWall = document.getElementById('tabContentWall');
@@ -73,11 +71,11 @@ export class ProfileController {
             this.currentUser = await ProfileAPI.getProfile(this.stores.auth.user.username);
             this.stores.auth.user = { ...this.stores.auth.user, ...this.currentUser };
             
-            // Инициализация композитора постов для своего профиля
             if (this.openSettingsBtn) this.openSettingsBtn.style.display = 'flex';
-            if (this.composeBox) {
-                this.composeBox.style.display = 'block';
-                this.composer = new PostComposeHandler(this.stores, {
+            if (this.composeContainer) {
+                this.composeContainer.style.display = 'block';
+                this.composer = new ComposeWidget(this.composeContainer, this.stores, {
+                    placeholder: 'Написать в профиль...',
                     onSubmit: async (text, pollData, attachData) => {
                         await this.stores.posts.addPost(text, pollData, attachData);
                     }
@@ -87,14 +85,10 @@ export class ProfileController {
             if (visitorActions) visitorActions.style.display = 'none';
 
         } else {
-            try {
-                this.currentUser = await ProfileAPI.getProfile(this.targetUsername);
-            } catch (e) {
-                document.querySelector('.profile-container').innerHTML = `<div style="text-align:center; padding: 40px; color: var(--text-muted);">Пользователь не найден</div>`;
-                return;
-            }
+            try { this.currentUser = await ProfileAPI.getProfile(this.targetUsername); } 
+            catch (e) { document.querySelector('.profile-container').innerHTML = `<div style="text-align:center; padding: 40px; color: var(--text-muted);">Пользователь не найден</div>`; return; }
             if (this.openSettingsBtn) this.openSettingsBtn.style.display = 'none';
-            if (this.composeBox) this.composeBox.style.display = 'none';
+            if (this.composeContainer) this.composeContainer.style.display = 'none';
             const visitorActions = document.getElementById('visitorActions');
             if (visitorActions) visitorActions.style.display = 'flex';
         }
@@ -107,7 +101,6 @@ export class ProfileController {
             this.wallUserAvatar.src = this.stores.auth.user.avatar;
             this.wallUserAvatar.onerror = () => this.wallUserAvatar.src = 'https://placehold.co/40x40/333/fff?text=U';
         }
-
         if (!this.currentUser.enableWall) {
             const wallTab = document.getElementById('tabWall');
             if (wallTab) wallTab.style.display = 'none';
@@ -117,9 +110,7 @@ export class ProfileController {
         
         document.addEventListener('cycle:post_added', (e) => this.handlePostAdded(e.detail), { signal: this.abortController.signal });
         document.addEventListener('cycle:post_deleted', (e) => this.handlePostDeleted(e.detail), { signal: this.abortController.signal });
-        document.addEventListener('cycle:wall_updated', (e) => {
-            if (e.detail === this.currentUser.username) this.renderWall();
-        }, { signal: this.abortController.signal });
+        document.addEventListener('cycle:wall_updated', (e) => { if (e.detail === this.currentUser.username) this.renderWall(); }, { signal: this.abortController.signal });
     }
 
     destroy() {
@@ -171,9 +162,7 @@ export class ProfileController {
             if (p.communitiesCount && p.communitiesCount > 0) {
                 commBadge.style.display = 'inline-flex';
                 document.getElementById('commCountVal').textContent = p.communitiesCount;
-            } else {
-                commBadge.style.display = 'none';
-            }
+            } else { commBadge.style.display = 'none'; }
         }
 
         this.avatarImg.src = p.avatar;
@@ -198,9 +187,7 @@ export class ProfileController {
             this.titleBadge.textContent = title.text;
             this.titleBadge.style.color = title.color || '#fff';
             this.titleBadge.style.display = 'inline-block';
-        } else {
-            this.titleBadge.style.display = 'none';
-        }
+        } else { this.titleBadge.style.display = 'none'; }
 
         if (p.musicId) {
             const track = this.stores.catalogs.getTrackById(p.musicId);
@@ -208,27 +195,17 @@ export class ProfileController {
                 this.playerContainer.innerHTML = ProfileRenderer.renderProfilePlayer(track);
                 setTimeout(() => this.initAudioVisualizer(track.id), 50);
             }
-        } else {
-            this.playerContainer.innerHTML = '';
-        }
+        } else { this.playerContainer.innerHTML = ''; }
 
         if (!this.isMyProfile) {
             const isFollowing = p.followers && p.followers.some(u => u.username === this.stores.auth.user.username);
             const followBtn = document.getElementById('followBtn');
             if (followBtn) {
-                if (isFollowing) {
-                    followBtn.innerHTML = '<i class="fa-solid fa-user-check"></i> Вы подписаны';
-                    followBtn.style.background = 'rgba(255, 255, 255, 0.1)';
-                } else {
-                    followBtn.innerHTML = '<i class="fa-solid fa-user-plus"></i> Подписаться';
-                    followBtn.style.background = 'var(--accent-games)';
-                }
+                if (isFollowing) { followBtn.innerHTML = '<i class="fa-solid fa-user-check"></i> Вы подписаны'; followBtn.style.background = 'rgba(255, 255, 255, 0.1)'; } 
+                else { followBtn.innerHTML = '<i class="fa-solid fa-user-plus"></i> Подписаться'; followBtn.style.background = 'var(--accent-games)'; }
             }
-
             const messageBtn = document.getElementById('messageBtn');
-            if (messageBtn) {
-                messageBtn.href = `#/messages?user=${encodeURIComponent(p.username)}`;
-            }
+            if (messageBtn) messageBtn.href = `#/messages?user=${encodeURIComponent(p.username)}`;
         }
 
         const statsEl = document.getElementById('profileStats');
@@ -236,7 +213,6 @@ export class ProfileController {
             const followersCount = p.followers ? p.followers.length : 0;
             const followingCount = p.following ? p.following.length : 0;
             const friendsCount = p.friends ? p.friends.length : 0;
-
             statsEl.innerHTML = `
                 <div class="stat-inline-item" data-type="followers" title="Подписчики"><i class="fa-solid fa-users"></i> <b>${followersCount}</b></div>
                 <div class="stat-inline-item" data-type="following" title="Подписки"><i class="fa-solid fa-user-check"></i> <b>${followingCount}</b></div>
@@ -355,12 +331,7 @@ export class ProfileController {
                 const frameDiv = frameStyle ? `<div style="position:absolute;top:-10%;left:-10%;width:120%;height:120%;pointer-events:none;background-size:contain;background-repeat:no-repeat;background-position:center;border-radius:50%;${frameStyle}"></div>` : '';
                 
                 const showReply = post.author_username !== this.stores.auth.user.username;
-                const replyBtn = showReply ? 
-                    `<div class="wall-post-actions">
-                        <button class="wall-action-btn wall-reply-btn" data-username="${post.author_username}">
-                            <i class="fa-solid fa-reply"></i> Ответить
-                        </button>
-                     </div>` : '';
+                const replyBtn = showReply ? `<div class="wall-post-actions"><button class="wall-action-btn wall-reply-btn" data-username="${post.author_username}"><i class="fa-solid fa-reply"></i> Ответить</button></div>` : '';
 
                 return `
                     <div class="wall-post">
@@ -392,12 +363,9 @@ export class ProfileController {
 
             this.wallList.querySelectorAll('.wall-reply-btn').forEach(btn => {
                 btn.addEventListener('click', () => {
-                    const username = btn.dataset.username;
-                    const mention = `@${username}, `;
+                    const mention = `@${btn.dataset.username}, `;
                     this.wallInput.focus();
-                    if (this.wallInput.value.length > 0 && !this.wallInput.value.endsWith(' ')) {
-                        this.wallInput.value += ' ';
-                    }
+                    if (this.wallInput.value.length > 0 && !this.wallInput.value.endsWith(' ')) this.wallInput.value += ' ';
                     this.wallInput.value += mention;
                 });
             });
@@ -513,12 +481,8 @@ export class ProfileController {
                 if (!content) return;
                 
                 const res = await ProfileAPI.addToWall(this.currentUser.username, content);
-                if (res.success) {
-                    this.wallInput.value = '';
-                    this.renderWall();
-                } else {
-                    Toast.show(res.error || 'Ошибка', 'error');
-                }
+                if (res.success) { this.wallInput.value = ''; this.renderWall(); } 
+                else { Toast.show(res.error || 'Ошибка', 'error'); }
             }, { signal });
         }
 
@@ -526,28 +490,14 @@ export class ProfileController {
         
         this.modulesContainer.addEventListener('click', (e) => { 
             const item = e.target.closest('.showcase-item'); 
-            if (item) { 
-                const game = this.stores.catalogs.getGameById(item.dataset.id); 
-                if (game) { 
-                    window.location.hash = `/game/${game.id}`;
-                } 
-            } 
+            if (item) { const game = this.stores.catalogs.getGameById(item.dataset.id); if (game) window.location.hash = `/game/${game.id}`; } 
         });
 
         const statsEl = document.getElementById('profileStats'); 
-        if (statsEl) {
-            statsEl.addEventListener('click', (e) => { 
-                const item = e.target.closest('.stat-inline-item'); 
-                if (item) this.openUsersListModal(item.dataset.type); 
-            }, { signal });
-        }
-
+        if (statsEl) { statsEl.addEventListener('click', (e) => { const item = e.target.closest('.stat-inline-item'); if (item) this.openUsersListModal(item.dataset.type); }, { signal }); }
+        
         const closeUsersListBtn = document.getElementById('closeUsersListBtn'); 
-        if (closeUsersListBtn) {
-            closeUsersListBtn.addEventListener('click', () => { 
-                document.getElementById('usersListModal').classList.remove('active'); 
-            }, { signal });
-        }
+        if (closeUsersListBtn) { closeUsersListBtn.addEventListener('click', () => { document.getElementById('usersListModal').classList.remove('active'); }, { signal }); }
 
         if (!this.isMyProfile) {
             const followBtn = document.getElementById('followBtn');
@@ -561,22 +511,11 @@ export class ProfileController {
             if (followBtn) {
                 followBtn.addEventListener('click', async () => {
                     const res = await ProfileAPI.toggleFollow(this.currentUser.username);
-                    if (res.success) {
-                        this.currentUser = await ProfileAPI.getProfile(this.targetUsername);
-                        this.renderProfileHeader(); 
-                    }
+                    if (res.success) { this.currentUser = await ProfileAPI.getProfile(this.targetUsername); this.renderProfileHeader(); }
                 }, { signal });
             }
-            if (giftBtn) { 
-                giftBtn.addEventListener('click', () => { 
-                    giftCurrentBalance.textContent = this.stores.auth.user.coins; 
-                    giftAmountInput.value = ''; 
-                    giftModal.classList.add('active'); 
-                }, { signal }); 
-            }
-            if (closeGiftBtn) { 
-                closeGiftBtn.addEventListener('click', () => giftModal.classList.remove('active'), { signal }); 
-            }
+            if (giftBtn) { giftBtn.addEventListener('click', () => { giftCurrentBalance.textContent = this.stores.auth.user.coins; giftAmountInput.value = ''; giftModal.classList.add('active'); }, { signal }); }
+            if (closeGiftBtn) { closeGiftBtn.addEventListener('click', () => giftModal.classList.remove('active'), { signal }); }
             if (sendGiftBtn) {
                 sendGiftBtn.addEventListener('click', async () => {
                     const amount = parseInt(giftAmountInput.value);
@@ -585,29 +524,17 @@ export class ProfileController {
                     
                     sendGiftBtn.disabled = true; sendGiftBtn.textContent = 'Отправка...';
                     const res = await ProfileAPI.giftCoins(this.currentUser.username, amount);
-                    if (res.success) { 
-                        Toast.show(`Успешно! Вы подарили ${amount} монет.`, 'success'); 
-                        this.stores.auth.user.coins = res.newBalance; 
-                        giftModal.classList.remove('active'); 
-                    } else { 
-                        Toast.show(res.message || res.error || "Ошибка перевода", "error"); 
-                    }
+                    if (res.success) { Toast.show(`Успешно! Вы подарили ${amount} монет.`, 'success'); this.stores.auth.user.coins = res.newBalance; giftModal.classList.remove('active'); } 
+                    else { Toast.show(res.message || res.error || "Ошибка перевода", "error"); }
                     sendGiftBtn.disabled = false; sendGiftBtn.innerHTML = '<i class="fa-solid fa-gift"></i> Отправить подарок';
                 }, { signal });
             }
             return;
         }
 
-        // Кнопки для своего профиля (Настройки)
-        if (this.openSettingsBtn) {
-            this.openSettingsBtn.addEventListener('click', () => this.settingsModal.open(this.currentUser), { signal });
-        }
-        
+        if (this.openSettingsBtn) { this.openSettingsBtn.addEventListener('click', () => this.settingsModal.open(this.currentUser), { signal }); }
         document.getElementById('selectProfileTrackBtn')?.addEventListener('click', () => { this.openSelectionModal('music', 'settingsMusic'); }, { signal });
         document.getElementById('settingsAddGameBtn')?.addEventListener('click', () => { this.openSelectionModal('game', 'settingsGame'); }, { signal });
-        
-        if (this.closeSelectionBtn) {
-            this.closeSelectionBtn.addEventListener('click', () => { if(this.selectionModal) this.selectionModal.classList.remove('active'); }, { signal });
-        }
+        if (this.closeSelectionBtn) { this.closeSelectionBtn.addEventListener('click', () => { if(this.selectionModal) this.selectionModal.classList.remove('active'); }, { signal }); }
     }
 }

@@ -1,4 +1,3 @@
-// public/js/store/PostsStore.js
 import { PostsAPI } from '../api/PostsAPI.js';
 import { generateId } from '../ui/utils/utils.js';
 import { SocketService } from '../services/SocketService.js';
@@ -83,7 +82,6 @@ export class PostsStore {
                     }
                 }
             } catch (e) {
-                // ИСПРАВЛЕНИЕ: Защита от бесконечного цикла 500 ошибок
                 task.retries = (task.retries || 0) + 1;
                 if (task.retries < 3) {
                     this.offlineQueue.push(task);
@@ -95,14 +93,18 @@ export class PostsStore {
         }
     }
 
-    async loadPosts(page = 1, targetId = null, feedType = 'main', extraIds = []) {
+    // ИЗМЕНЕНО: Используем beforeCursor вместо page
+    async loadPosts(beforeCursor = null, targetId = null, feedType = 'main', extraIds = []) {
         try {
-            const newPosts = await PostsAPI.getPosts(page, 10, targetId, feedType, extraIds);
+            const newPosts = await PostsAPI.getPosts(beforeCursor, 10, targetId, feedType, extraIds);
             const processed = newPosts.map(p => this._personalize(p));
-            if (page === 1) { 
+            
+            if (!beforeCursor) { 
+                // Это первичная загрузка (сброс)
                 this.posts = processed; 
                 this.injectOfflinePosts(targetId, feedType); 
             } else {
+                // Это дозагрузка при скролле
                 const existingIds = new Set(this.posts.map(p => p.id));
                 const uniqueNew = processed.filter(p => !existingIds.has(p.id));
                 this.posts = [...this.posts, ...uniqueNew];

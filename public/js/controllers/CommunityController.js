@@ -1,8 +1,7 @@
-// public/js/controllers/CommunityController.js
 import { escapeHTML } from '../ui/utils/utils.js';
 import { CommunitiesAPI } from '../api/CommunitiesAPI.js';
 import { PostComponent } from '../ui/widgets/PostComponent.js';
-import { PostComposeHandler } from '../ui/widgets/PostComposeHandler.js';
+import { ComposeWidget } from '../ui/widgets/ComposeWidget.js'; // Изменено
 import { Toast } from '../ui/utils/Toast.js';
 
 export class CommunityController {
@@ -27,7 +26,7 @@ export class CommunityController {
 
             this.renderHeader();
             
-            await this.stores.posts.loadPosts(1, this.community.id);
+            await this.stores.posts.loadPosts(null, this.community.id, 'main');
             this.renderPosts();
 
             this.initComposeBox();
@@ -106,9 +105,9 @@ export class CommunityController {
             joinBtn.disabled = false;
         }
 
-        const composeBox = document.getElementById('commComposeBox');
-        if (composeBox) {
-            composeBox.style.display = (c.isMember || c.isCreator) ? 'block' : 'none';
+        const composeContainer = document.getElementById('commComposeContainer');
+        if (composeContainer) {
+            composeContainer.style.display = (c.isMember || c.isCreator) ? 'block' : 'none';
         }
 
         const settingsBtn = document.getElementById('commSettingsBtn');
@@ -133,9 +132,10 @@ export class CommunityController {
     }
 
     initComposeBox() {
-        const composeBox = document.getElementById('commComposeBox');
-        if (composeBox) {
-            this.composer = new PostComposeHandler(this.stores, {
+        const composeContainer = document.getElementById('commComposeContainer');
+        if (composeContainer) {
+            this.composer = new ComposeWidget(composeContainer, this.stores, {
+                placeholder: 'Написать в сообщество...',
                 onSubmit: async (text, pollData, attachData) => {
                     await this.stores.posts.addPost(text, pollData, attachData, this.community.id);
                 }
@@ -195,29 +195,17 @@ export class CommunityController {
             btn.disabled = true;
             btn.textContent = 'Сохранение...';
 
-            const payload = {
-                communityId: this.community.id,
-                name,
-                description,
-                avatar: this.tempAvatar,
-                banner: this.tempBanner
-            };
+            const payload = { communityId: this.community.id, name, description, avatar: this.tempAvatar, banner: this.tempBanner };
 
             const res = await CommunitiesAPI.update(payload);
             if (res.success) {
-                this.community.name = name;
-                this.community.description = description;
-                this.community.avatar = this.tempAvatar;
-                this.community.banner = this.tempBanner;
+                this.community.name = name; this.community.description = description; this.community.avatar = this.tempAvatar; this.community.banner = this.tempBanner;
                 this.renderHeader();
                 document.getElementById('commSettingsModal').classList.remove('active');
                 Toast.show('Настройки сохранены', 'success');
-            } else {
-                Toast.show(res.error || 'Ошибка сохранения', 'error');
-            }
+            } else { Toast.show(res.error || 'Ошибка сохранения', 'error'); }
 
-            btn.disabled = false;
-            btn.textContent = 'Сохранить изменения';
+            btn.disabled = false; btn.textContent = 'Сохранить изменения';
         }, { signal });
 
         const deleteBtn = document.getElementById('deleteCommBtn');
@@ -226,26 +214,18 @@ export class CommunityController {
             deleteBtn.addEventListener('click', async () => {
                 if (confirm('ВЫ ТОЧНО ХОТИТЕ УДАЛИТЬ СООБЩЕСТВО? Это действие нельзя отменить.')) {
                     const res = await CommunitiesAPI.delete(this.community.id);
-                    if (res.success) {
-                        document.getElementById('commSettingsModal').classList.remove('active');
-                        window.location.hash = '/'; 
-                    } else {
-                        Toast.show('Ошибка удаления', 'error');
-                    }
+                    if (res.success) { document.getElementById('commSettingsModal').classList.remove('active'); window.location.hash = '/'; } 
+                    else { Toast.show('Ошибка удаления', 'error'); }
                 }
             }, { signal });
-        } else {
-            deleteBtn.style.display = 'none';
-        }
+        } else { deleteBtn.style.display = 'none'; }
     }
 
     async compressImage(file, w, h) {
         return new Promise((resolve, reject) => {
-            const reader = new FileReader();
-            reader.readAsDataURL(file);
+            const reader = new FileReader(); reader.readAsDataURL(file);
             reader.onload = (event) => {
-                const img = new Image();
-                img.src = event.target.result;
+                const img = new Image(); img.src = event.target.result;
                 img.onload = () => {
                     const canvas = document.createElement('canvas');
                     let width = img.width, height = img.height;
@@ -270,9 +250,8 @@ export class CommunityController {
             this.community = await CommunitiesAPI.getOne(this.handle);
             this.renderHeader();
             
-            // Если вышли из группы, убираем поле ввода поста
-            const composeBox = document.getElementById('commComposeBox');
-            if (composeBox) composeBox.style.display = (this.community.isMember || this.community.isCreator) ? 'block' : 'none';
+            const composeContainer = document.getElementById('commComposeContainer');
+            if (composeContainer) composeContainer.style.display = (this.community.isMember || this.community.isCreator) ? 'block' : 'none';
         }, { signal });
     }
 }

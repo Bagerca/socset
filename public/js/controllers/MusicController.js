@@ -1,13 +1,13 @@
-// public/js/controllers/MusicController.js
 import { debounce, escapeHTML } from '../ui/utils/utils.js';
 import { SearchEngine } from '../ui/utils/SearchEngine.js';
 import { MusicRenderer } from '../ui/renderers/MusicRenderer.js';
 import { MUSIC_CONSTANTS } from '../config/MusicConstants.js';
+import { PlaylistManager } from '../ui/widgets/PlaylistManager.js'; // Импорт нового менеджера
 
 export class MusicController {
     constructor(stores) {
         this.stores = stores;
-        this.player = this.stores.player; // <-- ИСПОЛЬЗУЕМ ПЛЕЕР ИЗ STORES
+        this.player = this.stores.player;
         this.searchEngine = new SearchEngine();
         this.abortController = new AbortController();
 
@@ -15,7 +15,6 @@ export class MusicController {
         this.searchQuery = '';
         this.currentGenreId = 'all';
         this.currentAlbumId = null;  
-        this.trackToAdd = null;
 
         this.sortState = { key: null, order: 'asc' };
 
@@ -23,8 +22,10 @@ export class MusicController {
         this.subHeader = document.getElementById('musicSubHeader');
         this.mainContent = document.getElementById('musicMainContent');
         
-        this.createModal = document.getElementById('createAlbumModal');
-        this.addModal = document.getElementById('addToAlbumModal');
+        // Делегируем работу с плейлистами отдельному менеджеру
+        this.playlistManager = new PlaylistManager(this.stores, () => {
+            if (this.currentTab === 'playlists') this.renderContent();
+        });
 
         this.boundTrackChanged = () => this.syncListIcons();
         this.boundPlayState = (e) => this.updateListPlayIcon(e.detail);
@@ -46,40 +47,14 @@ export class MusicController {
         this.abortController.abort();
     }
 
-    loadDurationsForTracks(tracks) {
-        tracks.forEach(track => {
-            if (this.stores.catalogs.durationCache[track.id]) return;
-            const tempAudio = new Audio(track.url);
-            tempAudio.preload = 'metadata';
-            tempAudio.onloadedmetadata = () => {
-                const duration = tempAudio.duration;
-                if (!isNaN(duration)) {
-                    const formatted = this.formatTime(duration);
-                    this.stores.catalogs.durationCache[track.id] = formatted;
-                    const el = document.getElementById(`dur-${track.id}`);
-                    if (el) el.textContent = formatted;
-                }
-            };
-        });
-    }
-
-    formatTime(seconds) {
-        if (isNaN(seconds)) return '0:00';
-        const m = Math.floor(seconds / 60);
-        const s = Math.floor(seconds % 60);
-        return `${m}:${s < 10 ? '0' : ''}${s}`;
-    }
-
     getSortedTracks(tracks) {
         if (!this.sortState.key) return tracks;
         
         return [...tracks].sort((a, b) => {
             let valA, valB;
             if (this.sortState.key === 'duration') {
-                const durA = this.stores.catalogs.durationCache[a.id] || '0:00';
-                const durB = this.stores.catalogs.durationCache[b.id] || '0:00';
-                valA = this.parseDuration(durA);
-                valB = this.parseDuration(durB);
+                valA = a.duration || '0:00';
+                valB = b.duration || '0:00';
             } else if (this.sortState.key === 'genre') {
                 valA = (MUSIC_CONSTANTS.genres[a.genre]?.label || '').toLowerCase();
                 valB = (MUSIC_CONSTANTS.genres[b.genre]?.label || '').toLowerCase();
@@ -93,13 +68,6 @@ export class MusicController {
         });
     }
 
-    parseDuration(timeStr) {
-        if (!timeStr || timeStr === '--:--') return 0;
-        const parts = timeStr.split(':');
-        if (parts.length !== 2) return 0;
-        return parseInt(parts[0]) * 60 + parseInt(parts[1]);
-    }
-
     bindGlobalEvents() {
         const signal = this.abortController.signal;
 
@@ -107,13 +75,16 @@ export class MusicController {
             tab.addEventListener('click', () => { this.switchTab(tab.dataset.tab); }, { signal });
         });
 
+        // Делегирование событий главной области
         this.mainContent.addEventListener('click', (e) => {
+            
+            // 1. Создание плейлиста (перенаправляем в менеджер)
             if (e.target.closest('.create-pl-card')) {
-                this.createModal.classList.add('active');
-                document.getElementById('newAlbumName').value = '';
+                this.playlistManager.openCreateModal();
                 return;
             }
 
+            // 2. Сортировка
             const sortHeader = e.target.closest('.m-th-sortable');
             if (sortHeader) {
                 const key = sortHeader.dataset.sort;
@@ -124,15 +95,21 @@ export class MusicController {
                 return;
             }
 
+            // 3. Действия с треком
             if (e.target.closest('.fav-btn')) { this.handleFav(e.target.closest('.fav-btn')); return; }
-            if (e.target.closest('.add-btn')) { this.handleAdd(e.target.closest('.add-btn')); return; }
+            if (e.target.closest('.add-btn')) { 
+                this.playlistManager.openAddToPlaylistModal(e.target.closest('.add-btn').dataset.id); 
+                return; 
+            }
 
+            // 4. Воспроизведение трека
             const trackItem = e.target.closest('.m-track-row') || e.target.closest('.m-quick-card');
             if (trackItem && !e.target.closest('.icon-btn-small')) {
                 this.playTrackFromList(trackItem.dataset.id);
                 return;
             }
 
+            // 5. Жанры
             const genreCard = e.target.closest('.m-genre-card');
             if (genreCard) {
                 this.currentGenreId = genreCard.dataset.genre;
@@ -140,6 +117,7 @@ export class MusicController {
                 return;
             }
 
+            // 6. Опции Плейлиста
             const plOptsBtn = e.target.closest('.pl-opts-btn');
             if (plOptsBtn) {
                 e.stopPropagation(); 
@@ -155,34 +133,21 @@ export class MusicController {
             const editPlBtn = e.target.closest('.edit-pl-btn');
             if (editPlBtn) {
                 e.stopPropagation();
-                const albumId = editPlBtn.dataset.id;
-                const currentName = editPlBtn.dataset.name;
-                const newName = prompt('Введите новое название плейлиста:', currentName);
-                if (newName && newName.trim() !== '' && newName.trim() !== currentName) {
-                    const album = this.stores.auth.user.customAlbums.find(a => a.id === albumId);
-                    if (album) {
-                        album.name = newName.trim();
-                        this.stores.auth.updateProfile({});
-                        this.renderContent();
-                    }
-                }
+                this.playlistManager.handlePlaylistRename(editPlBtn.dataset.id, editPlBtn.dataset.name);
                 return;
             }
 
             const delPlBtn = e.target.closest('.del-pl-btn');
             if (delPlBtn) {
                 e.stopPropagation();
-                if (confirm('Вы уверены, что хотите удалить этот плейлист?')) {
-                    const idToDelete = delPlBtn.dataset.id;
-                    this.stores.auth.deleteCustomAlbum(idToDelete);
-                    if (this.currentAlbumId === idToDelete) {
-                        this.currentAlbumId = null;
-                    }
+                if (this.playlistManager.handlePlaylistDelete(delPlBtn.dataset.id)) {
+                    if (this.currentAlbumId === delPlBtn.dataset.id) this.currentAlbumId = null;
                     this.renderContent();
                 }
                 return;
             }
 
+            // 7. Открытие плейлиста
             const playlistCard = e.target.closest('.m-playlist-card');
             if (playlistCard && !e.target.closest('.m-pl-options-wrapper')) {
                 this.currentAlbumId = playlistCard.dataset.id;
@@ -205,14 +170,12 @@ export class MusicController {
             }
         }, { signal });
 
+        // Делегирование SubHeader (Чипсы)
         this.subHeader.addEventListener('click', (e) => {
             const toggleBtn = e.target.closest('#toggleChipsBtn');
             if (toggleBtn) {
                 const row = document.getElementById('musicChipsRow');
-                if (row) {
-                    row.classList.toggle('expanded');
-                    toggleBtn.classList.toggle('expanded');
-                }
+                if (row) { row.classList.toggle('expanded'); toggleBtn.classList.toggle('expanded'); }
                 return;
             }
 
@@ -226,6 +189,7 @@ export class MusicController {
             }
         }, { signal });
 
+        // Закрытие выпадающих меню по клику вне
         document.addEventListener('click', (e) => {
             if (!e.target.closest('.m-pl-options-wrapper')) {
                 document.querySelectorAll('.pl-options-menu.active').forEach(m => {
@@ -250,29 +214,6 @@ export class MusicController {
                 if (dropdown) dropdown.style.display = 'none';
             }
         }, { signal });
-
-        document.getElementById('albumSelectList').addEventListener('click', (e) => {
-            const item = e.target.closest('.album-select-item');
-            if (item && this.trackToAdd) {
-                this.stores.auth.addTrackToAlbum(item.dataset.id, this.trackToAdd);
-                this.addModal.classList.remove('active');
-                if(this.currentTab === 'playlists') this.renderContent(); 
-                this.trackToAdd = null;
-            }
-        }, { signal });
-
-        document.getElementById('closeCreateAlbumBtn').addEventListener('click', () => this.createModal.classList.remove('active'), { signal });
-        
-        document.getElementById('saveNewAlbumBtn').addEventListener('click', () => {
-            const name = document.getElementById('newAlbumName').value.trim();
-            if (name) { 
-                this.stores.auth.createCustomAlbum(name); 
-                this.createModal.classList.remove('active'); 
-                if(this.currentTab === 'playlists') this.renderContent(); 
-            }
-        }, { signal });
-        
-        document.getElementById('closeAddToAlbumBtn').addEventListener('click', () => this.addModal.classList.remove('active'), { signal });
     }
 
     switchTab(tabId) {
@@ -316,6 +257,7 @@ export class MusicController {
                             dropdown.style.display = 'block';
                         }
                     }, 200);
+                    
                     searchInput.addEventListener('input', (e) => handleDropdownSearch(e.target.value.trim()));
                     
                     searchInput.addEventListener('keydown', (e) => {
@@ -403,14 +345,9 @@ export class MusicController {
         html += `<h2 class="m-section-title" style="margin-bottom: 20px;">Результаты поиска</h2>`;
         html += MusicRenderer.renderTrackListHeader(this.sortState);
         html += `<div class="m-tracks-container">`;
-        html += sortedResults.map((t, i) => {
-            const cachedDur = this.stores.catalogs.durationCache[t.id];
-            return MusicRenderer.renderTrackRow(t, i, favs.includes(t.id), MUSIC_CONSTANTS.genres[t.genre], cachedDur);
-        }).join('');
+        html += sortedResults.map((t, i) => MusicRenderer.renderTrackRow(t, i, favs.includes(t.id), MUSIC_CONSTANTS.genres[t.genre])).join('');
         html += `</div></div>`; 
         this.mainContent.innerHTML = html;
-
-        this.loadDurationsForTracks(sortedResults);
     }
 
     renderTracks() {
@@ -430,14 +367,9 @@ export class MusicController {
         html += `<h2 class="m-section-title" style="margin-bottom: 20px;">${escapeHTML(title)}</h2>`;
         html += MusicRenderer.renderTrackListHeader(this.sortState);
         html += `<div class="m-tracks-container">`;
-        html += sortedTracks.map((t, i) => {
-            const cachedDur = this.stores.catalogs.durationCache[t.id];
-            return MusicRenderer.renderTrackRow(t, i, favs.includes(t.id), MUSIC_CONSTANTS.genres[t.genre], cachedDur);
-        }).join('');
+        html += sortedTracks.map((t, i) => MusicRenderer.renderTrackRow(t, i, favs.includes(t.id), MUSIC_CONSTANTS.genres[t.genre])).join('');
         html += `</div></div>`; 
         this.mainContent.innerHTML = html;
-
-        this.loadDurationsForTracks(sortedTracks);
     }
 
     renderFavorites() {
@@ -455,14 +387,9 @@ export class MusicController {
         html += `<h2 class="m-section-title" style="margin-bottom: 20px;">Любимые треки</h2>`;
         html += MusicRenderer.renderTrackListHeader(this.sortState);
         html += `<div class="m-tracks-container">`;
-        html += sortedTracks.map((t, i) => {
-            const cachedDur = this.stores.catalogs.durationCache[t.id];
-            return MusicRenderer.renderTrackRow(t, i, true, MUSIC_CONSTANTS.genres[t.genre], cachedDur);
-        }).join('');
+        html += sortedTracks.map((t, i) => MusicRenderer.renderTrackRow(t, i, true, MUSIC_CONSTANTS.genres[t.genre])).join('');
         html += `</div></div>`; 
         this.mainContent.innerHTML = html;
-
-        this.loadDurationsForTracks(sortedTracks);
     }
 
     renderPlaylists() {
@@ -507,12 +434,8 @@ export class MusicController {
             const sortedTracks = this.getSortedTracks(tracks);
             html += MusicRenderer.renderTrackListHeader(this.sortState);
             html += `<div class="m-tracks-container">`;
-            html += sortedTracks.map((t, i) => {
-                const cachedDur = this.stores.catalogs.durationCache[t.id];
-                return MusicRenderer.renderTrackRow(t, i, favs.includes(t.id), MUSIC_CONSTANTS.genres[t.genre], cachedDur);
-            }).join('');
+            html += sortedTracks.map((t, i) => MusicRenderer.renderTrackRow(t, i, favs.includes(t.id), MUSIC_CONSTANTS.genres[t.genre])).join('');
             html += `</div>`; 
-            this.loadDurationsForTracks(sortedTracks);
         }
         html += `</div>`;
         this.mainContent.innerHTML = html;
@@ -533,19 +456,6 @@ export class MusicController {
                 this.player.btnFav.classList.toggle('active', isFav);
             }
         }
-    }
-
-    handleAdd(btn) {
-        this.trackToAdd = btn.dataset.id;
-        const albums = this.stores.auth.user.customAlbums || [];
-        const listEl = document.getElementById('albumSelectList');
-        
-        if (albums.length === 0) { 
-            listEl.innerHTML = `<div style="padding:20px;text-align:center;color:var(--text-muted);">Сначала создайте плейлист.</div>`; 
-        } else {
-            listEl.innerHTML = albums.map(a => `<div class="select-item album-select-item" data-id="${a.id}"><img src="${a.cover}" style="width:40px;height:40px;border-radius:6px;object-fit:cover;"><span style="font-weight:600;">${escapeHTML(a.name)}</span></div>`).join('');
-        }
-        this.addModal.classList.add('active');
     }
 
     playTrackFromList(trackId) {

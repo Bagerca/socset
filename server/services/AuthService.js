@@ -1,6 +1,6 @@
-// server/services/AuthService.js
 const UserRepository = require('../repositories/UserRepository');
 const jwt = require('../utils/jwt');
+const { hashPassword, verifyPassword } = require('../utils/hash');
 const { randomUUID } = require('crypto');
 
 const SECRET_KEY = process.env.JWT_SECRET || 'fallback_secret_key';
@@ -10,10 +10,11 @@ class AuthService {
         let user = UserRepository.findByUsername(username);
 
         if (!user) {
+            // Пользователь не найден -> Регистрируем нового (хешируем пароль)
             const newUser = {
                 id: randomUUID(), 
                 username, 
-                password, 
+                password: hashPassword(password), // <--- БЕЗОПАСНОЕ ХЕШИРОВАНИЕ
                 name: username, 
                 bio: 'Новичок в Cycle',
                 avatar: 'img/logo.svg', 
@@ -26,8 +27,15 @@ class AuthService {
             UserRepository.create(newUser);
             user = UserRepository.findByUsername(username);
         } 
-        else if (user.password !== password) {
-            throw new Error('Неверный пароль'); 
+        else {
+            // Пользователь найден -> Проверяем пароль
+            // Поддержка обратной совместимости: если пароль старый (без соли), пускаем
+            if (!user.password.includes(':')) {
+                if (user.password !== password) throw new Error('Неверный пароль');
+            } else {
+                // Если пароль захеширован, проверяем через утилиту
+                if (!verifyPassword(password, user.password)) throw new Error('Неверный пароль'); 
+            }
         }
 
         const token = jwt.sign({ 
@@ -48,6 +56,9 @@ class AuthService {
             favoriteGames: [], 
             customAlbums:[]
         };
+        
+        // Убираем хеш пароля из ответа фронтенду! (важно для безопасности)
+        delete profile.password;
         
         return { token, profile };
     }

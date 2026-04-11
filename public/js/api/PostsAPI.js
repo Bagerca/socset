@@ -1,11 +1,12 @@
-// public/js/api/PostsAPI.js
 import { httpClient } from './httpClient.js';
 
 export const PostsAPI = {
-    getPost: (postId) => httpClient.get(`/post/${postId}`), // <--- ДОБАВЛЕНО
+    getPost: (postId) => httpClient.get(`/post/${postId}`),
     
-    getPosts: (page = 1, limit = 10, targetId = null, feedType = 'main', extraIds =[]) => {
-        let url = `/posts?page=${page}&limit=${limit}&feedType=${feedType}`;
+    getPosts: (beforeCursor = null, limit = 10, targetId = null, feedType = 'main', extraIds = []) => {
+        let url = `/posts?limit=${limit}&feedType=${feedType}`;
+        if (beforeCursor) url += `&before=${beforeCursor}`;
+        
         if (feedType === 'communities' || feedType === 'main') {
             if (targetId) url += `&communityId=${targetId}`;
         } else if (feedType === 'game') {

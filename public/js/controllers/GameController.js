@@ -1,10 +1,9 @@
-// public/js/controllers/GameController.js
 import { escapeHTML } from '../ui/utils/utils.js';
 import { GAME_CONSTANTS } from '../config/GameConstants.js';
 import { MUSIC_CONSTANTS } from '../config/MusicConstants.js';
 import { PostComponent } from '../ui/widgets/PostComponent.js';
 import { MusicRenderer } from '../ui/renderers/MusicRenderer.js';
-import { RichTextEditor } from '../ui/editors/RichTextEditor.js';
+import { ComposeWidget } from '../ui/widgets/ComposeWidget.js'; // Изменено
 import { CommentContextMenu } from '../ui/widgets/CommentContextMenu.js';
 
 export class GameController {
@@ -13,8 +12,7 @@ export class GameController {
         this.gameId = gameId;
         this.abortController = new AbortController();
         
-        this.page = 1;
-        this.isLoadingMore = false;
+        this.isLoadingMore = false; 
         this.currentScreenshotIndex = 0; 
 
         this.boundTrackChanged = () => this.syncListIcons();
@@ -47,12 +45,11 @@ export class GameController {
         this.renderMusic();
         this.initComposeBox();
         
-        await this.stores.posts.loadPosts(1, this.gameId, 'game', this.musicTracks.map(m => m.id));
+        await this.stores.posts.loadPosts(null, this.gameId, 'game', this.musicTracks.map(m => m.id));
         this.renderPosts();
         
         this.initEventListeners();
         
-        // НОВЫЕ ТОЧЕЧНЫЕ СОБЫТИЯ
         document.addEventListener('cycle:post_added', (e) => this.handlePostAdded(e.detail), { signal: this.abortController.signal });
         document.addEventListener('cycle:post_deleted', (e) => this.handlePostDeleted(e.detail), { signal: this.abortController.signal });
     }
@@ -61,12 +58,11 @@ export class GameController {
         this.abortController.abort();
         const trailerContainer = document.getElementById('gameTrailerContainer');
         if (trailerContainer) trailerContainer.innerHTML = ''; 
-        if (this.editor) this.editor.destroy();
+        if (this.composer) this.composer.destroy();
         if (this.commentMenu) this.commentMenu.destroy();
     }
 
     handlePostAdded(post) {
-        // Проверяем, относится ли пост к игре (прикреплена игра или трек из игры)
         const hasGame = post.attachment && post.attachment.game === this.gameId;
         const hasMusic = post.attachment && post.attachment.music && this.musicTracks.some(m => m.id === post.attachment.music);
         
@@ -200,39 +196,17 @@ export class GameController {
     }
 
     initComposeBox() {
-        this.input = document.getElementById('postInput');
-        this.publishBtn = document.getElementById('publishBtn');
-        this.attachmentPreview = document.getElementById('attachmentPreview');
-        
-        this.editor = new RichTextEditor(this.input, () => this.checkPublishState());
-        this.updateAttachmentPreview();
+        const container = document.getElementById('gameComposeContainer');
+        if (!container) return;
 
-        this.publishBtn.addEventListener('click', () => {
-            const text = this.editor.getFormattedContent();
-            if (text.length > 0) {
-                this.stores.posts.addPost(text, null, { music: null, game: this.game.id });
-                this.editor.clear();
-                this.checkPublishState();
+        this.composer = new ComposeWidget(container, this.stores, {
+            placeholder: 'Поделитесь впечатлениями об игре...',
+            showPoll: false,
+            autoAttachment: { type: 'game', data: this.game },
+            onSubmit: async (text, pollData, attachData) => {
+                await this.stores.posts.addPost(text, pollData, attachData);
             }
         });
-    }
-
-    updateAttachmentPreview() {
-        this.attachmentPreview.innerHTML = `
-            <div class="attached-content-preview" style="cursor: default;">
-                <img src="${this.game.icon}" style="width:32px; height:42px; border-radius:4px; object-fit:cover;">
-                <div style="font-size:14px; flex:1; min-width:0;">
-                    <div style="white-space:nowrap; overflow:hidden; text-overflow:ellipsis;"><strong>${escapeHTML(this.game.title)}</strong></div>
-                    <div style="color:var(--text-muted); font-size:12px;">Прикреплено автоматически</div>
-                </div>
-            </div>
-        `;
-    }
-
-    checkPublishState() {
-        if (!this.input || !this.publishBtn) return;
-        const hasText = this.input.innerText.trim().length > 0;
-        this.publishBtn.disabled = !hasText;
     }
 
     openScreenshotModal(index) {
@@ -258,8 +232,8 @@ export class GameController {
         }, { signal });
 
         document.getElementById('btnWritePost').addEventListener('click', () => {
-            document.getElementById('gameComposeBox').scrollIntoView({ behavior: 'smooth', block: 'center' });
-            document.getElementById('postInput').focus();
+            document.getElementById('gameComposeContainer').scrollIntoView({ behavior: 'smooth', block: 'center' });
+            if (this.composer && this.composer.input) this.composer.input.focus();
         }, { signal });
 
         document.getElementById('btnFavGame').addEventListener('click', (e) => {
@@ -320,8 +294,13 @@ export class GameController {
             const { scrollTop, scrollHeight, clientHeight } = document.documentElement;
             if (scrollTop + clientHeight >= scrollHeight - 100) {
                 this.isLoadingMore = true;
-                this.page++;
-                const newPosts = await this.stores.posts.loadPosts(this.page, this.gameId, 'game', this.musicTracks.map(m => m.id));
+                
+                const oldestPost = this.stores.posts.posts[this.stores.posts.posts.length - 1];
+                const beforeCursor = oldestPost ? oldestPost.timestamp : null;
+                
+                if (!beforeCursor) { this.isLoadingMore = false; return; }
+
+                const newPosts = await this.stores.posts.loadPosts(beforeCursor, this.gameId, 'game', this.musicTracks.map(m => m.id));
                 if (newPosts.length > 0) {
                     const fragment = document.createDocumentFragment();
                     newPosts.forEach(p => {

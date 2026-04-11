@@ -1,5 +1,3 @@
-// js/ui/renderers/MusicRenderer.js
-
 import { escapeHTML } from '../utils/utils.js';
 
 export class MusicRenderer {
@@ -104,9 +102,9 @@ export class MusicRenderer {
         `;
     }
 
-    static renderTrackRow(track, index, isFav, genreInfo, durationCacheVal) {
+    static renderTrackRow(track, index, isFav, genreInfo) {
         const genreLabel = genreInfo ? genreInfo.label : '—';
-        const duration = durationCacheVal || '--:--'; 
+        const duration = track.duration || '--:--'; // ИСПРАВЛЕНИЕ: Берем сразу из трека
 
         return `
             <div class="m-track-row" data-id="${track.id}" data-url="${track.url}">
@@ -122,7 +120,7 @@ export class MusicRenderer {
                     </div>
                 </div>
                 <div class="m-tr-genre">${escapeHTML(genreLabel)}</div>
-                <div class="m-tr-time" id="dur-${track.id}">${escapeHTML(duration)}</div>
+                <div class="m-tr-time">${escapeHTML(duration)}</div>
                 <div class="m-tr-actions">
                     <button class="icon-btn-small fav-btn ${isFav ? 'active' : ''}" data-id="${track.id}">
                         <i class="fa-${isFav ? 'solid' : 'regular'} fa-heart"></i>
@@ -214,16 +212,13 @@ export class MusicRenderer {
         `;
     }
 
-    // ИЗМЕНЕНО: Новый дизайн шапки плейлиста
     static renderPlaylistView(album, tracksCount, currentUser) {
         const topCover = (album.covers && album.covers.length > 0) ? album.covers[0] : 'https://placehold.co/300x300/1a1a1c/333333?text=Music';
 
         return `
             <div class="m-playlist-hero">
-                
                 <div class="m-ph-top-bar">
                     <button id="btnBackToPlaylists"><i class="fa-solid fa-arrow-left"></i> Назад</button>
-                    
                     <div class="m-pl-options-wrapper">
                         <button class="icon-btn pl-opts-btn" data-id="${album.id}"><i class="fa-solid fa-ellipsis-vertical"></i></button>
                         <div class="pl-options-menu" id="pl-menu-inner-${album.id}">
