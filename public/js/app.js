@@ -20,7 +20,7 @@ import { GamesView } from './views/GamesView.js';
 import { ShopView } from './views/ShopView.js';
 import { AdminView } from './views/AdminView.js';
 import { MessagesView } from './views/MessagesView.js';
-import { SinglePostView } from './views/SinglePostView.js'; // <--- НОВОЕ
+import { SinglePostView } from './views/SinglePostView.js';
 
 document.addEventListener('DOMContentLoaded', async () => {
     const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
@@ -50,16 +50,18 @@ document.addEventListener('DOMContentLoaded', async () => {
     await appInit.init();
 
     sidebarWrapper.style.display = 'block';
+    
+    // ПРАВИЛЬНЫЙ ПОРЯДОК ЗАГРУЗКИ
     await catalogStore.load();
-    await postsStore.loadPosts(1);
-    await shopStore.load();
+    await shopStore.load(); // 1. Сначала грузим магазин (шрифты, рамки, звания)
+    await postsStore.loadPosts(1); // 2. Только потом грузим посты (чтобы стили успели примениться)
 
     const routes = {
         '/': FeedView, '/profile': ProfileView, '/community': CommunityView,
         '/game': GameView, '/music': MusicView, '/games': GamesView,
         '/shop': ShopView, '/admin': AdminView, '/notifications': NotificationsView,
         '/messages': MessagesView,
-        '/post': SinglePostView // <--- НОВОЕ
+        '/post': SinglePostView 
     };
     const router = new Router(routes, stores);
     router.init();

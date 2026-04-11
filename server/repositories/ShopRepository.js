@@ -7,8 +7,8 @@ class ShopRepository {
     }
 
     insertDefaultItems(items) {
-        const insert = db.prepare('INSERT INTO shop_items (id, type, name, price, css, author) VALUES (@id, @type, @name, @price, @css, @author)');
-        items.forEach(item => insert.run(item));
+        const insert = db.prepare('INSERT INTO shop_items (id, type, name, price, css, author, metadata) VALUES (@id, @type, @name, @price, @css, @author, @metadata)');
+        items.forEach(item => insert.run({ ...item, metadata: item.metadata || '{}' }));
     }
 
     getUserCoins(username) {
@@ -36,12 +36,21 @@ class ShopRepository {
         return db.prepare('SELECT item_id FROM inventory WHERE username = ?').all(username).map(i => i.item_id);
     }
 
-    updateUserFrame(username, frameId) {
-        db.prepare('UPDATE users SET frameId = ? WHERE username = ?').run(frameId, username);
+    updateUserCosmetic(username, type, itemId) {
+        let column = '';
+        if (type === 'frame') column = 'frameId';
+        else if (type === 'title') column = 'titleId';
+        else if (type === 'font') column = 'fontId';
+        else throw new Error('Invalid cosmetic type');
+
+        db.prepare(`UPDATE users SET ${column} = ? WHERE username = ?`).run(itemId, username);
     }
 
     createItem(itemData) {
-        db.prepare('INSERT INTO shop_items (id, type, name, price, css, author) VALUES (@id, @type, @name, @price, @css, @author)').run(itemData);
+        db.prepare(`
+            INSERT INTO shop_items (id, type, name, price, css, author, metadata) 
+            VALUES (@id, @type, @name, @price, @css, @author, @metadata)
+        `).run({ ...itemData, metadata: itemData.metadata || '{}' });
     }
 }
 

@@ -1,7 +1,9 @@
+// public/js/ui/widgets/ComposeWidget.js
 import { escapeHTML } from '../utils/utils.js';
 import { RichTextEditor } from '../editors/RichTextEditor.js';
 import { UploadAPI } from '../../api/UploadAPI.js';
 import { Toast } from '../utils/Toast.js';
+import { MediaProcessorService } from '../../services/MediaProcessorService.js';
 
 export class ComposeWidget {
     constructor(container, stores, options = {}) {
@@ -9,15 +11,14 @@ export class ComposeWidget {
         this.stores = stores;
         this.onSubmit = options.onSubmit;
         this.placeholder = options.placeholder || 'Что нового?';
-        this.showPoll = options.showPoll !== false; // По умолчанию показываем
-        this.autoAttachment = options.autoAttachment || null; // Например, игра на странице игры
+        this.showPoll = options.showPoll !== false;
+        this.autoAttachment = options.autoAttachment || null;
 
         this.isPollActive = false;
         this.currentAttachments = { music: null, game: null };
         this.pendingMedia = [];
         
         this.modalId = 'selectionModal_' + Math.random().toString(36).substr(2, 9);
-
         this.init();
     }
 
@@ -28,17 +29,13 @@ export class ComposeWidget {
         this.initCustomSelect();
 
         if (this.autoAttachment) {
-            if (this.autoAttachment.type === 'game') {
-                this.currentAttachments.game = this.autoAttachment.data;
-            }
+            if (this.autoAttachment.type === 'game') this.currentAttachments.game = this.autoAttachment.data;
             this.updateAttachmentPreview();
         }
-
         this.editor = new RichTextEditor(this.input, () => this.checkPublishState());
     }
 
     renderHTML() {
-        // Основной HTML виджета
         this.container.innerHTML = `
             <div class="compose-box" style="box-shadow: none; border: 1px solid var(--border-color); background: #1a1a1c;">
                 <input type="file" class="cw-file-input" style="display: none;" accept="image/*, audio/*" multiple>
@@ -71,7 +68,6 @@ export class ComposeWidget {
             </div>
         `;
 
-        // Модалка (добавляем в body, чтобы не ломать z-index)
         const modalHTML = `
             <div id="${this.modalId}" class="modal-overlay">
                 <div class="modal-content">
@@ -151,7 +147,7 @@ export class ComposeWidget {
             const files = Array.from(this.fileInput.files);
             for (const f of files) {
                 if (f.type.startsWith('image/')) {
-                    const compressedFile = await this._compressImage(f);
+                    const compressedFile = await MediaProcessorService.compressImage(f);
                     this.pendingMedia.push({ type: 'image', id: Math.random().toString(36).substr(2, 9), file: compressedFile, url: URL.createObjectURL(compressedFile) });
                 } else if (f.type.startsWith('audio/')) {
                     this.pendingMedia.push({ type: 'audio', id: Math.random().toString(36).substr(2, 9), file: f, url: null, name: f.name });
@@ -161,28 +157,6 @@ export class ComposeWidget {
             this.updateAttachmentPreview();
             this.checkPublishState();
         }
-    }
-
-    async _compressImage(file) {
-        return new Promise((resolve) => {
-            const reader = new FileReader();
-            reader.readAsDataURL(file);
-            reader.onload = (e) => {
-                const img = new Image();
-                img.src = e.target.result;
-                img.onload = () => {
-                    const canvas = document.createElement('canvas');
-                    let w = img.width, h = img.height;
-                    const max = 1200;
-                    if (w > max || h > max) { const ratio = Math.min(max / w, max / h); w *= ratio; h *= ratio; }
-                    canvas.width = w; canvas.height = h;
-                    const ctx = canvas.getContext('2d'); ctx.drawImage(img, 0, 0, w, h);
-                    canvas.toBlob((blob) => { resolve(new File([blob], "image.jpg", { type: "image/jpeg" })); }, 'image/jpeg', 0.85);
-                };
-                img.onerror = () => resolve(file); 
-            };
-            reader.onerror = () => resolve(file);
-        });
     }
 
     openModal(type) {
@@ -344,6 +318,6 @@ export class ComposeWidget {
     destroy() {
         if (this.editor) this.editor.destroy();
         if (this.closeSelectHandler) document.removeEventListener('click', this.closeSelectHandler);
-        if (this.modal) this.modal.remove(); // Удаляем модалку из body
+        if (this.modal) this.modal.remove(); 
     }
 }

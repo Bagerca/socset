@@ -8,18 +8,17 @@ class CommentRepository {
 
     findByPostId(postId) {
         return db.prepare(`
-            SELECT c.*, u.name, u.avatar, u.frameId, u.isVerified, u.verifiedBadgeType 
+            SELECT c.*, u.name, u.avatar, u.frameId, u.titleId, u.fontId, u.isVerified, u.verifiedBadgeType 
             FROM comments c JOIN users u ON c.author_username = u.username 
             WHERE c.post_id = ? ORDER BY c.timestamp ASC
         `).all(postId);
     }
 
-    // НОВЫЙ МЕТОД: Получение комментов сразу для НЕСКОЛЬКИХ постов (Решает проблему N+1)
     findByPostIds(postIds) {
         if (!postIds || postIds.length === 0) return [];
         const placeholders = postIds.map(() => '?').join(',');
         return db.prepare(`
-            SELECT c.*, u.name, u.avatar, u.frameId, u.isVerified, u.verifiedBadgeType 
+            SELECT c.*, u.name, u.avatar, u.frameId, u.titleId, u.fontId, u.isVerified, u.verifiedBadgeType 
             FROM comments c JOIN users u ON c.author_username = u.username 
             WHERE c.post_id IN (${placeholders}) ORDER BY c.timestamp ASC
         `).all(...postIds);

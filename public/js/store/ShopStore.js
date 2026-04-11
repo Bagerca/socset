@@ -1,32 +1,52 @@
 // public/js/store/ShopStore.js
 import { ShopAPI } from '../api/ShopAPI.js';
+import { loadGoogleFont } from '../ui/utils/utils.js';
 
 export class ShopStore {
     constructor(authStore) {
         this.authStore = authStore;
         this.items = [];
-        this.defaultFrames = [ { id: 'frame_none', name: 'Без рамки', url: null } ];
+        
+        // Дефолтные предметы для сброса косметики
+        this.defaultItems = {
+            frame: { id: 'frame_none', type: 'frame', name: 'Без рамки', css: '' },
+            title: { id: 'title_none', type: 'title', name: 'Без звания', css: '', metadata: {} },
+            font: { id: 'font_none', type: 'font', name: 'Стандартный шрифт', css: '', metadata: {} }
+        };
     }
 
     async load() {
-        try { this.items = await ShopAPI.getShop(); } 
-        catch (e) { this.items = []; }
+        try { 
+            this.items = await ShopAPI.getShop(); 
+            // Предзагружаем все купленные/используемые шрифты в память браузера
+            this.items.filter(i => i.type === 'font').forEach(font => {
+                if (font.metadata && font.metadata.fontFamily) {
+                    loadGoogleFont(font.metadata.fontFamily);
+                }
+            });
+        } catch (e) { 
+            this.items = []; 
+        }
     }
 
-    // НОВЫЙ МЕТОД: Получить любую рамку из магазина (даже если мы её не купили)
-    getFrameById(frameId) {
-        if (!frameId || frameId === 'frame_none') return null;
-        return this.items.find(i => i.id === frameId) || null;
+    // Универсальный геттер
+    getItemById(itemId) {
+        if (!itemId || itemId.includes('_none')) return null;
+        return this.items.find(i => i.id === itemId) || null;
     }
 
-    getAvailableFrames() {
+    // Геттеры списков доступных предметов по типам
+    getAvailableItems(type) {
         const user = this.authStore.user;
-        if(!user || !user.purchasedFrames) return this.defaultFrames;
+        const defaultItem = this.defaultItems[type];
+        if (!user || !user.purchasedFrames) return [defaultItem];
+        
         const purchased = user.purchasedFrames.map(id => {
-            const item = this.items.find(i => i.id === id);
-            return item ? { id: item.id, name: item.name, css: item.css } : null;
+            const item = this.items.find(i => i.id === id && i.type === type);
+            return item ? item : null;
         }).filter(Boolean);
-        return [...this.defaultFrames, ...purchased];
+        
+        return [defaultItem, ...purchased];
     }
 
     async buyItem(itemId) {
@@ -40,13 +60,21 @@ export class ShopStore {
         return false;
     }
 
-    async equipFrame(frameId) {
-        this.authStore.user.frameId = frameId;
-        await ShopAPI.equipFrame(frameId);
+    async equipCosmetic(type, itemId) {
+        // Локально обновляем юзера
+        if (type === 'frame') this.authStore.user.frameId = itemId;
+        else if (type === 'title') this.authStore.user.titleId = itemId;
+        else if (type === 'font') this.authStore.user.fontId = itemId;
+        
+        await ShopAPI.equipItem(type, itemId);
     }
 
-    async createItem(name, price, css) {
-        const data = await ShopAPI.createItem({ name, price, css });
-        if (data.success) this.items.unshift(data.item);
+    async createItem(type, name, price, css, metadata) {
+        const data = await ShopAPI.createItem({ type, name, price, css, metadata });
+        if (data.success) {
+            this.items.unshift(data.item);
+            if (type === 'font' && metadata.fontFamily) loadGoogleFont(metadata.fontFamily);
+        }
+        return data;
     }
 }

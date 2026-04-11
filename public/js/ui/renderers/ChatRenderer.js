@@ -1,6 +1,7 @@
 // public/js/ui/renderers/ChatRenderer.js
 import { escapeHTML, formatTime, parseFormatting } from '../utils/utils.js';
 import { MessageBuilder } from '../utils/MessageBuilder.js';
+import { ProfileRenderer } from './ProfileRenderer.js'; 
 
 export class ChatRenderer {
     constructor(stores) {
@@ -9,7 +10,8 @@ export class ChatRenderer {
 
     _getFrameHTML(frameId) {
         if (!frameId || frameId === 'frame_none') return '';
-        const frame = this.stores.shop.getFrameById(frameId);
+        // ИСПРАВЛЕНА СТРОЧКА
+        const frame = this.stores.shop.getItemById(frameId);
         if (!frame) return '';
         if (frame.url) return `<div class="ms-avatar-frame"><div class="ms-frame-content" style="background-image: url('${frame.url}');"></div></div>`;
         if (frame.css) return `<div class="ms-avatar-frame"><div class="ms-frame-content" style="${frame.css}"></div></div>`;
@@ -106,17 +108,10 @@ export class ChatRenderer {
         return messages.map(msg => {
             if (msg.sender_username === 'TetlaBot') {
                 let systemContent = escapeHTML(msg.content).replace(/@([a-zA-Z0-9_]+)/g, '<span class="msg-system-mention" data-username="$1" style="cursor:pointer;">@$1</span>');
-                return `
-                    <div class="msg-system-row" data-id="${msg.id}">
-                        <div class="msg-system-bubble">
-                            ${systemContent}
-                        </div>
-                    </div>
-                `;
+                return `<div class="msg-system-row" data-id="${msg.id}"><div class="msg-system-bubble">${systemContent}</div></div>`;
             }
 
             const isMe = msg.sender_username === currentUserUsername;
-            
             let rawContent = msg.content || '';
             let images = [];
             let audios = [];
@@ -135,15 +130,7 @@ export class ChatRenderer {
 
             if (msg.reply_to_id && msg.replyAuthorName) {
                 const snippet = this._getSnippet(msg.reply_content);
-                contentHTML += `
-                    <div class="msg-module-reply" data-target-id="${msg.reply_to_id}">
-                        <div class="reply-accent-line"></div>
-                        <div class="reply-content">
-                            <span class="reply-author">${escapeHTML(msg.replyAuthorName)}</span>
-                            <span class="reply-text">${escapeHTML(snippet)}</span>
-                        </div>
-                    </div>
-                `;
+                contentHTML += `<div class="msg-module-reply" data-target-id="${msg.reply_to_id}"><div class="reply-accent-line"></div><div class="reply-content"><span class="reply-author">${escapeHTML(msg.replyAuthorName)}</span><span class="reply-text">${escapeHTML(snippet)}</span></div></div>`;
             }
 
             if (images.length > 0) {
@@ -153,12 +140,7 @@ export class ChatRenderer {
                 else if (images.length === 3) { gridClass = 'msg-grid-3'; imgsHTML = images.map(url => `<img src="${url}" class="cycle-media-img" data-url="${url}">`).join(''); } 
                 else {
                     gridClass = 'msg-grid-4'; const extraCount = images.length - 4;
-                    imgsHTML = `
-                        <img src="${images[0]}" class="cycle-media-img" data-url="${images[0]}">
-                        <img src="${images[1]}" class="cycle-media-img" data-url="${images[1]}">
-                        <img src="${images[2]}" class="cycle-media-img" data-url="${images[2]}">
-                        <div class="msg-grid-more-wrapper cycle-media-img" data-url="${images[3]}"><img src="${images[3]}">${extraCount > 0 ? `<div class="msg-grid-overlay">+${extraCount}</div>` : ''}</div>
-                    `;
+                    imgsHTML = `<img src="${images[0]}" class="cycle-media-img" data-url="${images[0]}"><img src="${images[1]}" class="cycle-media-img" data-url="${images[1]}"><img src="${images[2]}" class="cycle-media-img" data-url="${images[2]}"><div class="msg-grid-more-wrapper cycle-media-img" data-url="${images[3]}"><img src="${images[3]}">${extraCount > 0 ? `<div class="msg-grid-overlay">+${extraCount}</div>` : ''}</div>`;
                 }
                 contentHTML += `<div class="msg-module-media"><div class="msg-image-grid ${gridClass}" data-images="${imagesAttr}">${imgsHTML}</div></div>`;
             }
@@ -192,11 +174,7 @@ export class ChatRenderer {
 
             let commentBtnHTML = '';
             if (isChannel && linkedChatId) {
-                commentBtnHTML = `
-                    <div class="msg-module-comments-btn" data-id="${msg.id}" data-linked="${linkedChatId}" style="border-top: 1px solid rgba(255,255,255,0.05); padding: 8px; text-align: center; font-size: 13px; font-weight: 600; color: var(--accent-games); cursor: pointer; transition: 0.2s;">
-                        <i class="fa-regular fa-comments"></i> Обсудить
-                    </div>
-                `;
+                commentBtnHTML = `<div class="msg-module-comments-btn" data-id="${msg.id}" data-linked="${linkedChatId}" style="border-top: 1px solid rgba(255,255,255,0.05); padding: 8px; text-align: center; font-size: 13px; font-weight: 600; color: var(--accent-games); cursor: pointer; transition: 0.2s;"><i class="fa-regular fa-comments"></i> Обсудить</div>`;
             }
 
             let forwardedHTML = '';
@@ -267,6 +245,9 @@ export class ChatRenderer {
             : '<div style="color:var(--text-muted); font-size:14px; text-align:center; padding: 20px;">Нет медиафайлов</div>';
         const bannerUrl = profile.banner || 'https://placehold.co/800x250/111/fff?text=Banner';
 
+        const nameHTML = ProfileRenderer.renderUserName(profile.name, profile.fontId, this.stores.shop);
+        const titleHTML = ProfileRenderer.renderUserTitle(profile.titleId, this.stores.shop);
+
         return `
             <div class="cd-mini-profile" ${fromGroup ? 'data-from-group="true"' : ''}>
                 <div class="cd-mp-banner" style="background-image: url('${bannerUrl}');"></div>
@@ -278,7 +259,8 @@ export class ChatRenderer {
                         <img src="${profile.avatar}" class="cd-mp-avatar" onerror="this.src='img/logo.svg'">
                         ${this._getFrameHTML(profile.frameId)}
                     </div>
-                    <div class="cd-mp-name">${escapeHTML(profile.name)} ${badgeHTML}</div>
+                    <div class="cd-mp-name">${nameHTML} ${badgeHTML}</div>
+                    ${titleHTML}
                     <div class="cd-mp-status-row">
                         <div class="cd-copy-username" data-username="${escapeHTML(profile.username)}" title="Скопировать никнейм">
                             @${escapeHTML(profile.username)} <i class="fa-regular fa-copy"></i>
@@ -466,7 +448,6 @@ export class ChatRenderer {
                 const nextRole = m.role === 'member' ? 'moderator' : 'member';
                 const nextRoleText = m.role === 'member' ? 'Сделать модератором' : 'Забрать права';
                 const muteText = m.can_write === 1 ? 'Ограничить (Mute)' : 'Снять ограничения';
-                
                 const canManageRoles = myRole === 'admin';
                 
                 optsBtnHTML = `
@@ -479,9 +460,11 @@ export class ChatRenderer {
                 `;
             }
 
+            const nameHTML = ProfileRenderer.renderUserName(m.name, m.fontId, this.stores.shop);
+            const titleHTML = ProfileRenderer.renderUserTitle(m.titleId, this.stores.shop);
+
             return `
                 <div class="cd-member-card ${extraClass} ${offlineClass}" data-username="${escapeHTML(m.username)}" style="--bg-url: url('${bannerUrl}'); cursor: pointer;">
-                    
                     <div class="cd-member-avatar-box">
                         <img src="${m.avatar}" onerror="this.src='img/logo.svg'">
                         ${this._getFrameHTML(m.frameId)}
@@ -489,7 +472,8 @@ export class ChatRenderer {
                     </div>
                     
                     <div class="cd-member-info">
-                        <div class="cd-member-name">${escapeHTML(m.name)} ${badgeHTML}</div>
+                        <div class="cd-member-name">${nameHTML} ${badgeHTML}</div>
+                        ${titleHTML}
                         <div class="cd-member-status">@${escapeHTML(m.username)}</div>
                     </div>
                     

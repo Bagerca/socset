@@ -1,13 +1,17 @@
 // public/js/ui/widgets/ChatGalleryHandler.js
 
 export class ChatGalleryHandler {
-    constructor() {
-        this.currentImageGallery = [];
-        this.currentImageIndex = 0;
+    static currentImageGallery = [];
+    static currentImageIndex = 0;
+    static isInitialized = false;
+
+    static init() {
+        if (this.isInitialized) return;
+        this.isInitialized = true;
         this.bindEvents();
     }
 
-    bindEvents() {
+    static bindEvents() {
         document.addEventListener('click', (e) => {
             const imgTarget = e.target.closest('.cycle-media-img') || e.target.closest('.cd-media-thumb');
             if (imgTarget) { 
@@ -51,7 +55,7 @@ export class ChatGalleryHandler {
         });
     }
 
-    updateModal() {
+    static updateModal() {
         const url = this.currentImageGallery[this.currentImageIndex];
         document.getElementById('chatFullImage').src = url; 
         document.getElementById('downloadChatImageBtn').href = url; 
@@ -72,7 +76,7 @@ export class ChatGalleryHandler {
         }
     }
 
-    changeImage(direction) {
+    static changeImage(direction) {
         if (this.currentImageGallery.length <= 1) return;
         const total = this.currentImageGallery.length;
         this.currentImageIndex = (this.currentImageIndex + direction + total) % total;

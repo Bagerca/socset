@@ -1,21 +1,16 @@
 // public/js/ui/widgets/PostComponent.js
 import { escapeHTML, formatTime, parseFormatting } from '../utils/utils.js';
-import { AudioService } from '../../services/AudioService.js';
-import { UploadAPI } from '../../api/UploadAPI.js';
 import { MessageBuilder } from '../utils/MessageBuilder.js';
+import { CommentAudioRecorder } from '../editors/CommentAudioRecorder.js';
+import { ProfileRenderer } from '../renderers/ProfileRenderer.js';
 
 export class PostComponent {
     constructor(post, stores) {
         this.post = post;
         this.stores = stores;
-        this.audioService = new AudioService();
-        this.activeRecording = null;
-        this.recordingTimer = null;
-        this.previewAudio = null;
-
         this.element = document.createElement('article');
         this.element.__component = this; 
-        
+        this.audioRecorder = new CommentAudioRecorder(this.stores, this.post.id);
         this.render();
         this.bindEvents();
     }
@@ -36,7 +31,7 @@ export class PostComponent {
         const commentsCount = this.element.querySelector('.comments-count');
         if (commentsCount) commentsCount.textContent = this.post.comments ? this.post.comments.length : 0;
         
-        this._renderComments(); // Вызывает УМНЫЙ рендер
+        this._renderComments();
 
         const pollContainer = this.element.querySelector('.poll-wrapper-container');
         if (pollContainer && this.post.poll) pollContainer.innerHTML = this._createPollHTML();
@@ -112,7 +107,7 @@ export class PostComponent {
         let authorData = this.post.author;
 
         if (authorData.username === currentUser.username) {
-            authorData = { ...authorData, name: currentUser.name, avatar: currentUser.avatar, isVerified: currentUser.isVerified, verifiedBadgeType: currentUser.verifiedBadgeType, frameId: currentUser.frameId };
+            authorData = { ...authorData, name: currentUser.name, avatar: currentUser.avatar, isVerified: currentUser.isVerified, verifiedBadgeType: currentUser.verifiedBadgeType, frameId: currentUser.frameId, titleId: currentUser.titleId, fontId: currentUser.fontId };
         }
 
         const isPrivate = this.post.visibility === 'private';
@@ -150,6 +145,9 @@ export class PostComponent {
 
         const { textContent, mediaHTML } = this._parseMediaContent(this.post.content);
 
+        const nameHTML = ProfileRenderer.renderUserName(authorData.name, authorData.fontId, this.stores.shop);
+        const titleHTML = ProfileRenderer.renderUserTitle(authorData.titleId, this.stores.shop);
+
         this.element.innerHTML = `
             ${optionsMenuHTML}
             <div class="post-main-body" style="cursor: pointer;">
@@ -160,7 +158,8 @@ export class PostComponent {
                 <div class="post-content">
                     ${communityContextHTML}
                     <div class="post-header">
-                        <a href="${profileLink}" class="post-name-link"><span class="post-name">${escapeHTML(authorData.name)}</span></a>
+                        <a href="${profileLink}" class="post-name-link"><span class="post-name">${nameHTML}</span></a>
+                        ${titleHTML}
                         ${this._createBadgeHTML(authorData.isVerified, authorData.verifiedBadgeType)}
                         <a href="${profileLink}" class="post-username-link"><span class="post-username">@${escapeHTML(authorData.username)}</span></a>
                         <span class="post-time">· ${formattedTime} ${pendingIcon}</span>
@@ -169,7 +168,6 @@ export class PostComponent {
                     <div class="post-text">${textContent ? parseFormatting(textContent) : ''}</div>
                     
                     ${mediaHTML}
-
                     ${this._createAttachmentHTML(this.post.attachment)}
                     <div class="poll-wrapper-container">${this._createPollHTML()}</div>
                 </div>
@@ -196,12 +194,11 @@ export class PostComponent {
                 </div>
             </div>
         `;
-        // Вызываем рендер комментов первый раз (он добавит их в DOM)
+        
         this.element.querySelector('.comments-list').innerHTML = ''; 
         this._renderComments();
     }
 
-    // НОВЫЙ НЕРАЗРУШАЮЩИЙ РЕНДЕР КОММЕНТАРИЕВ
     _renderComments() {
         const list = this.element.querySelector('.comments-list');
         if (!list) return;
@@ -211,29 +208,23 @@ export class PostComponent {
             return;
         }
 
-        // Собираем существующие ноды
         const existingNodes = new Map();
-        Array.from(list.children).forEach(child => {
-            existingNodes.set(child.dataset.id, child);
-        });
+        Array.from(list.children).forEach(child => existingNodes.set(child.dataset.id, child));
 
         const fragment = document.createDocumentFragment();
         let addedNew = false;
 
         this.post.comments.forEach(comment => {
             if (existingNodes.has(comment.id)) {
-                // Если коммент уже есть, просто обновляем лайки и дату, не трогая плееры!
                 const el = existingNodes.get(comment.id);
                 this._updateCommentGranularly(el, comment);
                 fragment.appendChild(el);
                 existingNodes.delete(comment.id);
             } else {
-                // Если это новый коммент - создаем
                 const temp = document.createElement('div');
                 temp.innerHTML = this._createCommentHTML(comment);
                 const el = temp.firstElementChild;
                 
-                // Инициализируем аудио
                 const audio = el.querySelector('audio');
                 if (audio) {
                     audio.addEventListener('loadedmetadata', () => {
@@ -250,23 +241,17 @@ export class PostComponent {
             }
         });
 
-        // Удаляем комменты, которых больше нет
         existingNodes.forEach(node => node.remove());
 
         const currentScroll = list.scrollTop;
         const isAtBottom = list.scrollHeight - list.scrollTop - list.clientHeight <= 10;
 
-        // Добавляем готовый фрагмент в DOM
         list.appendChild(fragment);
 
-        if (addedNew && isAtBottom) {
-            list.scrollTop = list.scrollHeight;
-        } else {
-            list.scrollTop = currentScroll;
-        }
+        if (addedNew && isAtBottom) list.scrollTop = list.scrollHeight;
+        else list.scrollTop = currentScroll;
     }
 
-    // Точечное обновление коммента (без innerHTML)
     _updateCommentGranularly(el, comment) {
         const likeBtn = el.querySelector('.comment-action-btn[data-type="like"]');
         const dislikeBtn = el.querySelector('.comment-action-btn[data-type="dislike"]');
@@ -291,7 +276,7 @@ export class PostComponent {
         let authorData = comment.author;
 
         if (authorData.username === currentUser.username) {
-            authorData = { ...authorData, name: currentUser.name, avatar: currentUser.avatar, isVerified: currentUser.isVerified, verifiedBadgeType: currentUser.verifiedBadgeType, frameId: currentUser.frameId };
+            authorData = { ...authorData, name: currentUser.name, avatar: currentUser.avatar, isVerified: currentUser.isVerified, verifiedBadgeType: currentUser.verifiedBadgeType, frameId: currentUser.frameId, titleId: currentUser.titleId, fontId: currentUser.fontId };
         }
 
         let contentHTML = '';
@@ -308,6 +293,9 @@ export class PostComponent {
         const pendingIcon = comment.isPending ? `<i class="fa-regular fa-clock" style="color: var(--text-muted); font-size: 11px; margin-left: 4px;"></i>` : '';
         const profileLink = `#/profile/${encodeURIComponent(authorData.username)}`;
 
+        const nameHTML = ProfileRenderer.renderUserName(authorData.name, authorData.fontId, this.stores.shop);
+        const titleHTML = ProfileRenderer.renderUserTitle(authorData.titleId, this.stores.shop);
+
         return `
             <div class="comment-item" data-id="${comment.id}" data-author="${authorData.username}">
                 <a href="${profileLink}" class="comment-avatar-wrapper">
@@ -316,7 +304,8 @@ export class PostComponent {
                 </a>
                 <div class="comment-content-wrapper">
                     <div class="comment-header">
-                        <a href="${profileLink}" class="comment-name-link"><span class="comment-author">${escapeHTML(authorData.name)}</span></a>
+                        <a href="${profileLink}" class="comment-name-link"><span class="comment-author">${nameHTML}</span></a>
+                        ${titleHTML}
                         ${this._createBadgeHTML(authorData.isVerified, authorData.verifiedBadgeType)}
                         <span class="comment-date">· ${formatTime(comment.timestamp)} ${pendingIcon}</span>
                     </div>
@@ -408,9 +397,10 @@ export class PostComponent {
         return `<i class="fa-solid fa-circle-check post-badge badge-1" title="Подтвержденный"></i>`;
     }
 
+    // ИСПРАВЛЕНА СТРОЧКА
     _createFrameHTML(frameId) {
         if (!frameId || frameId === 'frame_none') return '';
-        const frame = this.stores.shop.getFrameById(frameId);
+        const frame = this.stores.shop.getItemById(frameId);
         if (!frame) return '';
         if (frame.url) return `<div class="post-avatar-frame"><div class="post-frame-content" style="background-image: url('${frame.url}');"></div></div>`;
         if (frame.css) return `<div class="post-avatar-frame"><div class="post-frame-content" style="${frame.css}"></div></div>`;
@@ -425,20 +415,12 @@ export class PostComponent {
 
     handleClick(e) {
         const target = e.target;
-
         if (target.closest('.post-main-body') && 
-            !target.closest('a') && 
-            !target.closest('button') && 
-            !target.closest('.poll-wrapper') && 
-            !target.closest('.post-music-play-btn') &&
-            !target.closest('.post-spoiler') &&
-            !target.closest('.cycle-media-img') && 
-            !target.closest('.cycle-audio-btn') && 
-            !target.closest('.post-game-card')) {
-            
-            if (!window.location.hash.startsWith(`#/post/${this.post.id}`)) {
-                window.location.hash = `/post/${this.post.id}`;
-            }
+            !target.closest('a') && !target.closest('button') && 
+            !target.closest('.poll-wrapper') && !target.closest('.post-music-play-btn') &&
+            !target.closest('.post-spoiler') && !target.closest('.cycle-media-img') && 
+            !target.closest('.cycle-audio-btn') && !target.closest('.post-game-card')) {
+            if (!window.location.hash.startsWith(`#/post/${this.post.id}`)) { window.location.hash = `/post/${this.post.id}`; }
             return;
         }
 
@@ -453,32 +435,32 @@ export class PostComponent {
             if (activeMenu && !target.closest('.options-menu')) activeMenu.classList.remove('active');
         }
 
-        if (target.closest('.like-btn')) { this.stores.posts.toggleLike(this.post.id); return; }
-        if (target.closest('.delete-post-btn')) { this.handleDelete(); return; }
-        if (target.closest('.toggle-visibility-btn')) { this.stores.posts.togglePostVisibility(this.post.id); return; }
-        if (target.closest('.poll-vote-btn')) { this.stores.posts.votePoll(this.post.id, target.closest('.poll-vote-btn').dataset.optionId); return; }
-        if (target.closest('.action-btn-comment')) { this.element.querySelector('.comments-section').classList.toggle('active'); return; }
-        if (target.closest('.repost-btn')) { this.handleRepost(); return; }
-        if (target.closest('.share-btn')) { this.handleShare(target.closest('.share-btn')); return; }
-        if (target.closest('.send-comment-btn')) { this.handleSendTextComment(); return; }
-        if (target.closest('.comment-action-btn')) { const btn = target.closest('.comment-action-btn'); this.stores.posts.toggleCommentReaction(this.post.id, btn.dataset.id, btn.dataset.type); return; }
-        if (target.closest('.comment-reply-btn')) { this.handleCommentReply(target.closest('.comment-reply-btn')); return; }
-        if (target.closest('.record-btn')) { this._startRecordingUI(); return; }
-        if (target.closest('.rec-btn.stop')) { this._stopRecordingUI(); return; }
-        if (target.closest('.rec-btn.cancel')) { this._cancelRecordingUI(); return; }
-        if (target.closest('.rec-btn.send')) { this._sendAudioComment(); return; }
-        if (target.closest('.rec-btn.play-preview')) { this._playPreview(target.closest('.rec-btn.play-preview')); return; }
+        if (target.closest('.like-btn')) return this.stores.posts.toggleLike(this.post.id);
+        if (target.closest('.delete-post-btn')) return this.handleDelete();
+        if (target.closest('.toggle-visibility-btn')) return this.stores.posts.togglePostVisibility(this.post.id);
+        if (target.closest('.poll-vote-btn')) return this.stores.posts.votePoll(this.post.id, target.closest('.poll-vote-btn').dataset.optionId);
+        if (target.closest('.action-btn-comment')) return this.element.querySelector('.comments-section').classList.toggle('active');
+        if (target.closest('.repost-btn')) return this.handleRepost();
+        if (target.closest('.share-btn')) return this.handleShare(target.closest('.share-btn'));
         
-        if (target.closest('.post-music-play-btn')) { this.handlePlayMusic(target.closest('.post-music-play-btn').dataset.id); return; }
+        if (target.closest('.send-comment-btn')) return this.handleSendTextComment();
+        if (target.closest('.comment-action-btn')) { const btn = target.closest('.comment-action-btn'); return this.stores.posts.toggleCommentReaction(this.post.id, btn.dataset.id, btn.dataset.type); }
+        if (target.closest('.comment-reply-btn')) return this.handleCommentReply(target.closest('.comment-reply-btn'));
+        
+        if (target.closest('.record-btn')) return this.audioRecorder.start(this.element.querySelector('.comment-input-area'));
+        if (target.closest('.rec-btn.stop')) return this.audioRecorder.stop();
+        if (target.closest('.rec-btn.cancel')) return this.audioRecorder.cancel();
+        if (target.closest('.rec-btn.send')) return this.audioRecorder.send();
+        if (target.closest('.rec-btn.play-preview')) return this.audioRecorder.playPreview(target.closest('.rec-btn.play-preview'));
+        
+        if (target.closest('.post-music-play-btn')) return this.handlePlayMusic(target.closest('.post-music-play-btn').dataset.id);
     }
 
     async handleDelete() {
         if (confirm('Удалить пост?')) {
             await this.stores.posts.deletePost(this.post.id);
             this.element.remove(); 
-            if (window.location.hash.startsWith(`#/post/${this.post.id}`)) {
-                window.history.back();
-            }
+            if (window.location.hash.startsWith(`#/post/${this.post.id}`)) { window.history.back(); }
         }
     }
 
@@ -487,12 +469,10 @@ export class PostComponent {
     handleShare(btn) {
         const postLink = `${window.location.origin}/#/post/${this.post.id}`;
         navigator.clipboard.writeText(postLink).then(() => {
-            const icon = btn.querySelector('i');
-            const originalClass = icon.className;
-            icon.className = 'fa-solid fa-check';
-            icon.style.color = '#44bd32';
+            const icon = btn.querySelector('i'); const originalClass = icon.className;
+            icon.className = 'fa-solid fa-check'; icon.style.color = '#44bd32';
             setTimeout(() => { icon.className = originalClass; icon.style.color = ''; }, 2000);
-        }).catch(() => alert('Не удалось скопировать ссылку.'));
+        });
     }
 
     handlePlayMusic(trackId) {
@@ -516,118 +496,5 @@ export class PostComponent {
             if (input.value.length > 0 && !input.value.endsWith(' ')) input.value += ' ';
             input.value += mention; input.focus();
         }
-    }
-
-    async _startRecordingUI() {
-        if (this.activeRecording) return;
-        const container = this.element.querySelector('.comment-input-area');
-        if (!container) return;
-        const originalHTML = container.innerHTML;
-        const barsHTML = Array(20).fill('<div class="rec-bar"></div>').join('');
-        container.innerHTML = `
-            <div class="recording-widget">
-                <div class="rec-indicator"></div>
-                <div class="rec-timer">0:00</div>
-                <div class="rec-visualizer">${barsHTML}</div>
-                <div class="rec-controls">
-                    <button class="rec-btn stop" title="Стоп"><i class="fa-solid fa-stop"></i></button>
-                    <button class="rec-btn cancel" title="Отмена"><i class="fa-solid fa-xmark"></i></button>
-                </div>
-            </div>`;
-        const success = await this.audioService.start();
-        if (success) {
-            this.activeRecording = { originalHTML, startTime: Date.now(), blob: null };
-            this.recordingTimer = setInterval(() => {
-                const diff = Math.floor((Date.now() - this.activeRecording.startTime) / 1000);
-                const timerEl = this.element.querySelector('.rec-timer');
-                if (timerEl) timerEl.textContent = `${Math.floor(diff / 60)}:${diff % 60 < 10 ? '0' : ''}${diff % 60}`;
-            }, 1000);
-            
-            const bars = this.element.querySelectorAll('.rec-bar');
-            const animateWave = () => {
-                if (!this.activeRecording) return;
-                const data = this.audioService.getRealTimeData();
-                for (let i = 0; i < bars.length; i++) {
-                    const percent = Math.max(10, ((data[i] || 0) / 255) * 100); 
-                    bars[i].style.height = `${percent}%`;
-                    bars[i].style.backgroundColor = percent > 50 ? '#fff' : 'var(--text-muted)';
-                }
-                requestAnimationFrame(animateWave);
-            };
-            animateWave();
-        } else {
-            container.innerHTML = originalHTML;
-        }
-    }
-
-    async _stopRecordingUI() {
-        if (!this.activeRecording) return;
-        clearInterval(this.recordingTimer);
-        const tempOriginal = this.activeRecording.originalHTML;
-        const result = await this.audioService.stop();
-        if (!result) {
-            this.element.querySelector('.comment-input-area').innerHTML = tempOriginal;
-            this.activeRecording = null;
-            return;
-        }
-        this.activeRecording.data = result;
-        const widget = this.element.querySelector('.recording-widget');
-        if (widget) {
-            widget.style.border = '1px solid #44bd32';
-            const barsHTML = result.waveform.slice(0, 20).map(h => `<div class="rec-bar" style="height: ${Math.max(15, h)}%; background: var(--text-muted);"></div>`).join('');
-            widget.innerHTML = `
-                <button class="rec-btn play-preview"><i class="fa-solid fa-play"></i></button>
-                <div class="rec-visualizer" style="opacity: 1;">${barsHTML}</div>
-                <div class="rec-controls">
-                    <button class="rec-btn cancel" title="Удалить"><i class="fa-solid fa-trash"></i></button>
-                    <button class="rec-btn send" title="Отправить"><i class="fa-solid fa-paper-plane"></i></button>
-                </div>`;
-        }
-    }
-
-    _playPreview(btn) {
-        if (!this.activeRecording || !this.activeRecording.data) return;
-        const bars = this.element.querySelectorAll('.rec-visualizer .rec-bar');
-        if (!this.previewAudio) {
-            this.previewAudio = new Audio(this.activeRecording.data.url);
-            this.previewAudio.ontimeupdate = () => {
-                const activeBarCount = Math.ceil(bars.length * (this.previewAudio.currentTime / this.previewAudio.duration));
-                bars.forEach((bar, index) => {
-                    bar.style.backgroundColor = index < activeBarCount ? '#44bd32' : 'var(--text-muted)';
-                    bar.style.opacity = index < activeBarCount ? '1' : '0.5';
-                });
-            };
-            this.previewAudio.onended = () => {
-                btn.innerHTML = '<i class="fa-solid fa-play"></i>';
-                this.previewAudio = null;
-                bars.forEach(bar => { bar.style.backgroundColor = 'var(--text-muted)'; bar.style.opacity = '0.5'; });
-            };
-            this.previewAudio.play();
-            btn.innerHTML = '<i class="fa-solid fa-stop"></i>';
-        } else {
-            this.previewAudio.pause();
-            this.previewAudio = null;
-            btn.innerHTML = '<i class="fa-solid fa-play"></i>';
-        }
-    }
-
-    async _sendAudioComment() {
-        if (!this.activeRecording || !this.activeRecording.data) return;
-        const file = new File([this.activeRecording.data.blob], "voice.mp3", { type: "audio/mp3" });
-        const res = await UploadAPI.uploadFile(file);
-        if (res && res.success) {
-            await this.stores.posts.addComment(this.post.id, res.url, 'audio', this.activeRecording.data.waveform);
-            this._cancelRecordingUI();
-        } else {
-            alert("Ошибка загрузки аудио");
-        }
-    }
-
-    _cancelRecordingUI() {
-        clearInterval(this.recordingTimer);
-        const container = this.element.querySelector('.comment-input-area');
-        if (container && this.activeRecording) container.innerHTML = this.activeRecording.originalHTML;
-        this.activeRecording = null;
-        if (this.previewAudio) { this.previewAudio.pause(); this.previewAudio = null; }
     }
 }

@@ -7,12 +7,17 @@ export class CommentContextMenu {
         this.targetCommentId = null;
         this.targetPostId = null;
         
+        this.abortController = new AbortController();
+        
         this.createMenu();
         this.bindEvents();
     }
 
     createMenu() {
-        if (document.getElementById('customContextMenu')) document.getElementById('customContextMenu').remove();
+        if (document.getElementById('customContextMenu')) {
+            document.getElementById('customContextMenu').remove();
+        }
+        
         this.menu = document.createElement('div');
         this.menu.id = 'customContextMenu';
         this.menu.className = 'options-menu';
@@ -28,16 +33,19 @@ export class CommentContextMenu {
                 this.menu.style.display = 'none';
                 if (this.onCommentDeleted) this.onCommentDeleted(this.targetPostId);
             }
-        });
+        }, { signal: this.abortController.signal });
     }
 
     bindEvents() {
+        const signal = this.abortController.signal;
+
         document.addEventListener('click', () => {
             if (this.menu) this.menu.style.display = 'none';
-        });
+        }, { signal });
+        
         document.addEventListener('scroll', () => {
             if (this.menu) this.menu.style.display = 'none';
-        }, { capture: true });
+        }, { signal, capture: true });
     }
 
     handleContextMenu(e) {
@@ -59,6 +67,7 @@ export class CommentContextMenu {
     }
 
     destroy() {
+        this.abortController.abort();
         if (this.menu) this.menu.remove();
     }
 }

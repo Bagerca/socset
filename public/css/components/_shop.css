@@ -1,6 +1,6 @@
 /* css/components/_shop.css */
 
-.shop-container { display: flex; flex-direction: column; gap: var(--space-lg); width: 100%; }
+.shop-container { display: flex; flex-direction: column; gap: var(--space-lg); width: 100%; animation: fadeIn 0.3s ease; }
 
 .shop-header { display: flex; justify-content: space-between; align-items: center; background: var(--surface); padding: var(--space-md) var(--space-lg); border-radius: var(--radius-xl); border: 1px solid var(--border-color); box-shadow: var(--shadow-sm); }
 .shop-tabs { display: flex; gap: var(--space-sm); flex-wrap: wrap; }
@@ -10,6 +10,14 @@
 
 .shop-balance { display: flex; align-items: center; gap: var(--space-sm); background: rgba(255, 215, 0, 0.1); border: 1px solid var(--accent-shop); padding: var(--space-sm) var(--space-md); border-radius: var(--radius-pill); font-weight: 700; color: var(--accent-shop); font-size: var(--font-base); flex-shrink: 0; box-shadow: 0 0 10px rgba(255, 215, 0, 0.1); }
 
+/* --- НОВЫЕ ФИЛЬТРЫ --- */
+.shop-filters { display: flex; gap: 10px; overflow-x: auto; scrollbar-width: none; padding-bottom: 4px; }
+.shop-filters::-webkit-scrollbar { display: none; }
+.shop-filter-btn { background: rgba(255, 255, 255, 0.05); border: 1px solid transparent; color: var(--text-muted); padding: 8px 16px; border-radius: var(--radius-pill); font-size: var(--font-sm); font-weight: 600; cursor: pointer; transition: all var(--transition-fast); white-space: nowrap; }
+.shop-filter-btn:hover { background: rgba(255, 255, 255, 0.1); color: #fff; }
+.shop-filter-btn.active { background: var(--text-main); color: var(--bg-base); }
+
+/* ПОИСК */
 .shop-search-container { position: relative; width: 100%; margin-bottom: 4px; }
 .shop-search-input { width: 100%; padding: 14px 20px 14px 44px; background: #1a1a1c; border: 1px solid var(--border-color); border-radius: var(--radius-pill); color: var(--text-main); font-size: var(--font-base); outline: none; transition: var(--transition-fast); }
 .shop-search-input:focus { border-color: var(--accent-shop); box-shadow: 0 0 15px rgba(255, 215, 0, 0.1); }
@@ -17,20 +25,23 @@
 .shop-search-dropdown { position: absolute; top: calc(100% + 8px); left: 0; width: 100%; background: #222224; border: 1px solid var(--border-color); border-radius: var(--radius-lg); box-shadow: 0 10px 40px rgba(0,0,0,0.6); z-index: 100; overflow: hidden; animation: slideDown 0.2s ease; }
 .shop-search-item { display: flex; align-items: center; gap: var(--space-12); padding: var(--space-12) var(--space-md); cursor: pointer; transition: background-color var(--transition-fast); border-bottom: 1px solid rgba(255,255,255,0.03); }
 .shop-search-item:last-child { border-bottom: none; }
-@media (hover: hover) { .shop-search-item:hover { background: rgba(255,255,255,0.08); } }
+@media (hover: hover) { .shop-search-item:hover { background: rgba(255,255,255,0.08); padding-left: 20px; } }
 
-.shop-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 16px; }
+/* СЕТКА И КАРТОЧКИ */
+.shop-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 16px; }
 .shop-card { background: var(--surface); border: 1px solid var(--border-color); border-radius: var(--radius-lg); padding: 20px; display: flex; flex-direction: column; align-items: center; text-align: center; gap: var(--space-12); transition: var(--transition-fast); box-shadow: 0 5px 15px rgba(0,0,0,0.2); position: relative; }
 @media (hover: hover) { .shop-card:hover { transform: translateY(-5px); box-shadow: var(--shadow-md); border-color: rgba(255,255,255,0.2); } }
 .shop-card.is-active { border-color: #5dade2; box-shadow: 0 0 20px rgba(93, 173, 226, 0.15); }
 
-.shop-preview-box { position: relative; width: 80px; height: 80px; margin-bottom: 10px; }
-.shop-preview-avatar { width: 100%; height: 100%; border-radius: 50%; object-fit: cover; background: #333; }
+/* ПРЕВЬЮ ПРЕДМЕТОВ (Адаптировано под звания и шрифты) */
+.shop-preview-box { position: relative; min-width: 80px; height: 80px; margin-bottom: 10px; display: flex; align-items: center; justify-content: center; }
+.shop-preview-avatar { width: 80px; height: 80px; border-radius: 50%; object-fit: cover; background: #333; }
 .shop-preview-frame { position: absolute; top: -10%; left: -10%; width: 120%; height: 120%; border-radius: 50%; pointer-events: none; box-sizing: border-box; }
 
 .shop-item-name { font-size: var(--font-md); font-weight: 800; color: #fff; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; width: 100%; }
 .shop-item-author { font-size: 12px; color: var(--text-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; width: 100%; }
 
+/* КНОПКИ КАРТОЧЕК */
 .shop-buy-btn { width: 100%; padding: 10px; border-radius: var(--space-sm); border: none; font-weight: 700; cursor: pointer; transition: var(--transition-fast); display: flex; align-items: center; justify-content: center; gap: var(--space-sm); background: var(--accent-shop); color: #000; margin-top: var(--space-sm); }
 @media (hover: hover) { .shop-buy-btn:hover { background: #ffea00; transform: scale(1.05); box-shadow: 0 0 15px rgba(255, 215, 0, 0.4); } }
 .shop-buy-btn.bought { background: rgba(255,255,255,0.1); color: var(--text-muted); cursor: not-allowed; transform: none; box-shadow: none; }
@@ -45,12 +56,21 @@
 .shop-delete-btn { flex: 1; padding: var(--space-sm); border-radius: 6px; border: 1px solid rgba(255,69,58,0.3); background: rgba(255,69,58,0.1); color: var(--danger); font-weight: 600; cursor: pointer; transition: var(--transition-fast); }
 @media (hover: hover) { .shop-delete-btn:hover { background: rgba(255,69,58,0.2); } }
 
+/* --- СТУДИЯ АВТОРОВ --- */
 .creator-studio { background: var(--surface); border: 1px solid var(--border-color); border-radius: var(--radius-lg); padding: var(--space-lg); gap: var(--space-lg); }
 .creator-studio.active { display: flex; flex-direction: column; }
 .creator-works-section { width: 100%; }
-.creator-preview-section { flex: 1; min-width: 250px; display: flex; flex-direction: column; align-items: center; justify-content: center; background: #1a1a1c; border-radius: var(--space-12); border: 1px dashed rgba(255,255,255,0.2); padding: 40px; }
+.creator-preview-section { flex: 1; min-width: 250px; display: flex; flex-direction: column; align-items: center; justify-content: center; background: #1a1a1c; border-radius: var(--space-12); border: 1px dashed rgba(255,255,255,0.2); padding: 40px; overflow: hidden;}
 .creator-large-preview { position: relative; width: 120px; height: 120px; }
 .creator-form-section { flex: 2; min-width: 300px; display: flex; flex-direction: column; gap: var(--space-md); }
+
+/* Выбор типа в студии */
+.studio-type-selector { display: flex; gap: 10px; flex-wrap: wrap; }
+.studio-radio-label { background: rgba(255,255,255,0.05); padding: 8px 14px; border-radius: 8px; font-size: 13px; cursor: pointer; display: flex; align-items: center; gap: 8px; color: var(--text-muted); transition: 0.2s; border: 1px solid transparent; user-select: none; }
+.studio-radio-label:hover { background: rgba(255,255,255,0.1); color: #fff; }
+.studio-radio-label:has(input:checked) { background: rgba(124, 58, 237, 0.1); border-color: var(--accent-games); color: #fff; }
+.studio-radio-label input { accent-color: var(--accent-games); cursor: pointer; }
+
 .css-editor { width: 100%; height: 150px; background: #0a0a0c; border: 1px solid var(--border-color); color: #5dade2; font-family: monospace; font-size: var(--font-sm); padding: var(--space-md); border-radius: var(--space-sm); resize: vertical; outline: none; transition: var(--transition-fast); }
 .css-editor:focus { border-color: rgba(255,255,255,0.4); }
 
@@ -60,11 +80,31 @@
     .shop-tabs { justify-content: center; }
     .shop-tab-btn { flex: 1; justify-content: center; padding: 10px; font-size: 13px; }
     .shop-balance { justify-content: center; width: 100%; }
-    .shop-grid { grid-template-columns: 1fr 1fr; /* 2 колонки на телефоне */ gap: 10px; }
+    .shop-grid { grid-template-columns: 1fr 1fr; gap: 10px; }
     .shop-card { padding: 12px; }
+    .shop-filters { padding-bottom: 8px; }
     
-    /* Студия: ломаем флекс (в линию) в колонку */
     .creator-studio > div[style*="display: flex"] { flex-direction: column !important; gap: 16px; }
     .creator-preview-section { min-width: 0; padding: 20px; }
     .creator-form-section { min-width: 0; }
+    .studio-type-selector { flex-direction: column; }
+}
+
+/* ======================================================= */
+/* СИСТЕМНЫЕ АНИМАЦИИ ДЛЯ СТУДИИ МАГАЗИНА                  */
+/* ======================================================= */
+@keyframes cycle-plasma-flow {
+  from { background-position: 0 0; }
+  to { background-position: 200% 0; }
+}
+@keyframes cycle-rainbow-text {
+  to { background-position: 200% center; }
+}
+@keyframes cycle-pulse-glow {
+  0% { filter: brightness(1); transform: scale(1); }
+  50% { filter: brightness(1.3); transform: scale(1.05); }
+  100% { filter: brightness(1); transform: scale(1); }
+}
+@keyframes cycle-spin-slow {
+  100% { transform: rotate(360deg); }
 }

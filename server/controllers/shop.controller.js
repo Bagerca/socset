@@ -4,7 +4,6 @@ const withHandler = require('../utils/responseHandler');
 
 class ShopController {
     
-    // Добавили { wrapSuccess: false }, чтобы возвращался чистый массив
     getAll = withHandler(() => ShopService.getAll(), { wrapSuccess: false });
 
     buy = withHandler((req) => {
@@ -13,13 +12,14 @@ class ShopController {
     });
 
     equip = withHandler((req) => {
-        const result = ShopService.equip(req.body.frameId, req.user.username);
+        // Теперь принимаем type (frame, title, font) и itemId
+        const result = ShopService.equip(req.body.type, req.body.itemId, req.user.username);
         return result;
     });
 
     create = withHandler((req) => {
-        const { name, price, css } = req.body;
-        const result = ShopService.create(name, price, css, req.user.username);
+        const { type, name, price, css, metadata } = req.body;
+        const result = ShopService.create(type, name, price, css, metadata, req.user.username);
         return result;
     });
 }

@@ -8,7 +8,7 @@ class ProfileRepository {
 
     getFollowers(username) {
         return db.prepare(`
-            SELECT u.username, u.name, u.avatar, u.frameId, u.isVerified, u.verifiedBadgeType 
+            SELECT u.username, u.name, u.avatar, u.frameId, u.titleId, u.fontId, u.isVerified, u.verifiedBadgeType 
             FROM follows f JOIN users u ON f.follower_username = u.username 
             WHERE f.following_username = ?
         `).all(username);
@@ -16,7 +16,7 @@ class ProfileRepository {
 
     getFollowing(username) {
         return db.prepare(`
-            SELECT u.username, u.name, u.avatar, u.frameId, u.isVerified, u.verifiedBadgeType 
+            SELECT u.username, u.name, u.avatar, u.frameId, u.titleId, u.fontId, u.isVerified, u.verifiedBadgeType 
             FROM follows f JOIN users u ON f.following_username = u.username 
             WHERE f.follower_username = ?
         `).all(username);
@@ -27,14 +27,15 @@ class ProfileRepository {
     }
 
     updateUser(username, data) {
+        // ИСПРАВЛЕНО: добавлено поле backgroundId в SQL запрос
         db.prepare(`
             UPDATE users 
-            SET name = ?, bio = ?, avatar = ?, banner = ?, frameId = ?, 
+            SET name = ?, bio = ?, avatar = ?, banner = ?, frameId = ?, titleId = ?, fontId = ?, backgroundId = ?,
                 socials = ?, showcaseGames = ?, musicId = ?, 
                 enableWall = ?, isVerified = ?, verifiedBadgeType = ?
             WHERE username = ?
         `).run(
-            data.name, data.bio, data.avatar, data.banner, data.frameId, 
+            data.name, data.bio, data.avatar, data.banner, data.frameId, data.titleId, data.fontId, data.backgroundId,
             data.socials, data.showcaseGames, data.musicId, 
             data.enableWall, data.isVerified, data.verifiedBadgeType, username
         );
@@ -42,7 +43,7 @@ class ProfileRepository {
 
     getWallPosts(username) {
         return db.prepare(`
-            SELECT w.*, u.name, u.avatar, u.frameId, u.isVerified, u.verifiedBadgeType 
+            SELECT w.*, u.name, u.avatar, u.frameId, u.titleId, u.fontId, u.isVerified, u.verifiedBadgeType 
             FROM profile_wall w 
             JOIN users u ON w.author_username = u.username 
             WHERE w.profile_username = ? 

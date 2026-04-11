@@ -1,14 +1,15 @@
+// public/js/store/PostsStore.js
 import { PostsAPI } from '../api/PostsAPI.js';
 import { generateId } from '../ui/utils/utils.js';
 import { SocketService } from '../services/SocketService.js';
+import { OfflineQueueManager } from '../services/OfflineQueueManager.js';
 
 export class PostsStore {
     constructor(authStore) {
         this.authStore = authStore;
         this.posts = [];
-        this.offlineQueue = [];
+        this.offlineManager = new OfflineQueueManager(this);
         this.initSocket();
-        this.initOfflineQueue();
     }
 
     initSocket() {
@@ -35,76 +36,15 @@ export class PostsStore {
         });
     }
 
-    async initOfflineQueue() {
-        if (window.localforage) {
-            this.offlineQueue = (await localforage.getItem('cycle_offline_queue')) || [];
-            window.addEventListener('online', () => this.syncOfflineQueue());
-            setInterval(() => this.syncOfflineQueue(), 15000);
-        }
-    }
-
-    async saveToQueue(task) {
-        this.offlineQueue.push(task);
-        if (window.localforage) await localforage.setItem('cycle_offline_queue', this.offlineQueue);
-    }
-
-    async syncOfflineQueue() {
-        if (!navigator.onLine || this.offlineQueue.length === 0) return;
-        const queueCopy = [...this.offlineQueue];
-        this.offlineQueue = []; 
-        if (window.localforage) await localforage.setItem('cycle_offline_queue', this.offlineQueue);
-
-        for (const task of queueCopy) {
-            try {
-                if (task.action === 'addPost') {
-                    const data = await PostsAPI.createPost(task.payload);
-                    if (data.success) {
-                        const index = this.posts.findIndex(p => p.id === task.tempId);
-                        if (index !== -1) {
-                            this.posts[index] = this._personalize(data.post);
-                            document.dispatchEvent(new CustomEvent('cycle:post_updated', { 
-                                detail: { oldId: task.tempId, post: this.posts[index] } 
-                            }));
-                        }
-                    }
-                } else if (task.action === 'addComment') {
-                    const data = await PostsAPI.addComment(task.payload.postId, task.payload.comment);
-                    if (data.success) {
-                        const post = this.posts.find(p => p.id === task.payload.postId);
-                        if (post) {
-                            const cIndex = post.comments.findIndex(c => c.id === task.tempId);
-                            if (cIndex !== -1) {
-                                post.comments[cIndex] = data.comment;
-                                this._personalize(post);
-                                document.dispatchEvent(new CustomEvent('cycle:post_updated', { detail: post }));
-                            }
-                        }
-                    }
-                }
-            } catch (e) {
-                task.retries = (task.retries || 0) + 1;
-                if (task.retries < 3) {
-                    this.offlineQueue.push(task);
-                } else {
-                    console.warn('[OfflineQueue] Битый запрос удален после 3 попыток:', task);
-                }
-                if (window.localforage) await localforage.setItem('cycle_offline_queue', this.offlineQueue);
-            }
-        }
-    }
-
-    // ИЗМЕНЕНО: Используем beforeCursor вместо page
     async loadPosts(beforeCursor = null, targetId = null, feedType = 'main', extraIds = []) {
         try {
             const newPosts = await PostsAPI.getPosts(beforeCursor, 10, targetId, feedType, extraIds);
             const processed = newPosts.map(p => this._personalize(p));
             
             if (!beforeCursor) { 
-                // Это первичная загрузка (сброс)
                 this.posts = processed; 
                 this.injectOfflinePosts(targetId, feedType); 
             } else {
-                // Это дозагрузка при скролле
                 const existingIds = new Set(this.posts.map(p => p.id));
                 const uniqueNew = processed.filter(p => !existingIds.has(p.id));
                 this.posts = [...this.posts, ...uniqueNew];
@@ -114,7 +54,7 @@ export class PostsStore {
     }
 
     injectOfflinePosts(targetId, feedType) {
-        const offlinePosts = this.offlineQueue.filter(t => t.action === 'addPost').reverse();
+        const offlinePosts = this.offlineManager.getPendingPosts(targetId, feedType);
         for (const task of offlinePosts) {
             if (feedType === 'communities' && task.payload.communityId !== targetId) continue;
             if (feedType === 'game' && (!task.payload.attachment || task.payload.attachment.game !== targetId)) continue;
@@ -173,18 +113,20 @@ export class PostsStore {
         
         document.dispatchEvent(new CustomEvent('cycle:post_added', { detail: enriched }));
 
-        const task = { action: 'addPost', payload: { content, poll: optimisticPost.poll, attachment, communityId }, tempId, timestamp: Date.now() };
-        PostsAPI.createPost(task.payload).then(data => {
-            if (data.success) {
-                const index = this.posts.findIndex(p => p.id === tempId);
-                if (index !== -1) {
-                    this.posts[index] = this._personalize(data.post);
-                    document.dispatchEvent(new CustomEvent('cycle:post_updated', { 
-                        detail: { oldId: tempId, post: this.posts[index] } 
-                    }));
-                }
-            }
-        }).catch(() => { this.saveToQueue(task); });
+        const task = { action: 'addPost', payload, tempId, timestamp: Date.now() };
+        PostsAPI.createPost(task.payload)
+            .then(data => { if (data.success) this.handleOfflinePostSuccess(tempId, data.post); })
+            .catch(() => this.offlineManager.add(task));
+    }
+
+    handleOfflinePostSuccess(tempId, realPost) {
+        const index = this.posts.findIndex(p => p.id === tempId);
+        if (index !== -1) {
+            this.posts[index] = this._personalize(realPost);
+            document.dispatchEvent(new CustomEvent('cycle:post_updated', { 
+                detail: { oldId: tempId, post: this.posts[index] } 
+            }));
+        }
     }
 
     addComment(postId, content, type = 'text', waveform = null) {
@@ -204,16 +146,21 @@ export class PostsStore {
         document.dispatchEvent(new CustomEvent('cycle:post_updated', { detail: post }));
 
         const task = { action: 'addComment', payload: { postId, comment: { content, type, waveform } }, tempId, timestamp: Date.now() };
-        PostsAPI.addComment(postId, task.payload.comment).then(data => {
-            if (data.success) {
-                const cIndex = post.comments.findIndex(c => c.id === tempId);
-                if (cIndex !== -1) {
-                    post.comments[cIndex] = data.comment;
-                    this._personalize(post);
-                    document.dispatchEvent(new CustomEvent('cycle:post_updated', { detail: post }));
-                }
+        PostsAPI.addComment(postId, task.payload.comment)
+            .then(data => { if (data.success) this.handleOfflineCommentSuccess(postId, tempId, data.comment); })
+            .catch(() => this.offlineManager.add(task));
+    }
+
+    handleOfflineCommentSuccess(postId, tempId, realComment) {
+        const post = this.posts.find(p => p.id === postId);
+        if (post) {
+            const cIndex = post.comments.findIndex(c => c.id === tempId);
+            if (cIndex !== -1) {
+                post.comments[cIndex] = realComment;
+                this._personalize(post);
+                document.dispatchEvent(new CustomEvent('cycle:post_updated', { detail: post }));
             }
-        }).catch(() => { this.saveToQueue(task); });
+        }
     }
 
     async repostPost(postId) { await PostsAPI.repost(postId); }
@@ -224,7 +171,6 @@ export class PostsStore {
         
         post.isLiked ? (post.likes--, post.isLiked = false) : (post.likes++, post.isLiked = true);
         document.dispatchEvent(new CustomEvent('cycle:post_updated', { detail: post }));
-        
         await PostsAPI.likePost(postId);
     }
 

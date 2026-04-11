@@ -7,6 +7,7 @@ export class AdminRenderer {
         this.camera = { x: 0, y: 0, zoom: 1 };
         
         this.resize();
+        // Центрируем камеру
         this.camera.x = this.canvas.clientWidth / 2;
         this.camera.y = this.canvas.clientHeight / 2;
     }
@@ -29,7 +30,7 @@ export class AdminRenderer {
         };
     }
 
-    drawGrid(w, h) {
+    _drawGrid(w, h) {
         const gridSize = 100 * this.camera.zoom;
         const offsetX = this.camera.x % gridSize;
         const offsetY = this.camera.y % gridSize;
@@ -50,7 +51,7 @@ export class AdminRenderer {
         const isSearching = searchResults !== null;
 
         ctx.clearRect(0, 0, cw, ch);
-        this.drawGrid(cw, ch);
+        this._drawGrid(cw, ch);
 
         ctx.save();
         ctx.translate(this.camera.x, this.camera.y);
@@ -94,7 +95,7 @@ export class AdminRenderer {
             }
         });
 
-        // 3. Стримы
+        // 3. Стримы музыки
         if (!isSearching) {
             physics.musicStreams.forEach(p => {
                 ctx.beginPath(); ctx.arc(p.x, p.y, 4, 0, Math.PI * 2);
@@ -119,7 +120,7 @@ export class AdminRenderer {
             ctx.font = 'bold 12px sans-serif'; ctx.textAlign = 'center'; ctx.fillText(core.label, core.x, core.y + 55);
         });
 
-        // 5. Узлы
+        // 5. Узлы пользователей
         physics.nodes.forEach(node => {
             const hoursInactive = (now - node.lastActive) / (1000 * 60 * 60);
             const activityScale = Math.max(0.3, 1 - (hoursInactive / (24 * 7))); 

@@ -19,7 +19,8 @@ class MessageRepository {
     getMember(chatId, username) { return db.prepare('SELECT * FROM chat_members WHERE chat_id = ? AND username = ?').get(chatId, username); }
     getMembers(chatId) { return db.prepare('SELECT * FROM chat_members WHERE chat_id = ?').all(chatId); }
     getActiveMembers(chatId) { return db.prepare("SELECT * FROM chat_members WHERE chat_id = ? AND status IN ('joined', 'invited')").all(chatId); }
-    getMembersWithUserDetails(chatId) { return db.prepare(`SELECT u.username, u.name, u.avatar, u.banner, u.isVerified, u.verifiedBadgeType, u.frameId, cm.role, cm.status, cm.can_write FROM chat_members cm JOIN users u ON cm.username = u.username WHERE cm.chat_id = ? AND cm.status IN ('joined', 'invited')`).all(chatId); }
+    // ДОБАВЛЕНЫ titleId И fontId В ВЫБОРКУ
+    getMembersWithUserDetails(chatId) { return db.prepare(`SELECT u.username, u.name, u.avatar, u.banner, u.isVerified, u.verifiedBadgeType, u.frameId, u.titleId, u.fontId, cm.role, cm.status, cm.can_write FROM chat_members cm JOIN users u ON cm.username = u.username WHERE cm.chat_id = ? AND cm.status IN ('joined', 'invited')`).all(chatId); }
     getActiveMembersCount(chatId) { return db.prepare("SELECT count(*) as c FROM chat_members WHERE chat_id = ? AND status NOT IN ('left', 'declined')").get(chatId)?.c || 0; }
     updateMemberStatus(chatId, username, status) { db.prepare('UPDATE chat_members SET status = ? WHERE chat_id = ? AND username = ?').run(status, chatId, username); }
     updateMemberRole(chatId, username, role) { db.prepare('UPDATE chat_members SET role = ? WHERE chat_id = ? AND username = ?').run(role, chatId, username); }
@@ -42,7 +43,6 @@ class MessageRepository {
     }
     
     getMessageById(id) { return db.prepare('SELECT * FROM messages WHERE id = ?').get(id); }
-    
     getMessagesWithReplyInfo(chatId, sinceTimestamp, beforeTimestamp = null, limit = 50) {
         let query = `SELECT m.*, r.sender_username as reply_sender, r.content as reply_content FROM messages m LEFT JOIN messages r ON m.reply_to_id = r.id WHERE m.chat_id = ? AND m.timestamp > ?`;
         const params = [chatId, sinceTimestamp];
@@ -50,14 +50,13 @@ class MessageRepository {
         query += ' ORDER BY m.timestamp DESC LIMIT ?'; params.push(limit);
         return db.prepare(query).all(...params).reverse(); 
     }
-    
     getLastMessage(chatId, sinceTimestamp) { return db.prepare('SELECT content, sender_username, timestamp, is_read FROM messages WHERE chat_id = ? AND timestamp > ? ORDER BY timestamp DESC LIMIT 1').get(chatId, sinceTimestamp); }
     getUnreadCount(chatId, excludeUsername, sinceTimestamp) { return db.prepare('SELECT COUNT(*) as c FROM messages WHERE chat_id = ? AND sender_username != ? AND is_read = 0 AND timestamp > ?').get(chatId, excludeUsername, sinceTimestamp)?.c || 0; }
     markMessagesAsRead(chatId, excludeUsername, sinceTimestamp = 0) { return db.prepare('UPDATE messages SET is_read = 1 WHERE chat_id = ? AND sender_username != ? AND is_read = 0 AND timestamp > ?').run(chatId, excludeUsername, sinceTimestamp).changes > 0; }
     getMediaMessages(chatId, sinceTimestamp) { return db.prepare(`SELECT content FROM messages WHERE chat_id = ? AND content LIKE '[IMG:%' AND timestamp > ? ORDER BY timestamp DESC`).all(chatId, sinceTimestamp); }
     getTotalMessagesCount(chatId) { return db.prepare("SELECT COUNT(*) as c FROM messages WHERE chat_id = ? AND sender_username != 'TetlaBot'").get(chatId)?.c || 0; }
     updateMessageContent(id, username, content) { db.prepare('UPDATE messages SET content = ?, is_edited = 1 WHERE id = ? AND sender_username = ?').run(content, id, username); }
-    updateMessageReactions(id, reactionsJson) { db.prepare('UPDATE messages SET reactions = ? WHERE id = ?').run(reactionsJson, id); } // НОВОЕ
+    updateMessageReactions(id, reactionsJson) { db.prepare('UPDATE messages SET reactions = ? WHERE id = ?').run(reactionsJson, id); }
     deleteMessage(id, username) { db.prepare('DELETE FROM messages WHERE id = ? AND sender_username = ?').run(id, username); }
     deleteChatMessages(chatId) { db.prepare('DELETE FROM messages WHERE chat_id = ?').run(chatId); }
 

@@ -1,29 +1,34 @@
 // public/js/ui/widgets/MessageListHandler.js
 import { MessagesAPI } from '../../api/MessagesAPI.js';
-import { Toast } from '../utils/Toast.js';
+import { MessageContextMenu } from './MessageContextMenu.js'; // ПОДКЛЮЧАЕМ НАШ НОВЫЙ КЛАСС
 
 export class MessageListHandler {
     constructor(stores, renderer, callbacks) {
         this.stores = stores;
         this.renderer = renderer;
         this.callbacks = callbacks; // { onReply, onEdit, onPin, onDelete, canEdit, canPin }
+        this.abortController = new AbortController();
 
         this.messagesList = document.getElementById('messagesList');
-        this.msgContextMenu = document.getElementById('msgContextMenu');
         
         this.messages = [];
         this.activeChatId = null;
         this.activeChatType = null;
         this.activeLinkedChatId = null;
-        
         this.isLoadingHistory = false;
         this.hasMoreMessages = true;
-        
-        this.contextTargetId = null;
-        this.contextTargetRaw = null;
-        this.contextTargetAuthor = null;
 
-        // Отслеживание прочтений (для каналов)
+        // Инициализируем наше меню через отдельный класс
+        this.contextMenu = new MessageContextMenu({
+            onReply: (id, author, raw) => this.callbacks.onReply(id, author, this.renderer._getSnippet(raw)),
+            onEdit: (id, raw) => this.callbacks.onEdit(id, raw),
+            onDelete: (id) => this.callbacks.onDelete(id),
+            onPin: (id) => this.callbacks.onPin(id),
+            onReact: async (id, emoji) => {
+                await MessagesAPI.reactMessage(this.activeChatId, id, emoji);
+            }
+        });
+
         this.viewObserver = new IntersectionObserver((entries) => {
             entries.forEach(entry => {
                 if (entry.isIntersecting && this.activeChatType === 'channel') {
@@ -53,7 +58,8 @@ export class MessageListHandler {
     }
 
     renderMessages(forceScrollBottom = false) {
-        const isAtBottom = this.messagesList.scrollHeight - this.messagesList.scrollTop - this.messagesList.clientHeight <= 50;
+        if (!this.messagesList) return;
+        const isAtBottom = this.messagesList.scrollHeight - this.messagesList.scrollTop - this.messagesList.clientHeight <= 100;
         
         this.messagesList.innerHTML = this.renderer.renderMessages(this.messages, this.stores.auth.user.username, this.activeChatType, this.activeLinkedChatId);
         
@@ -61,33 +67,15 @@ export class MessageListHandler {
             this.messagesList.scrollTop = this.messagesList.scrollHeight;
         }
         
-        this.messagesList.querySelectorAll('audio').forEach(audio => {
-            audio.addEventListener('loadedmetadata', () => {
-                const timeSpan = audio.parentElement.querySelector('.cycle-audio-time');
-                if (timeSpan) {
-                    const m = Math.floor(audio.duration / 60);
-                    const s = Math.floor(audio.duration % 60);
-                    timeSpan.textContent = `${m}:${s < 10 ? '0' : ''}${s}`;
-                }
-            });
-        });
+        this._initAudioElements(this.messagesList);
 
         if (this.activeChatType === 'channel') {
             this.messagesList.querySelectorAll('.message-item').forEach(el => this.viewObserver.observe(el));
         }
     }
 
-    appendMessage(msg) {
-        if (this.messages.find(m => m.id === msg.id)) return;
-        this.messages.push(msg);
-
-        const isAtBottom = this.messagesList.scrollHeight - this.messagesList.scrollTop - this.messagesList.clientHeight <= 50;
-        
-        const temp = document.createElement('div');
-        temp.innerHTML = this.renderer.renderMessages([msg], this.stores.auth.user.username, this.activeChatType, this.activeLinkedChatId);
-        const newEl = temp.firstElementChild;
-        
-        newEl.querySelectorAll('audio').forEach(audio => {
+    _initAudioElements(container) {
+        container.querySelectorAll('audio').forEach(audio => {
             audio.addEventListener('loadedmetadata', () => {
                 const timeSpan = audio.parentElement.querySelector('.cycle-audio-time');
                 if (timeSpan) {
@@ -97,15 +85,26 @@ export class MessageListHandler {
                 }
             });
         });
+    }
+
+    appendMessage(msg) {
+        if (this.messages.find(m => m.id === msg.id)) return;
+        this.messages.push(msg);
+
+        const isAtBottom = this.messagesList.scrollHeight - this.messagesList.scrollTop - this.messagesList.clientHeight <= 100;
         
+        const temp = document.createElement('div');
+        temp.innerHTML = this.renderer.renderMessages([msg], this.stores.auth.user.username, this.activeChatType, this.activeLinkedChatId);
+        const newEl = temp.firstElementChild;
+        
+        this._initAudioElements(newEl);
         this.messagesList.appendChild(newEl);
-        if (this.activeChatType === 'channel' && newEl.classList.contains('message-item')) {
+
+        if (this.activeChatType === 'channel') {
             this.viewObserver.observe(newEl);
         }
         
-        if (isAtBottom) {
-            this.messagesList.scrollTop = this.messagesList.scrollHeight;
-        }
+        if (isAtBottom) this.messagesList.scrollTop = this.messagesList.scrollHeight;
     }
 
     updateReactionsDOM(msgId, reactionsObj) {
@@ -121,7 +120,6 @@ export class MessageListHandler {
         this.messagesList.querySelectorAll('.msg-row.me .msg-meta').forEach(meta => {
             if (meta.innerHTML.includes('fa-check"') && !meta.innerHTML.includes('fa-check-double"')) {
                 meta.innerHTML = meta.innerHTML.replace('fa-check"', 'fa-check-double" style="color:#fff;"');
-                meta.innerHTML = meta.innerHTML.replace('rgba(255,255,255,0.6)', '#fff');
             }
         });
     }
@@ -133,7 +131,8 @@ export class MessageListHandler {
     }
 
     bindEvents() {
-        // Подгрузка истории
+        const signal = this.abortController.signal;
+
         this.messagesList.addEventListener('scroll', async () => {
             if (this.messagesList.scrollTop === 0 && !this.isLoadingHistory && this.hasMoreMessages) {
                 this.isLoadingHistory = true;
@@ -151,93 +150,50 @@ export class MessageListHandler {
                 } else { this.hasMoreMessages = false; }
                 this.isLoadingHistory = false;
             }
-        });
+        }, { signal });
 
-        // Открытие контекстного меню
         this.messagesList.addEventListener('contextmenu', (e) => {
             const b = e.target.closest('.msg-bubble'); 
             if (!b || b.dataset.sender === 'TetlaBot') return; 
             
             e.preventDefault();
-            this.msgContextMenu.style.display = 'block'; 
-            this.msgContextMenu.style.top = e.pageY + 'px'; 
-            this.msgContextMenu.style.left = e.pageX + 'px';
-            
-            this.contextTargetId = b.dataset.id; 
-            this.contextTargetRaw = b.dataset.raw;
-            this.contextTargetAuthor = b.dataset.author; 
             
             const isMe = b.dataset.sender === this.stores.auth.user.username;
-            
-            document.getElementById('ctxMsgEdit').style.display = this.callbacks.canEdit(isMe) ? 'flex' : 'none'; 
-            document.getElementById('ctxMsgDelete').style.display = isMe ? 'flex' : 'none';
-            document.getElementById('ctxMsgPin').style.display = this.callbacks.canPin() ? 'flex' : 'none';
-        });
+            const canEdit = this.callbacks.canEdit(isMe);
+            const canPin = this.callbacks.canPin();
 
-        // Кнопки контекстного меню
-        document.getElementById('ctxMsgDelete')?.addEventListener('click', () => { 
-            this.callbacks.onDelete(this.contextTargetId);
-            this.msgContextMenu.style.display = 'none'; 
-        });
-        document.getElementById('ctxMsgEdit')?.addEventListener('click', () => { 
-            this.callbacks.onEdit(this.contextTargetId, this.contextTargetRaw);
-            this.msgContextMenu.style.display = 'none'; 
-        });
-        document.getElementById('ctxMsgReply')?.addEventListener('click', () => { 
-            this.callbacks.onReply(this.contextTargetId, this.contextTargetAuthor, this.renderer._getSnippet(this.contextTargetRaw));
-            this.msgContextMenu.style.display = 'none'; 
-        });
-        document.getElementById('ctxMsgPin')?.addEventListener('click', () => {
-            this.callbacks.onPin(this.contextTargetId);
-            this.msgContextMenu.style.display = 'none';
-        });
-        document.getElementById('ctxMsgCopy')?.addEventListener('click', () => {
-            const raw = this.contextTargetRaw;
-            const clean = raw.replace(/\[IMG:[^\]]+\]/g, '').replace(/\[AUDIO:[^\]]+\]/g, '').trim();
-            navigator.clipboard.writeText(clean || 'Медиафайл').then(() => {
-                Toast.show('Текст скопирован', 'success');
-            });
-            this.msgContextMenu.style.display = 'none';
-        });
+            // Делегируем открытие меню новому классу
+            this.contextMenu.show(
+                e.pageX, e.pageY, 
+                b.dataset.id, b.dataset.raw, b.dataset.author, 
+                isMe, canEdit, canPin
+            );
+        }, { signal });
 
-        // Глобальные клики внутри сообщений
         document.addEventListener('click', async (e) => {
-            if (this.msgContextMenu && !e.target.closest('#msgContextMenu') && !e.target.closest('.msg-bubble')) {
-                this.msgContextMenu.style.display = 'none';
-            }
-
-            // Клик на ответ
+            // Клик по ответам (перемещение)
             const replyBlock = e.target.closest('.msg-module-reply');
             if (replyBlock) {
-                const targetId = replyBlock.dataset.targetId;
-                const targetMsg = document.querySelector(`.msg-row[data-id="${targetId}"]`);
+                const targetMsg = document.querySelector(`.msg-row[data-id="${replyBlock.dataset.targetId}"]`);
                 if (targetMsg) {
                     targetMsg.scrollIntoView({ behavior: 'smooth', block: 'center' });
                     targetMsg.classList.add('highlight-pulse'); setTimeout(() => targetMsg.classList.remove('highlight-pulse'), 1000);
-                }
-                return;
+                } return;
             }
 
-            // Реакции
-            const ctxReactionBtn = e.target.closest('.ctx-reaction-btn');
-            if (ctxReactionBtn && this.contextTargetId) {
-                await MessagesAPI.reactMessage(this.activeChatId, this.contextTargetId, ctxReactionBtn.textContent.trim());
-                this.msgContextMenu.style.display = 'none';
-                return;
-            }
-
+            // Клик по существующей реакции под сообщением
             const reactionBadge = e.target.closest('.msg-reaction-badge');
             if (reactionBadge) {
                 const msgBubble = reactionBadge.closest('.msg-bubble');
-                if (msgBubble) {
-                    await MessagesAPI.reactMessage(this.activeChatId, msgBubble.dataset.id, reactionBadge.dataset.emoji);
-                }
-                return;
+                if (msgBubble) await MessagesAPI.reactMessage(this.activeChatId, msgBubble.dataset.id, reactionBadge.dataset.emoji);
             }
-        });
+        }, { signal });
     }
 
     destroy() {
+        this.abortController.abort();
         if (this.viewObserver) this.viewObserver.disconnect();
+        // Корректно убиваем меню через его собственный метод destroy
+        if (this.contextMenu) this.contextMenu.destroy();
     }
 }

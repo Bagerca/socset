@@ -47,6 +47,9 @@ class ProfileService {
             avatar: data.avatar,
             banner: data.banner,
             frameId: data.frameId,
+            titleId: data.titleId,             // ИСПРАВЛЕНО: добавлено сохранение звания
+            fontId: data.fontId,               // ИСПРАВЛЕНО: добавлено сохранение шрифта
+            backgroundId: data.backgroundId,   // ИСПРАВЛЕНО: добавлено сохранение фона
             socials: JSON.stringify(data.socials || {}),
             showcaseGames: JSON.stringify(data.showcaseGames || []),
             musicId: data.musicId || null,

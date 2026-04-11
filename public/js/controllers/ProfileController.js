@@ -1,11 +1,13 @@
-import { escapeHTML, formatTime, parseFormatting } from '../ui/utils/utils.js';
+// public/js/controllers/ProfileController.js
+import { escapeHTML } from '../ui/utils/utils.js';
 import { PostComponent } from '../ui/widgets/PostComponent.js';
 import { ProfileRenderer } from '../ui/renderers/ProfileRenderer.js';
 import { ProfileAPI } from '../api/ProfileAPI.js';
 import { CommentContextMenu } from '../ui/widgets/CommentContextMenu.js';
 import { ProfileSettingsModal } from '../ui/modals/ProfileSettingsModal.js';
-import { ComposeWidget } from '../ui/widgets/ComposeWidget.js'; // Изменено
-import { Toast } from '../ui/utils/Toast.js';
+import { ComposeWidget } from '../ui/widgets/ComposeWidget.js';
+import { ProfileAudioWidget } from '../ui/widgets/ProfileAudioWidget.js';
+import { ProfileWallHandler } from '../ui/widgets/ProfileWallHandler.js';
 
 export class ProfileController {
     constructor(stores, targetUsername) {
@@ -28,22 +30,12 @@ export class ProfileController {
         this.playerContainer = document.getElementById('profileAudioPlayerContainer');
         this.modulesContainer = document.getElementById('profileModules');
         this.postsContainer = document.getElementById('profilePostsContainer');
-        this.composeContainer = document.getElementById('profileComposeContainer'); // Изменено
-        
+        this.composeContainer = document.getElementById('profileComposeContainer');
         this.openSettingsBtn = document.getElementById('openSettingsBtn');
-        
-        this.selectionModal = document.getElementById('selectionModal');
-        this.selectionList = document.getElementById('modalList');
-        this.closeSelectionBtn = document.getElementById('closeSelectionBtn');
-        this.selectionModalTitle = document.getElementById('modalTitle');
         
         this.tabBtns = document.querySelectorAll('.profile-tab');
         this.tabPosts = document.getElementById('tabContentPosts');
         this.tabWall = document.getElementById('tabContentWall');
-        this.wallInput = document.getElementById('wallInput');
-        this.wallSendBtn = document.getElementById('wallSendBtn');
-        this.wallList = document.getElementById('wallPostsList');
-        this.wallUserAvatar = document.getElementById('wallUserAvatar');
 
         this.commentMenu = new CommentContextMenu(this.stores, (postId) => {
             const postEl = document.querySelector(`.post[data-id="${postId}"]`);
@@ -56,8 +48,7 @@ export class ProfileController {
                 this.currentUser = { ...this.currentUser, ...newData };
                 this.renderProfileHeader(); 
                 this.renderModules(); 
-                this.renderPosts(); 
-                
+                if (this.wallHandler) this.wallHandler.renderWall();
                 const wallTab = document.getElementById('tabWall'); 
                 if (wallTab) wallTab.style.display = newData.enableWall ? 'block' : 'none';
             });
@@ -95,40 +86,45 @@ export class ProfileController {
 
         this.renderProfileHeader();
         this.renderModules();
-        this.renderPosts();
+        
+        this.wallHandler = new ProfileWallHandler(this.stores, this.currentUser.username, this.isMyProfile);
 
-        if (this.wallUserAvatar) {
-            this.wallUserAvatar.src = this.stores.auth.user.avatar;
-            this.wallUserAvatar.onerror = () => this.wallUserAvatar.src = 'https://placehold.co/40x40/333/fff?text=U';
-        }
         if (!this.currentUser.enableWall) {
             const wallTab = document.getElementById('tabWall');
             if (wallTab) wallTab.style.display = 'none';
         }
 
+        await this.stores.posts.loadPosts(null, null, 'main'); 
+        this.renderPosts();
+
         this.initEventListeners();
         
         document.addEventListener('cycle:post_added', (e) => this.handlePostAdded(e.detail), { signal: this.abortController.signal });
         document.addEventListener('cycle:post_deleted', (e) => this.handlePostDeleted(e.detail), { signal: this.abortController.signal });
-        document.addEventListener('cycle:wall_updated', (e) => { if (e.detail === this.currentUser.username) this.renderWall(); }, { signal: this.abortController.signal });
+        document.addEventListener('cycle:wall_updated', (e) => { if (e.detail === this.currentUser.username) this.wallHandler.renderWall(); }, { signal: this.abortController.signal });
     }
 
     destroy() {
         this.abortController.abort();
         if (this.composer) this.composer.destroy();
         if (this.commentMenu) this.commentMenu.destroy();
+        if (this.audioWidget) this.audioWidget.destroy();
+        if (this.wallHandler) this.wallHandler.destroy();
+        if (this.settingsModal) this.settingsModal.destroy();
+        
         if (this.bgLayer) {
             this.bgLayer.style.backgroundImage = 'none';
             this.bgLayer.style.backgroundColor = 'transparent'; 
         }
+        
+        const giftMod = document.getElementById('giftModal'); if(giftMod) giftMod.remove();
+        const usersMod = document.getElementById('usersListModal'); if(usersMod) usersMod.remove();
     }
 
     handlePostAdded(post) {
         if (post.author.username !== this.currentUser.username) return;
-
         const empty = this.postsContainer.querySelector('.text-muted');
         if (empty && empty.textContent.includes('Нет публикаций')) empty.remove();
-
         const comp = new PostComponent(post, this.stores);
         this.postsContainer.prepend(comp.getElement());
     }
@@ -143,7 +139,10 @@ export class ProfileController {
 
     renderProfileHeader() {
         const p = this.currentUser;
-        this.nameEl.textContent = p.name;
+        
+        this.nameEl.innerHTML = ProfileRenderer.renderUserName(p.name, p.fontId, this.stores.shop);
+        ProfileRenderer.applyTitleToElement(this.titleBadge, this.stores.shop.getItemById(p.titleId));
+        
         this.usernameEl.textContent = p.username;
         this.bioEl.innerHTML = escapeHTML(p.bio).replace(/\n/g, '<br>'); 
         
@@ -179,22 +178,14 @@ export class ProfileController {
             this.bgLayer.style.backgroundColor = bg ? bg.color : '#0a0a0c';
         }
 
-        const frame = this.stores.shop.getFrameById(p.frameId);
+        // ИСПРАВЛЕНА СТРОЧКА: Используем getItemById вместо getFrameById
+        const frame = this.stores.shop.getItemById(p.frameId);
         ProfileRenderer.applyFrameToElement(this.avatarFrame, frame);
 
-        const title = this.stores.catalogs.titles.find(t => t.id === p.titleId);
-        if (title && title.id !== 'title_none') {
-            this.titleBadge.textContent = title.text;
-            this.titleBadge.style.color = title.color || '#fff';
-            this.titleBadge.style.display = 'inline-block';
-        } else { this.titleBadge.style.display = 'none'; }
-
+        if (this.audioWidget) this.audioWidget.destroy();
         if (p.musicId) {
             const track = this.stores.catalogs.getTrackById(p.musicId);
-            if (track) {
-                this.playerContainer.innerHTML = ProfileRenderer.renderProfilePlayer(track);
-                setTimeout(() => this.initAudioVisualizer(track.id), 50);
-            }
+            if (track) this.audioWidget = new ProfileAudioWidget(this.playerContainer, track, this.stores);
         } else { this.playerContainer.innerHTML = ''; }
 
         if (!this.isMyProfile) {
@@ -219,70 +210,6 @@ export class ProfileController {
                 <div class="stat-inline-item" data-type="friends" title="Друзья (взаимно)"><i class="fa-solid fa-handshake"></i> <b>${friendsCount}</b></div>
             `;
         }
-    }
-
-    initAudioVisualizer(trackId) {
-        const globalAudio = document.getElementById('globalAudioPlayer');
-        const clickArea = document.getElementById('profilePlayerClickArea'); 
-        const canvas = document.getElementById('profileAudioCanvas');
-        const wrapper = document.getElementById('profilePlayerWrapper');
-        if (!globalAudio || !clickArea || !canvas) return;
-        
-        const overlay = clickArea.querySelector('.profile-player-overlay');
-        let hideOverlayTimeout;
-        const startOverlayTimer = () => { clearTimeout(hideOverlayTimeout); hideOverlayTimeout = setTimeout(() => { if (overlay) overlay.classList.add('hidden-overlay'); }, 3000); };
-        const showOverlay = () => { clearTimeout(hideOverlayTimeout); if (overlay) overlay.classList.remove('hidden-overlay'); };
-        clickArea.addEventListener('mouseenter', showOverlay); clickArea.addEventListener('mouseleave', startOverlayTimer); startOverlayTimer();
-        
-        const ctx = canvas.getContext('2d'); canvas.width = 600; canvas.height = 100;
-        
-        const syncUI = () => {
-            if (this.stores.player && !globalAudio.paused && this.stores.player.playlist[this.stores.player.currentIndex]?.id === trackId) wrapper.classList.add('playing');
-            else wrapper.classList.remove('playing');
-        };
-        
-        const signal = this.abortController.signal;
-        globalAudio.addEventListener('play', syncUI, { signal }); globalAudio.addEventListener('pause', syncUI, { signal }); syncUI();
-        
-        clickArea.addEventListener('click', async () => {
-            showOverlay(); startOverlayTimer(); 
-            if (!this.stores.player) return;
-            
-            if (!window.globalAudioAnalyser && globalAudio.crossOrigin === 'anonymous') {
-                try {
-                    const AC = window.AudioContext || window.webkitAudioContext; 
-                    window.globalAudioCtx = new AC(); 
-                    window.globalAudioAnalyser = window.globalAudioCtx.createAnalyser(); 
-                    window.globalAudioAnalyser.fftSize = 2048; 
-                    const src = window.globalAudioCtx.createMediaElementSource(globalAudio); 
-                    src.connect(window.globalAudioAnalyser); 
-                    window.globalAudioAnalyser.connect(window.globalAudioCtx.destination);
-                } catch (e) {}
-            }
-            if (window.globalAudioCtx && window.globalAudioCtx.state === 'suspended') await window.globalAudioCtx.resume();
-            
-            const curr = this.stores.player.playlist[this.stores.player.currentIndex];
-            if (curr && curr.id === trackId) this.stores.player.togglePlay();
-            else {
-                const inPl = this.stores.player.playlist.find(t => t.id === trackId);
-                if (!inPl) this.stores.player.playlist = this.stores.catalogs.music;
-                this.stores.player.playTrack(trackId);
-            }
-        });
-        
-        const drawWaveform = () => {
-            if (!document.getElementById('profileAudioCanvas')) return; requestAnimationFrame(drawWaveform);
-            ctx.clearRect(0, 0, canvas.width, canvas.height); ctx.lineWidth = 3; ctx.strokeStyle = 'rgba(255, 255, 255, 0.25)'; ctx.beginPath();
-            
-            const curr = this.stores.player?.playlist[this.stores.player.currentIndex];
-            if (globalAudio.paused || !curr || curr.id !== trackId || !window.globalAudioAnalyser) { ctx.moveTo(0, canvas.height/2); ctx.lineTo(canvas.width, canvas.height/2); ctx.stroke(); return; }
-            
-            const len = window.globalAudioAnalyser.frequencyBinCount; const data = new Uint8Array(len); window.globalAudioAnalyser.getByteTimeDomainData(data);
-            const slice = canvas.width * 1.0 / len; let x = 0;
-            for(let i = 0; i < len; i++) { const v = data[i] / 128.0; const y = v * canvas.height / 2; if(i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y); x += slice; }
-            ctx.lineTo(canvas.width, canvas.height / 2); ctx.stroke();
-        };
-        drawWaveform();
     }
 
     renderModules() {
@@ -314,107 +241,17 @@ export class ProfileController {
         }
     }
 
-    async renderWall() {
-        try {
-            const wallPosts = await ProfileAPI.getWall(this.currentUser.username);
-            
-            if (wallPosts.length === 0) {
-                this.wallList.innerHTML = `<div style="text-align:center; padding: 40px; color: var(--text-muted);">На стене пока пусто. Будьте первым!</div>`;
-                return;
-            }
-
-            this.wallList.innerHTML = wallPosts.map(post => {
-                const canDelete = post.author_username === this.stores.auth.user.username || this.isMyProfile;
-                const deleteBtn = canDelete ? `<div class="wall-delete-btn" data-id="${post.id}"><i class="fa-solid fa-trash"></i></div>` : '';
-                const verifiedIcon = post.isVerified ? '<i class="fa-solid fa-circle-check" style="color:#1da1f2;font-size:13px;margin-left:4px;"></i>' : '';
-                const frameStyle = post.frameId && post.frameId !== 'frame_none' ? this._getFrameStyle(post.frameId) : '';
-                const frameDiv = frameStyle ? `<div style="position:absolute;top:-10%;left:-10%;width:120%;height:120%;pointer-events:none;background-size:contain;background-repeat:no-repeat;background-position:center;border-radius:50%;${frameStyle}"></div>` : '';
-                
-                const showReply = post.author_username !== this.stores.auth.user.username;
-                const replyBtn = showReply ? `<div class="wall-post-actions"><button class="wall-action-btn wall-reply-btn" data-username="${post.author_username}"><i class="fa-solid fa-reply"></i> Ответить</button></div>` : '';
-
-                return `
-                    <div class="wall-post">
-                        <a href="#/profile/${encodeURIComponent(post.author_username)}" style="position:relative; width:40px; height:40px; flex-shrink:0;">
-                            <img src="${post.avatar}" onerror="this.src='https://placehold.co/40x40/333/fff?text=U'" style="width:100%;height:100%;border-radius:50%;object-fit:cover;">
-                            ${frameDiv}
-                        </a>
-                        <div style="flex:1;">
-                            <div class="wall-post-header">
-                                <a href="#/profile/${encodeURIComponent(post.author_username)}" class="wall-post-name">${escapeHTML(post.name)} ${verifiedIcon}</a>
-                                <span class="wall-post-date">· ${formatTime(post.timestamp)}</span>
-                            </div>
-                            <div class="wall-post-content">${parseFormatting(post.content)}</div>
-                            ${replyBtn}
-                        </div>
-                        ${deleteBtn}
-                    </div>
-                `;
-            }).join('');
-
-            this.wallList.querySelectorAll('.wall-delete-btn').forEach(btn => {
-                btn.addEventListener('click', async () => {
-                    if (confirm('Удалить запись?')) {
-                        const res = await ProfileAPI.deleteFromWall(btn.dataset.id);
-                        if (res.success) this.renderWall();
-                    }
-                });
-            });
-
-            this.wallList.querySelectorAll('.wall-reply-btn').forEach(btn => {
-                btn.addEventListener('click', () => {
-                    const mention = `@${btn.dataset.username}, `;
-                    this.wallInput.focus();
-                    if (this.wallInput.value.length > 0 && !this.wallInput.value.endsWith(' ')) this.wallInput.value += ' ';
-                    this.wallInput.value += mention;
-                });
-            });
-
-        } catch (e) { console.error(e); }
-    }
-
-    _getFrameStyle(frameId) {
-        const frame = this.stores.shop.getFrameById(frameId);
-        if (!frame) return '';
-        if (frame.url) return `background-image: url('${frame.url}');`;
-        if (frame.css) return frame.css;
-        return '';
-    }
-
-    openSelectionModal(type, target) {
-        this.selectionModal.classList.add('active'); 
-        this.selectionList.innerHTML = ''; 
-        this.selectionModalTitle.textContent = type === 'game' ? 'Добавить игру' : 'Установить трек';
-        
-        const items = type === 'game' ? this.stores.catalogs.games : this.stores.catalogs.music;
-        
-        if (items.length === 0) { 
-            this.selectionList.innerHTML = '<div style="padding:20px; text-align:center; color: var(--text-muted);">Список пуст</div>'; 
-            return; 
-        }
-        
-        items.forEach(item => {
-            const el = document.createElement('div'); 
-            el.className = 'select-item'; 
-            el.innerHTML = ProfileRenderer.renderSelectionItem(type, item);
-            
-            el.addEventListener('click', () => { 
-                if (target === 'settingsMusic') { 
-                    this.settingsModal.tempMusicId = item.id; 
-                    this.settingsModal.renderMusicState(); 
-                } else if (target === 'settingsGame') { 
-                    if (!this.settingsModal.tempShowcaseGames.includes(item.id)) { 
-                        this.settingsModal.tempShowcaseGames.push(item.id); 
-                        this.settingsModal.renderGamesList(); 
-                    } 
-                } 
-                this.selectionModal.classList.remove('active'); 
-            });
-            this.selectionList.appendChild(el);
-        });
-    }
-
     openUsersListModal(type) {
+        if (!document.getElementById('usersListModal')) {
+            document.body.insertAdjacentHTML('beforeend', `
+                <div id="usersListModal" class="modal-overlay">
+                    <div class="modal-content" style="max-width: 450px;">
+                        <div class="modal-header"><span id="usersListTitle" class="modal-title">Список</span><button class="ul-close-btn icon-btn-small"><i class="fa-solid fa-xmark"></i></button></div>
+                        <div id="usersListBody" class="modal-body" style="max-height: 400px; overflow-y: auto; padding: 10px;"></div>
+                    </div>
+                </div>
+            `);
+        }
         const modal = document.getElementById('usersListModal');
         const title = document.getElementById('usersListTitle');
         const body = document.getElementById('usersListBody');
@@ -435,18 +272,65 @@ export class ProfileController {
                 el.style.textDecoration = 'none';
                 
                 const verifiedIcon = u.isVerified ? '<i class="fa-solid fa-circle-check" style="color:#1da1f2;font-size:13px;margin-left:4px;"></i>' : '';
+                const nameHTML = ProfileRenderer.renderUserName(u.name, u.fontId, this.stores.shop);
+
                 el.innerHTML = `
                     <div style="position:relative; width:44px; height:44px; flex-shrink:0;">
                         <img src="${u.avatar}" onerror="this.src='https://placehold.co/100/333/fff?text=U'" style="width:100%;height:100%;border-radius:50%;object-fit:cover;">
                     </div>
                     <div class="select-info" style="justify-content:center;">
-                        <span class="select-title" style="display:flex;align-items:center;">${escapeHTML(u.name)} ${verifiedIcon}</span>
+                        <span class="select-title" style="display:flex;align-items:center;">${nameHTML} ${verifiedIcon}</span>
                         <span class="select-subtitle">@${escapeHTML(u.username)}</span>
                     </div>`;
                 el.addEventListener('click', () => modal.classList.remove('active')); 
                 body.appendChild(el);
             });
         }
+        
+        modal.querySelector('.ul-close-btn').onclick = () => modal.classList.remove('active');
+        modal.onclick = (e) => { if (e.target === modal) modal.classList.remove('active'); };
+        modal.classList.add('active');
+    }
+
+    openGiftModal() {
+        if (!document.getElementById('giftModal')) {
+            document.body.insertAdjacentHTML('beforeend', `
+                <div id="giftModal" class="modal-overlay">
+                    <div class="modal-content" style="max-width: 400px;">
+                        <div class="modal-header"><span class="modal-title">Подарить монеты</span><button class="gift-close-btn icon-btn-small"><i class="fa-solid fa-xmark"></i></button></div>
+                        <div class="modal-body" style="padding: 24px;">
+                            <p style="color: var(--text-muted); font-size: 14px; margin-bottom: 12px; text-align: center;">Ваш баланс: <strong id="giftCurrentBalance" style="color:var(--accent-shop); font-size: 16px;">0</strong> <i class="fa-solid fa-coins" style="color:var(--accent-shop)"></i></p>
+                            <input type="number" id="giftAmount" class="poll-input" placeholder="Сумма" min="1" style="text-align: center; font-size: 18px; font-weight: bold;">
+                            <button id="sendGiftBtn" class="btn-post" style="margin-top:20px; width: 100%; background: var(--accent-shop); color: #000; padding: 14px; font-size: 16px;"><i class="fa-solid fa-gift"></i> Отправить</button>
+                        </div>
+                    </div>
+                </div>
+            `);
+        }
+        const modal = document.getElementById('giftModal');
+        document.getElementById('giftCurrentBalance').textContent = this.stores.auth.user.coins;
+        document.getElementById('giftAmount').value = '';
+        
+        modal.querySelector('.gift-close-btn').onclick = () => modal.classList.remove('active');
+        modal.onclick = (e) => { if(e.target === modal) modal.classList.remove('active'); };
+        
+        const sendBtn = document.getElementById('sendGiftBtn');
+        sendBtn.onclick = async () => {
+            const amount = parseInt(document.getElementById('giftAmount').value);
+            if (isNaN(amount) || amount <= 0) return Toast.show("Введите корректное число больше 0.", "error");
+            if (amount > this.stores.auth.user.coins) return Toast.show("Недостаточно монет на балансе.", "error");
+            
+            sendBtn.disabled = true; sendBtn.textContent = 'Отправка...';
+            const res = await ProfileAPI.giftCoins(this.currentUser.username, amount);
+            if (res.success) { 
+                Toast.show(`Успешно! Вы подарили ${amount} монет.`, 'success'); 
+                this.stores.auth.user.coins = res.newBalance; 
+                modal.classList.remove('active'); 
+            } else { 
+                Toast.show(res.message || res.error || "Ошибка перевода", "error"); 
+            }
+            sendBtn.disabled = false; sendBtn.innerHTML = '<i class="fa-solid fa-gift"></i> Отправить';
+        };
         modal.classList.add('active');
     }
 
@@ -470,21 +354,9 @@ export class ProfileController {
                 } else {
                     this.tabWall.style.display = 'block';
                     this.tabWall.classList.add('tab-content-animate');
-                    this.renderWall();
                 }
             }, { signal });
         });
-
-        if (this.wallSendBtn) {
-            this.wallSendBtn.addEventListener('click', async () => {
-                const content = this.wallInput.value.trim();
-                if (!content) return;
-                
-                const res = await ProfileAPI.addToWall(this.currentUser.username, content);
-                if (res.success) { this.wallInput.value = ''; this.renderWall(); } 
-                else { Toast.show(res.error || 'Ошибка', 'error'); }
-            }, { signal });
-        }
 
         this.postsContainer.addEventListener('contextmenu', (e) => this.commentMenu.handleContextMenu(e));
         
@@ -496,17 +368,9 @@ export class ProfileController {
         const statsEl = document.getElementById('profileStats'); 
         if (statsEl) { statsEl.addEventListener('click', (e) => { const item = e.target.closest('.stat-inline-item'); if (item) this.openUsersListModal(item.dataset.type); }, { signal }); }
         
-        const closeUsersListBtn = document.getElementById('closeUsersListBtn'); 
-        if (closeUsersListBtn) { closeUsersListBtn.addEventListener('click', () => { document.getElementById('usersListModal').classList.remove('active'); }, { signal }); }
-
         if (!this.isMyProfile) {
             const followBtn = document.getElementById('followBtn');
             const giftBtn = document.getElementById('giftBtn');
-            const giftModal = document.getElementById('giftModal');
-            const closeGiftBtn = document.getElementById('closeGiftBtn');
-            const sendGiftBtn = document.getElementById('sendGiftBtn');
-            const giftAmountInput = document.getElementById('giftAmount');
-            const giftCurrentBalance = document.getElementById('giftCurrentBalance');
 
             if (followBtn) {
                 followBtn.addEventListener('click', async () => {
@@ -514,27 +378,10 @@ export class ProfileController {
                     if (res.success) { this.currentUser = await ProfileAPI.getProfile(this.targetUsername); this.renderProfileHeader(); }
                 }, { signal });
             }
-            if (giftBtn) { giftBtn.addEventListener('click', () => { giftCurrentBalance.textContent = this.stores.auth.user.coins; giftAmountInput.value = ''; giftModal.classList.add('active'); }, { signal }); }
-            if (closeGiftBtn) { closeGiftBtn.addEventListener('click', () => giftModal.classList.remove('active'), { signal }); }
-            if (sendGiftBtn) {
-                sendGiftBtn.addEventListener('click', async () => {
-                    const amount = parseInt(giftAmountInput.value);
-                    if (isNaN(amount) || amount <= 0) return Toast.show("Введите корректное число больше 0.", "error");
-                    if (amount > this.stores.auth.user.coins) return Toast.show("Недостаточно монет на балансе.", "error");
-                    
-                    sendGiftBtn.disabled = true; sendGiftBtn.textContent = 'Отправка...';
-                    const res = await ProfileAPI.giftCoins(this.currentUser.username, amount);
-                    if (res.success) { Toast.show(`Успешно! Вы подарили ${amount} монет.`, 'success'); this.stores.auth.user.coins = res.newBalance; giftModal.classList.remove('active'); } 
-                    else { Toast.show(res.message || res.error || "Ошибка перевода", "error"); }
-                    sendGiftBtn.disabled = false; sendGiftBtn.innerHTML = '<i class="fa-solid fa-gift"></i> Отправить подарок';
-                }, { signal });
-            }
+            if (giftBtn) giftBtn.addEventListener('click', () => this.openGiftModal(), { signal });
             return;
         }
 
         if (this.openSettingsBtn) { this.openSettingsBtn.addEventListener('click', () => this.settingsModal.open(this.currentUser), { signal }); }
-        document.getElementById('selectProfileTrackBtn')?.addEventListener('click', () => { this.openSelectionModal('music', 'settingsMusic'); }, { signal });
-        document.getElementById('settingsAddGameBtn')?.addEventListener('click', () => { this.openSelectionModal('game', 'settingsGame'); }, { signal });
-        if (this.closeSelectionBtn) { this.closeSelectionBtn.addEventListener('click', () => { if(this.selectionModal) this.selectionModal.classList.remove('active'); }, { signal }); }
     }
 }

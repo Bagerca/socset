@@ -1,6 +1,6 @@
 // server/services/ScreeningRoomService.js
 const MessageRepository = require('../repositories/MessageRepository');
-const MessageService = require('./MessageService');
+const MessageDeliveryService = require('./MessageDeliveryService');
 
 class ScreeningRoomService {
     constructor() {
@@ -45,9 +45,8 @@ class ScreeningRoomService {
         };
 
         this.activeRooms.set(chatId, roomState);
-        // ИСПРАВЛЕНИЕ: Добавили chatId в payload
         this._broadcastToChat(chatId, io, 'sr_update', { action: 'started', roomState, chatId });
-        MessageService.sendSystemMessage(chatId, `🍿 @${username} запустил(а) Кинозал.`, io);
+        MessageDeliveryService.sendSystemMessage(chatId, `🍿 @${username} запустил(а) Кинозал.`, io);
     }
 
     _syncRoom(chatId, username, payload, io) {
@@ -80,7 +79,7 @@ class ScreeningRoomService {
         if (room.host === username || member.role === 'admin' || member.role === 'moderator') {
             this.activeRooms.delete(chatId);
             this._broadcastToChat(chatId, io, 'sr_update', { action: 'closed', chatId });
-            MessageService.sendSystemMessage(chatId, `🛑 @${username} закрыл(а) Кинозал.`, io);
+            MessageDeliveryService.sendSystemMessage(chatId, `🛑 @${username} закрыл(а) Кинозал.`, io);
         }
     }
 
@@ -98,7 +97,7 @@ class ScreeningRoomService {
             if (room.host === username) {
                 this.activeRooms.delete(chatId);
                 this._broadcastToChat(chatId, io, 'sr_update', { action: 'closed', chatId });
-                MessageService.sendSystemMessage(chatId, `🛑 @${username} закрыл(а) Кинозал.`, io);
+                MessageDeliveryService.sendSystemMessage(chatId, `🛑 @${username} закрыл(а) Кинозал.`, io);
             }
         }
     }
@@ -110,7 +109,7 @@ class ScreeningRoomService {
                 this.activeRooms.delete(chatId);
                 if (this.io) {
                     this._broadcastToChat(chatId, this.io, 'sr_update', { action: 'closed', chatId });
-                    MessageService.sendSystemMessage(chatId, `🛑 Кинозал завершен (Таймаут соединения)`, this.io);
+                    MessageDeliveryService.sendSystemMessage(chatId, `🛑 Кинозал завершен (Таймаут соединения)`, this.io);
                 }
             }
         }

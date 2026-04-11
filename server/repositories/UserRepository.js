@@ -7,23 +7,25 @@ class UserRepository {
     }
 
     findAuthorData(username) {
-        return db.prepare('SELECT username, name, avatar, frameId, isVerified, verifiedBadgeType FROM users WHERE username = ?').get(username);
+        // ДОБАВЛЕНЫ titleId И fontId В ВЫБОРКУ
+        return db.prepare('SELECT username, name, avatar, frameId, titleId, fontId, isVerified, verifiedBadgeType FROM users WHERE username = ?').get(username);
     }
 
-    // НОВЫЙ МЕТОД: Получение сразу нескольких авторов
     findAuthorsByUsernames(usernames) {
         if (!usernames || usernames.length === 0) return [];
         const placeholders = usernames.map(() => '?').join(',');
+        // ДОБАВЛЕНЫ titleId И fontId В ВЫБОРКУ
         return db.prepare(`
-            SELECT username, name, avatar, frameId, isVerified, verifiedBadgeType 
+            SELECT username, name, avatar, frameId, titleId, fontId, isVerified, verifiedBadgeType 
             FROM users WHERE username IN (${placeholders})
         `).all(...usernames);
     }
 
     create(user) {
+        // При создании юзера добавляем дефолтный шрифт
         db.prepare(`
-            INSERT INTO users (id, username, password, name, bio, avatar, banner, socials, showcaseGames, created_at, isAdmin)
-            VALUES (@id, @username, @password, @name, @bio, @avatar, @banner, @socials, @showcaseGames, @created_at, @isAdmin)
+            INSERT INTO users (id, username, password, name, bio, avatar, banner, socials, showcaseGames, created_at, isAdmin, fontId)
+            VALUES (@id, @username, @password, @name, @bio, @avatar, @banner, @socials, @showcaseGames, @created_at, @isAdmin, 'font_none')
         `).run(user);
     }
 

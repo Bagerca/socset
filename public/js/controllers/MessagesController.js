@@ -6,12 +6,12 @@ import { ProfileAPI } from '../api/ProfileAPI.js';
 import { ChatRenderer } from '../ui/renderers/ChatRenderer.js';
 import { SocketService } from '../services/SocketService.js';
 
-import { ChatGalleryHandler } from '../ui/widgets/ChatGalleryHandler.js';
-import { ChatCreateHandler } from '../ui/widgets/ChatCreateHandler.js';
+import { ChatCreateModal } from '../ui/widgets/ChatCreateModal.js';
 import { GroupDetailsHandler } from '../ui/widgets/GroupDetailsHandler.js';
 import { MessageInputHandler } from '../ui/widgets/MessageInputHandler.js';
 import { ChatListHandler } from '../ui/widgets/ChatListHandler.js';
 import { MessageListHandler } from '../ui/widgets/MessageListHandler.js';
+import { ChatHeaderWidget } from '../ui/widgets/ChatHeaderWidget.js';
 
 export class MessagesController {
     constructor(stores) {
@@ -22,17 +22,12 @@ export class MessagesController {
         this.activeChatId = null;
         this.activeChatType = null;
         this.activeTargetUsername = null;
-        this.currentSrState = null; // Храним стейт кинозала для баннера
+        this.currentSrState = null; 
 
-        // Основные DOM элементы
         this.sidebarEl = document.getElementById('messengerSidebar');
         this.chatAreaEl = document.getElementById('messengerChatArea');
-        this.msOptionsMenu = document.getElementById('msOptionsMenu');
         this.detailsPanel = document.getElementById('chatDetailsPanel');
         this.detailsBody = document.getElementById('chatDetailsBody');
-        
-        this.callJoinBanner = document.getElementById('callJoinBanner');
-        this.srJoinBanner = document.getElementById('srJoinBanner');
 
         this.init();
     }
@@ -40,32 +35,34 @@ export class MessagesController {
     async init() {
         document.body.classList.add('messenger-active-layout');
         
-        this.galleryHandler = new ChatGalleryHandler();
-        
-        this.chatListHandler = new ChatListHandler(this.stores, this.renderer, (chatId) => {
-            this.openChat(chatId);
+        this.chatHeader = new ChatHeaderWidget(this.stores, this.renderer, {
+            onOpenDetails: () => this.toggleDetails(!this.detailsPanel.classList.contains('open')),
+            onChatAction: async (action) => this.handleChatAction(action),
+            onCall: () => {
+                const chat = this.chatListHandler.getChat(this.activeChatId);
+                if (chat && window.cycleCallHandler) window.cycleCallHandler.joinCall(this.activeChatId, chat.type === 'direct', this.activeTargetUsername);
+            },
+            onScreeningRoom: () => { if (window.cycleScreeningRoomHandler) window.cycleScreeningRoomHandler.openHost(this.activeChatId); }
         });
+
+        this.createChatModal = new ChatCreateModal((chatId, initialMessage) => {
+            this.openChat(chatId);
+            if (initialMessage) this.chatListHandler.loadChats();
+        });
+        document.getElementById('btnCreateChat').addEventListener('click', () => this.createChatModal.open(), { signal: this.abortController.signal });
+
+        this.chatListHandler = new ChatListHandler(this.stores, this.renderer, (chatId) => this.openChat(chatId));
 
         this.messageListHandler = new MessageListHandler(this.stores, this.renderer, {
             onReply: (id, author, snippet) => this.inputHandler.openReplyContext(id, author, snippet),
             onEdit: (id, raw) => this.inputHandler.openEditContext(id, raw),
-            onPin: async (id) => { await MessagesAPI.pinMessage(this.activeChatId, id); },
-            onDelete: async (id) => { await MessagesAPI.deleteMessage(id, this.activeChatId); },
+            onPin: async (id) => await MessagesAPI.pinMessage(this.activeChatId, id),
+            onDelete: async (id) => await MessagesAPI.deleteMessage(id, this.activeChatId),
             canEdit: (isMe) => isMe && this.activeChatType !== 'channel',
-            canPin: () => {
-                const chat = this.chatListHandler.getChat(this.activeChatId);
-                return chat && (chat.myRole === 'admin' || chat.myRole === 'moderator');
-            }
+            canPin: () => { const chat = this.chatListHandler.getChat(this.activeChatId); return chat && (chat.myRole === 'admin' || chat.myRole === 'moderator'); }
         });
 
-        this.createChatHandler = new ChatCreateHandler((chatId, initialMessage) => {
-            this.openChat(chatId);
-            if (initialMessage) this.chatListHandler.loadChats();
-        });
-
-        this.groupDetailsHandler = new GroupDetailsHandler(this.renderer, (username) => {
-            this.openUserMiniProfile(username, true);
-        });
+        this.groupDetailsHandler = new GroupDetailsHandler(this.renderer, (username) => this.openUserMiniProfile(username, true));
 
         this.inputHandler = new MessageInputHandler({
             onSendMessage: async (content, replyToId) => this.sendMessage(content, replyToId),
@@ -73,7 +70,7 @@ export class MessagesController {
         });
 
         this.setupSockets();
-        this.bindEvents();
+        this.bindGlobalEvents();
 
         await this.chatListHandler.loadChats();
 
@@ -85,154 +82,108 @@ export class MessagesController {
         this.abortController.abort();
         if (this.inputHandler) this.inputHandler.destroy(); 
         if (this.messageListHandler) this.messageListHandler.destroy();
+        if (this.chatHeader) this.chatHeader.destroy();
+        if (this.createChatModal) this.createChatModal.destroy();
+        if (this.chatListHandler) this.chatListHandler.destroy(); 
+        if (this.groupDetailsHandler) this.groupDetailsHandler.destroy(); 
         
-        // ВАЖНО: Глобальные виджеты звонков и кинозала не уничтожаем!
         window.cycleActiveChatId = null;
         document.body.classList.remove('messenger-active-layout');
         document.body.classList.remove('chat-active-mobile');
         document.querySelectorAll('audio').forEach(a => { if (a.id !== 'globalAudioPlayer') a.pause(); });
 
-        Object.keys(this.socketHandlers || {}).forEach(event => {
-            SocketService.off(event, this.socketHandlers[event]);
-        });
+        Object.keys(this.socketHandlers || {}).forEach(event => SocketService.off(event, this.socketHandlers[event]));
     }
 
+    // ... остальной код MessagesController.js остается прежним ...
     setupSockets() {
         this.socketHandlers = {
             new_message: (msg) => {
-                if (msg.sender_username === this.stores.auth.user.username) {
-                    this.chatListHandler.loadChats();
-                    return;
-                }
+                if (msg.sender_username === this.stores.auth.user.username) { this.chatListHandler.loadChats(); return; }
                 if (msg.chat_id === this.activeChatId) {
                     this.messageListHandler.appendMessage(msg);
                     if (this.activeChatType !== 'channel') MessagesAPI.markAsRead(this.activeChatId);
                 }
                 this.chatListHandler.loadChats();
             },
-            messages_read: (data) => {
-                if (data.chatId === this.activeChatId) this.messageListHandler.markAllAsRead();
-            },
+            messages_read: (data) => { if (data.chatId === this.activeChatId) this.messageListHandler.markAllAsRead(); },
             chat_blocked: (data) => {
                 if (data.chatId === this.activeChatId) {
                     const c = this.chatListHandler.getChat(data.chatId);
-                    this.updateChatStateUI(data.blocked_by, 'joined', 'member', c?.myCanWrite);
+                    this.chatHeader.updateState(data.blocked_by, 'joined', 'member', c?.myCanWrite);
                 }
             },
             history_cleared: (data) => {
-                if (data.chatId === this.activeChatId) {
-                    this.messageListHandler.clear();
-                    this.chatListHandler.loadChats();
-                }
+                if (data.chatId === this.activeChatId) { this.messageListHandler.clear(); this.chatListHandler.loadChats(); }
             },
             chat_deleted: (data) => this.handleChatDeleted(data),
             group_updated: (data) => {
                 this.chatListHandler.loadChats();
                 if (this.activeChatId === data.chatId) {
-                    document.getElementById('msChatName').textContent = data.name;
-                    document.getElementById('msChatAvatar').src = data.avatar;
+                    this.chatHeader.updateInfo({ ...this.chatListHandler.getChat(this.activeChatId), chatName: data.name, chatAvatar: data.avatar });
                     if (this.detailsPanel.classList.contains('open')) this.toggleDetails(true);
                 }
             },
-            group_member_updated: (data) => {
-                if (this.activeChatId === data.chatId && this.detailsPanel.classList.contains('open')) {
-                    this.toggleDetails(true);
-                }
-            },
+            group_member_updated: (data) => { if (this.activeChatId === data.chatId && this.detailsPanel.classList.contains('open')) this.toggleDetails(true); },
             chat_destroyed: (data) => {
-                if (data.chatId === this.activeChatId) {
-                    Toast.show('Группа была удалена создателем.', 'warning');
-                    this.handleChatDeleted(data);
-                } else {
-                    this.chatListHandler.loadChats();
-                }
+                if (data.chatId === this.activeChatId) { Toast.show('Группа удалена создателем.', 'warning'); this.handleChatDeleted(data); } 
+                else this.chatListHandler.loadChats();
             },
-            message_pinned: (data) => {
-                if (data.chatId === this.activeChatId) this.renderPinnedMessage(data.pinnedMessage);
-            },
+            message_pinned: (data) => { if (data.chatId === this.activeChatId) this.chatHeader.renderPinned(data.pinnedMessage); },
             member_restricted: (data) => {
                 if (data.chatId === this.activeChatId) {
                     const c = this.chatListHandler.getChat(data.chatId);
-                    if (c) {
-                        c.myCanWrite = data.canWrite;
-                        this.updateChatStateUI(c.blocked_by, c.myStatus, c.myRole, c.myCanWrite);
-                    }
+                    if (c) { c.myCanWrite = data.canWrite; this.chatHeader.updateState(c.blocked_by, c.myStatus, c.myRole, c.myCanWrite); }
                 }
             },
-            message_reaction_updated: (data) => {
-                if (data.chatId === this.activeChatId) {
-                    this.messageListHandler.updateReactionsDOM(data.messageId, data.reactions);
-                }
-            },
+            message_reaction_updated: (data) => { if (data.chatId === this.activeChatId) this.messageListHandler.updateReactionsDOM(data.messageId, data.reactions); },
             chat_invited: (data) => {
                 Toast.show(`Вас пригласили в чат: <b>${escapeHTML(data.name || 'Личная переписка')}</b>`, 'info');
                 const msgIcon = document.getElementById('msgIcon');
                 if (msgIcon) { msgIcon.classList.add('has-unread'); msgIcon.setAttribute('data-count', ''); }
                 this.chatListHandler.loadChats();
             },
-            
-            // --- ОБРАБОТКА ЗВОНКОВ (БАННЕРЫ) ---
             call_state_update: (data) => {
-                if (data.chatId === this.activeChatId && this.callJoinBanner) {
+                const callJoinBanner = document.getElementById('callJoinBanner');
+                if (data.chatId === this.activeChatId && callJoinBanner) {
                     if (data.isActive && (!window.cycleCallHandler || window.cycleCallHandler.activeChatId !== this.activeChatId)) {
-                        this.callJoinBanner.style.display = 'flex';
+                        callJoinBanner.style.display = 'flex';
                         document.getElementById('callParticipantsCount').textContent = data.count;
-                    } else {
-                        this.callJoinBanner.style.display = 'none';
-                    }
+                    } else callJoinBanner.style.display = 'none';
                 }
             },
-            call_incoming: () => {}, 
-            call_declined: () => {},
-            webrtc_signaling: () => {}, // Перехватывается глобальным CallHandler
-
-            // --- ОБРАБОТКА КИНОЗАЛА (БАННЕРЫ И СИНХРОНИЗАЦИЯ) ---
             sr_update: (data) => {
-                // Скармливаем данные глобальному обработчику
-                if (window.cycleScreeningRoomHandler) {
-                    window.cycleScreeningRoomHandler.handleSocketUpdate(data);
-                }
-
-                // Управление локальным баннером
-                if (data.chatId === this.activeChatId && this.srJoinBanner) {
+                if (window.cycleScreeningRoomHandler) window.cycleScreeningRoomHandler.handleSocketUpdate(data);
+                const srJoinBanner = document.getElementById('srJoinBanner');
+                if (data.chatId === this.activeChatId && srJoinBanner) {
                     if (data.action === 'started' || data.action === 'state') {
                         this.currentSrState = data.roomState;
                         const isMeHost = data.roomState.host === this.stores.auth.user.username;
-                        
-                        // Проверяем, не открыт ли виджет прямо сейчас для этого чата
                         const srWidget = document.getElementById('floatingSRWidget');
                         const isWatchingThis = !srWidget.classList.contains('hidden') && window.cycleScreeningRoomHandler?.currentChatId === this.activeChatId;
-                        
-                        if (!isMeHost && !isWatchingThis) {
-                            this.srJoinBanner.style.display = 'flex';
-                        } else {
-                            this.srJoinBanner.style.display = 'none';
-                        }
+                        srJoinBanner.style.display = (!isMeHost && !isWatchingThis) ? 'flex' : 'none';
                     } else if (data.action === 'closed') {
-                        this.currentSrState = null;
-                        this.srJoinBanner.style.display = 'none';
+                        this.currentSrState = null; srJoinBanner.style.display = 'none';
                     }
                 }
             }
         };
 
-        for (let [event, handler] of Object.entries(this.socketHandlers)) {
-            SocketService.on(event, handler);
-        }
-        
+        for (let [event, handler] of Object.entries(this.socketHandlers)) { SocketService.on(event, handler); }
         document.addEventListener('cycle:chats_updated', () => this.chatListHandler.loadChats(), { signal: this.abortController.signal });
     }
 
     async openChat(chatId) {
         this.chatListHandler.setActiveChat(chatId);
-        this.activeChatId = chatId; 
-        window.cycleActiveChatId = chatId;
+        this.activeChatId = chatId; window.cycleActiveChatId = chatId;
         
         this.toggleDetails(false);
         this.inputHandler.cancelContext(); 
         
-        if (this.callJoinBanner) this.callJoinBanner.style.display = 'none';
-        if (this.srJoinBanner) this.srJoinBanner.style.display = 'none';
+        const callJoinBanner = document.getElementById('callJoinBanner');
+        const srJoinBanner = document.getElementById('srJoinBanner');
+        if (callJoinBanner) callJoinBanner.style.display = 'none';
+        if (srJoinBanner) srJoinBanner.style.display = 'none';
         this.currentSrState = null;
 
         const chat = this.chatListHandler.getChat(chatId);
@@ -241,15 +192,7 @@ export class MessagesController {
         this.activeChatType = chat.type;
         this.activeTargetUsername = chat.type === 'direct' ? chat.targetUser.username : null;
         
-        document.getElementById('msChatName').textContent = chat.chatName;
-        document.getElementById('msChatStatus').textContent = chat.type === 'group' || chat.type === 'channel' ? `${chat.activeMembersCount || chat.members.length} участников` : `@${chat.targetUser.username}`;
-        document.getElementById('msChatAvatar').src = chat.chatAvatar;
-        document.getElementById('msChatFrameContainer').innerHTML = this.renderer._getFrameHTML(chat.type === 'direct' ? chat.targetUser?.frameId : null);
-
-        const optLinkGroup = document.getElementById('optLinkGroup');
-        if (optLinkGroup) {
-            optLinkGroup.style.display = (chat.type === 'channel' && (chat.myRole === 'admin' || chat.myRole === 'moderator')) ? 'flex' : 'none';
-        }
+        this.chatHeader.updateInfo(chat);
 
         document.getElementById('msEmptyState').style.display = 'none';
         document.getElementById('msActiveChat').style.display = 'flex';
@@ -262,10 +205,8 @@ export class MessagesController {
 
         const data = await this.messageListHandler.loadMessages(chatId, chat.type, chat.linkedChatId);
         if (data.success) {
-            this.renderPinnedMessage(data.pinnedMessage);
-            this.updateChatStateUI(data.blocked_by, data.myStatus, data.myRole, data.myCanWrite);
-            
-            // Спрашиваем у сервера статус кинозала
+            this.chatHeader.renderPinned(data.pinnedMessage);
+            this.chatHeader.updateState(data.blocked_by, data.myStatus, data.myRole, data.myCanWrite);
             SocketService.emit('sr_action', { action: 'request_state', chatId: this.activeChatId });
         }
     }
@@ -279,20 +220,18 @@ export class MessagesController {
         this.activeChatType = 'direct';
         
         this.inputHandler.cancelContext();
-        if (this.callJoinBanner) this.callJoinBanner.style.display = 'none';
-        if (this.srJoinBanner) this.srJoinBanner.style.display = 'none';
 
         const p = await ProfileAPI.getProfile(username);
-        document.getElementById('msChatName').textContent = p.name; 
-        document.getElementById('msChatStatus').textContent = `@${p.username}`; 
-        document.getElementById('msChatAvatar').src = p.avatar;
-        document.getElementById('msChatFrameContainer').innerHTML = this.renderer._getFrameHTML(p.frameId);
+        
+        this.chatHeader.updateInfo({
+            id: 'new', type: 'direct', chatName: p.name, chatAvatar: p.avatar, targetUser: p
+        });
         
         document.getElementById('msEmptyState').style.display = 'none'; 
         document.getElementById('msActiveChat').style.display = 'flex';
         
         this.messageListHandler.clear();
-        this.updateChatStateUI(null, 'joined', 'member', 1); 
+        this.chatHeader.updateState(null, 'joined', 'member', 1); 
 
         if (window.innerWidth <= 768) { this.sidebarEl.classList.add('hidden'); this.chatAreaEl.classList.add('active'); document.body.classList.add('chat-active-mobile'); }
     }
@@ -300,16 +239,14 @@ export class MessagesController {
     async sendMessage(content, replyToId) {
         if (this.activeChatId === 'new') {
             const res = await MessagesAPI.createChat({ type: 'direct', members: [this.activeTargetUsername], initialMessage: content });
-            if (res.success) {
-                await this.openChat(res.chatId);
-                this.chatListHandler.loadChats();
-            } else { Toast.show(res.error || 'Ошибка', 'error'); }
+            if (res.success) { await this.openChat(res.chatId); this.chatListHandler.loadChats(); } 
+            else Toast.show(res.error || 'Ошибка', 'error');
         } else {
             const res = await MessagesAPI.sendMessage(this.activeChatId, content, replyToId);
             if (res.success) {
                 if (res.message) this.messageListHandler.appendMessage(res.message);
                 this.chatListHandler.loadChats(); 
-            } else { Toast.show(res.error || 'Ошибка', 'error'); }
+            } else Toast.show(res.error || 'Ошибка', 'error');
         }
     }
 
@@ -318,160 +255,48 @@ export class MessagesController {
         if (!res.success && res.error) Toast.show(res.error, 'error');
     }
 
-    renderPinnedMessage(pinnedMsg) {
-        const bar = document.getElementById('msPinnedMessageBar');
-        const textEl = document.getElementById('msPinnedText');
-        const unpinBtn = document.getElementById('msUnpinMsgBtn');
-
-        if (!pinnedMsg) {
-            bar.style.display = 'none';
-            this.activePinnedMsgId = null;
-            return;
+    async handleChatAction(action) {
+        if (action === 'block') await MessagesAPI.toggleBlock(this.activeChatId);
+        else if (action === 'pin_list') this.chatListHandler.togglePin(this.activeChatId);
+        else if (action === 'clear') { await MessagesAPI.clearHistory(this.activeChatId); }
+        else if (action === 'leave') { const res = await MessagesAPI.deleteChat(this.activeChatId); if (res.success) this.handleChatDeleted({ chatId: this.activeChatId }); }
+        else if (action === 'accept_invite') {
+            const res = await MessagesAPI.respondInvite(this.activeChatId, 'accept');
+            if (res.success) { this.chatHeader.updateState(null, 'joined', 'member', 1); this.chatListHandler.loadChats(); MessagesAPI.markAsRead(this.activeChatId); }
         }
-
-        this.activePinnedMsgId = pinnedMsg.id;
-        textEl.textContent = this.renderer._getSnippet(pinnedMsg.content);
-        bar.style.display = 'flex';
-        
-        const chatInfo = this.chatListHandler.getChat(this.activeChatId);
-        unpinBtn.style.display = (chatInfo && (chatInfo.myRole === 'admin' || chatInfo.myRole === 'moderator')) ? 'flex' : 'none';
-    }
-
-    updateChatStateUI(blockedBy = null, myStatus = 'joined', myRole = 'member', myCanWrite = 1) {
-        const isBlocked = !!blockedBy;
-        const isInvited = myStatus === 'invited';
-
-        document.getElementById('msInputContainer').style.display = 'none'; 
-        document.getElementById('msBlockedState').style.display = 'none'; 
-        document.getElementById('msInviteState').style.display = 'none';
-        document.getElementById('msReadOnlyState').style.display = 'none';
-        
-        // Кнопка звонка: доступна везде, кроме каналов, если не блок
-        document.getElementById('btnStartCall').style.display = (!isBlocked && this.activeChatType !== 'channel') ? 'block' : 'none';
-        
-        // Кнопка кинозала: доступна админам в группах/каналах и всем в личке
-        const canHostSR = this.activeChatType === 'direct' || myRole === 'admin' || myRole === 'moderator';
-        document.getElementById('btnToggleScreeningRoom').style.display = (!isBlocked && canHostSR) ? 'block' : 'none';
-
-        if (isInvited) {
-            document.getElementById('msInviteState').style.display = 'flex';
-        } else if (isBlocked) {
-            document.getElementById('msBlockedState').style.display = 'flex';
-            document.getElementById('blockText').textContent = 'Разблокировать';
-            const unblockBtn = document.getElementById('msUnblockBtn');
-            if (unblockBtn) unblockBtn.style.display = blockedBy === this.stores.auth.user.username ? 'block' : 'none';
-        } else if (this.activeChatType === 'channel' && myRole === 'member') {
-            document.getElementById('msReadOnlyState').style.display = 'block';
-            document.getElementById('msReadOnlyState').innerHTML = '<i class="fa-solid fa-bullhorn" style="margin-right: 8px;"></i> Вы подписчик этого канала';
-        } else if (this.activeChatType !== 'direct' && myCanWrite === 0) {
-            document.getElementById('msReadOnlyState').style.display = 'block';
-            document.getElementById('msReadOnlyState').innerHTML = '<i class="fa-solid fa-lock" style="margin-right: 8px;"></i> Писать сообщения запрещено';
-        } else {
-            document.getElementById('msInputContainer').style.display = 'flex';
-            document.getElementById('blockText').textContent = 'Заблокировать';
+        else if (action === 'decline_invite') {
+            const res = await MessagesAPI.respondInvite(this.activeChatId, 'decline');
+            if (res.success) this.handleChatDeleted({ chatId: this.activeChatId });
+        } else if (action === 'unpin') {
+            await MessagesAPI.pinMessage(this.activeChatId, this.chatHeader.activePinnedMsgId);
         }
     }
 
-    bindEvents() {
+    bindGlobalEvents() {
         const sig = this.abortController.signal;
-        
-        // --- ЗАПУСК ГЛОБАЛЬНЫХ ВИДЖЕТОВ ИЗ ШАПКИ ЧАТА ---
-        document.getElementById('btnStartCall')?.addEventListener('click', () => {
-            const chat = this.chatListHandler.getChat(this.activeChatId);
-            if (chat && window.cycleCallHandler) {
-                window.cycleCallHandler.joinCall(this.activeChatId, chat.type === 'direct', this.activeTargetUsername);
-                if (this.callJoinBanner) this.callJoinBanner.style.display = 'none'; 
-            }
-        }, { signal: sig });
 
-        document.getElementById('btnToggleScreeningRoom')?.addEventListener('click', () => {
-            if (window.cycleScreeningRoomHandler) {
-                window.cycleScreeningRoomHandler.openHost(this.activeChatId);
-            }
-        }, { signal: sig });
-
-
-        // --- ПРИСОЕДИНЕНИЕ ЧЕРЕЗ БАННЕРЫ ---
         document.getElementById('callBtnJoin')?.addEventListener('click', () => {
-            if (window.cycleCallHandler) {
-                window.cycleCallHandler.joinCall(this.activeChatId, false, null);
-                if (this.callJoinBanner) this.callJoinBanner.style.display = 'none';
-            }
+            if (window.cycleCallHandler) { window.cycleCallHandler.joinCall(this.activeChatId, false, null); document.getElementById('callJoinBanner').style.display = 'none'; }
         }, { signal: sig });
 
         document.getElementById('srBtnJoin')?.addEventListener('click', () => {
-            if (window.cycleScreeningRoomHandler && this.currentSrState) {
-                window.cycleScreeningRoomHandler.joinRoom(this.activeChatId, this.currentSrState);
-                if (this.srJoinBanner) this.srJoinBanner.style.display = 'none';
-            }
+            if (window.cycleScreeningRoomHandler && this.currentSrState) { window.cycleScreeningRoomHandler.joinRoom(this.activeChatId, this.currentSrState); document.getElementById('srJoinBanner').style.display = 'none'; }
         }, { signal: sig });
 
-
-        // --- ОСТАЛЬНАЯ ЛОГИКА ЧАТА ---
-        document.getElementById('msAcceptInviteBtn')?.addEventListener('click', async () => {
-            const res = await MessagesAPI.respondInvite(this.activeChatId, 'accept');
-            if (res.success) { this.updateChatStateUI(null, 'joined', 'member', 1); this.chatListHandler.loadChats(); MessagesAPI.markAsRead(this.activeChatId); } 
-            else Toast.show(res.error || 'Ошибка', 'error');
-        }, { signal: sig });
-
-        document.getElementById('msDeclineInviteBtn')?.addEventListener('click', async () => {
-            const res = await MessagesAPI.respondInvite(this.activeChatId, 'decline');
-            if (res.success) { this.handleChatDeleted({ chatId: this.activeChatId }); } 
-            else Toast.show(res.error || 'Ошибка', 'error');
-        }, { signal: sig });
-
-        document.getElementById('msOptionsBtn').addEventListener('click', (e) => { e.stopPropagation(); this.msOptionsMenu.classList.toggle('active'); }, { signal: sig });
-        
         document.addEventListener('click', async (e) => {
-            if (this.msOptionsMenu && !e.target.closest('#msOptionsBtn')) this.msOptionsMenu.classList.remove('active');
-
             const commentsBtn = e.target.closest('.msg-module-comments-btn');
             if (commentsBtn) { this.openChat(commentsBtn.dataset.linked); return; }
         }, { signal: sig });
 
-        document.getElementById('optBlockUser')?.addEventListener('click', async () => { await MessagesAPI.toggleBlock(this.activeChatId); this.msOptionsMenu.classList.remove('active'); }, { signal: sig });
-        document.getElementById('msUnblockBtn')?.addEventListener('click', async () => { await MessagesAPI.toggleBlock(this.activeChatId); }, { signal: sig });
-        document.getElementById('optPinChat')?.addEventListener('click', () => { this.chatListHandler.togglePin(this.activeChatId); this.msOptionsMenu.classList.remove('active'); }, { signal: sig });
-        document.getElementById('optClearHistory').addEventListener('click', () => { if(confirm('Точно очистить историю?')) MessagesAPI.clearHistory(this.activeChatId); this.msOptionsMenu.classList.remove('active'); }, { signal: sig });
-        document.getElementById('optDeleteChat')?.addEventListener('click', async () => {
-            if(confirm('Выйти и удалить этот чат для вас?')) {
-                const res = await MessagesAPI.deleteChat(this.activeChatId);
-                if (res.success) { this.handleChatDeleted({ chatId: this.activeChatId }); } 
-            }
-        }, { signal: sig });
-
-        document.getElementById('msPinnedMessageBar').addEventListener('click', (e) => {
-            if (e.target.closest('#msUnpinMsgBtn')) {
-                MessagesAPI.pinMessage(this.activeChatId, this.activePinnedMsgId);
-                return;
-            }
-            const targetMsg = document.querySelector(`.msg-row[data-id="${this.activePinnedMsgId}"]`);
-            if (targetMsg) {
-                targetMsg.scrollIntoView({ behavior: 'smooth', block: 'center' });
-                targetMsg.classList.add('highlight-pulse'); setTimeout(() => targetMsg.classList.remove('highlight-pulse'), 1000);
-            }
-        }, { signal: sig });
-
-        document.getElementById('msChatHeaderClickable')?.addEventListener('click', (e) => { 
-            if (!e.target.closest('.icon-btn') && !e.target.closest('.options-menu')) {
-                this.toggleDetails(!this.detailsPanel.classList.contains('open')); 
-            }
-        }, { signal: sig });
-        document.getElementById('closeChatDetailsBtn')?.addEventListener('click', () => this.toggleDetails(false), { signal: sig });
-        
         this.detailsPanel.addEventListener('click', async (e) => {
-            if (e.target.closest('#btnLeaveGroup')) {
-                if(confirm('Выйти из этого чата?')) {
-                    const res = await MessagesAPI.deleteChat(this.activeChatId);
-                    if (res.success) this.handleChatDeleted({ chatId: this.activeChatId }); 
-                }
+            if (e.target.closest('#btnLeaveGroup') && confirm('Выйти из этого чата?')) {
+                const res = await MessagesAPI.deleteChat(this.activeChatId);
+                if (res.success) this.handleChatDeleted({ chatId: this.activeChatId }); 
                 return;
             }
-            if (e.target.closest('#btnDestroyGroup')) {
-                if(confirm('☢️ УНИЧТОЖИТЬ ГРУППУ ДЛЯ ВСЕХ? Это действие необратимо.')) {
-                    const res = await MessagesAPI.destroyGroup(this.activeChatId);
-                    if (res.success) this.handleChatDeleted({ chatId: this.activeChatId });
-                }
+            if (e.target.closest('#btnDestroyGroup') && confirm('☢️ УНИЧТОЖИТЬ ГРУППУ ДЛЯ ВСЕХ?')) {
+                const res = await MessagesAPI.destroyGroup(this.activeChatId);
+                if (res.success) this.handleChatDeleted({ chatId: this.activeChatId });
                 return;
             }
             const bellBtn = e.target.closest('.cd-gic-bell-btn');
@@ -511,58 +336,6 @@ export class MessagesController {
             this.activeChatId = null; 
             this.chatListHandler.renderChats(); 
         }, { signal: sig });
-
-        this.initLinkGroupModal(sig);
-    }
-
-    initLinkGroupModal(sig) {
-        const optLinkGroup = document.getElementById('optLinkGroup');
-        const linkGroupModal = document.getElementById('linkGroupModal');
-        const adminGroupsList = document.getElementById('adminGroupsList');
-        
-        if (optLinkGroup && linkGroupModal) {
-            optLinkGroup.addEventListener('click', async () => {
-                this.msOptionsMenu.classList.remove('active');
-                adminGroupsList.innerHTML = '<div style="text-align:center; color:var(--text-muted); padding:20px;">Загрузка...</div>';
-                linkGroupModal.classList.add('active');
-
-                const res = await MessagesAPI.getAdminGroups();
-                if (res.success) {
-                    if (res.groups.length === 0) {
-                        adminGroupsList.innerHTML = '<div style="text-align:center; color:var(--text-muted); padding:20px;">У вас нет созданных групп. Сначала создайте группу.</div>';
-                    } else {
-                        adminGroupsList.innerHTML = res.groups.map(g => `
-                            <div class="search-dropdown-item" style="display:flex; align-items:center; justify-content:space-between; padding:10px; cursor:default; border-bottom: 1px solid rgba(255,255,255,0.05);">
-                                <div style="display:flex; align-items:center; gap:10px;">
-                                    <img src="${g.avatar || 'https://placehold.co/150/7c3aed/fff?text=G'}" style="width:36px; height:36px; border-radius:50%; object-fit:cover;">
-                                    <span style="color:#fff; font-weight:600; font-size:14px;">${escapeHTML(g.name)}</span>
-                                </div>
-                                <button class="btn-post btn-link-group-confirm" data-id="${g.id}" style="padding: 6px 12px; font-size: 12px; border-radius: 8px;">Привязать</button>
-                            </div>
-                        `).join('');
-                    }
-                }
-            }, { signal: sig });
-
-            document.getElementById('closeLinkGroupModalBtn')?.addEventListener('click', () => linkGroupModal.classList.remove('active'), { signal: sig });
-            linkGroupModal.addEventListener('click', (e) => { if (e.target === linkGroupModal) linkGroupModal.classList.remove('active'); }, { signal: sig });
-
-            adminGroupsList.addEventListener('click', async (e) => {
-                const btn = e.target.closest('.btn-link-group-confirm');
-                if (btn) {
-                    btn.disabled = true; btn.textContent = 'Привязка...';
-                    const res = await MessagesAPI.linkGroup(this.activeChatId, btn.dataset.id);
-                    if (!res || res.error) {
-                        Toast.show(res?.error || 'Ошибка', 'error');
-                        btn.disabled = false; btn.textContent = 'Привязать';
-                    } else {
-                        Toast.show('Группа успешно привязана', 'success');
-                        linkGroupModal.classList.remove('active');
-                        this.chatListHandler.loadChats(); 
-                    }
-                }
-            }, { signal: sig });
-        }
     }
 
     async toggleDetails(show) {
@@ -609,9 +382,7 @@ export class MessagesController {
             }
             this.detailsBody.innerHTML = this.renderer.renderDirectDetails(profile, media, fromGroup);
             this._initGamesScrollLogic();
-        } catch (e) {
-            this.detailsBody.innerHTML = '<div style="padding:20px; color:var(--danger); text-align:center;">Ошибка загрузки профиля</div>';
-        }
+        } catch (e) { this.detailsBody.innerHTML = '<div style="padding:20px; color:var(--danger); text-align:center;">Ошибка загрузки профиля</div>'; }
     }
 
     _initGamesScrollLogic() {

@@ -6,6 +6,7 @@ export class RichTextEditor {
         this.onChangeCallback = onChangeCallback;
         this.savedRange = null;
         this.formatMenu = null;
+        this.abortController = new AbortController();
         
         this.createMenu();
         this.bindEvents();
@@ -27,13 +28,15 @@ export class RichTextEditor {
         document.body.appendChild(menu);
         this.formatMenu = menu;
 
-        document.getElementById('fmtBold').addEventListener('mousedown', (e) => { e.preventDefault(); this.applyFormat('bold'); });
-        document.getElementById('fmtQuote').addEventListener('mousedown', (e) => { e.preventDefault(); this.applyFormat('quote'); });
-        document.getElementById('fmtSpoiler').addEventListener('mousedown', (e) => { e.preventDefault(); this.applyFormat('spoiler'); });
+        const signal = this.abortController.signal;
+        document.getElementById('fmtBold').addEventListener('mousedown', (e) => { e.preventDefault(); this.applyFormat('bold'); }, { signal });
+        document.getElementById('fmtQuote').addEventListener('mousedown', (e) => { e.preventDefault(); this.applyFormat('quote'); }, { signal });
+        document.getElementById('fmtSpoiler').addEventListener('mousedown', (e) => { e.preventDefault(); this.applyFormat('spoiler'); }, { signal });
     }
 
     bindEvents() {
         if (!this.inputEl) return;
+        const signal = this.abortController.signal;
         
         this.inputEl.addEventListener('contextmenu', (e) => {
             e.preventDefault();
@@ -42,23 +45,23 @@ export class RichTextEditor {
             this.formatMenu.style.display = 'block';
             this.formatMenu.style.top = `${e.pageY}px`;
             this.formatMenu.style.left = `${e.pageX}px`;
-        });
+        }, { signal });
 
         this.inputEl.addEventListener('input', () => {
             if (this.onChangeCallback) this.onChangeCallback();
-        });
+        }, { signal });
 
         document.addEventListener('click', () => {
             if (this.formatMenu && this.formatMenu.style.display === 'block') {
                 this.formatMenu.style.display = 'none';
             }
-        });
+        }, { signal });
 
         document.addEventListener('keydown', (e) => {
             if (e.key === 'Escape' && this.formatMenu) {
                 this.formatMenu.style.display = 'none';
             }
-        });
+        }, { signal });
     }
 
     applyFormat(type) {
@@ -121,6 +124,7 @@ export class RichTextEditor {
     }
 
     destroy() {
+        this.abortController.abort();
         if (this.formatMenu) this.formatMenu.remove();
     }
 }

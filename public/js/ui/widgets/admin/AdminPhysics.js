@@ -4,15 +4,15 @@ export class AdminPhysics {
     constructor() {
         this.nodes = [];
         this.edges = [];
-        this.cores =[];
+        this.cores = [];
         this.communities = [];
         this.shockwaves = [];
-        this.musicStreams =[];
+        this.musicStreams = [];
         this.time = 0;
     }
 
-    buildGraph(users, links, communitiesData, width, height) {
-        const oldNodes = this.nodes ||[];
+    buildGraph(users, links, communitiesData) {
+        const oldNodes = this.nodes || [];
 
         this.nodes = users.map(u => {
             const existing = oldNodes.find(n => n.username === u.username);
@@ -43,12 +43,12 @@ export class AdminPhysics {
         })).filter(e => e.source && e.target);
 
         const oldCores = this.cores || [];
-        this.cores =[
+        this.cores = [
             { id: 'music', label: 'MUSIC CORE', baseColor: '68, 189, 50', angle: oldCores[0]?.angle || 0, orbitRadius: 600 },
             { id: 'games', label: 'GAMING CORE', baseColor: '124, 58, 237', angle: oldCores[1]?.angle || Math.PI, orbitRadius: 600 }
         ];
 
-        const colors =['rgba(232, 17, 91, 0.12)', 'rgba(80, 155, 245, 0.12)', 'rgba(240, 147, 43, 0.12)', 'rgba(68, 189, 50, 0.12)'];
+        const colors = ['rgba(232, 17, 91, 0.12)', 'rgba(80, 155, 245, 0.12)', 'rgba(240, 147, 43, 0.12)', 'rgba(68, 189, 50, 0.12)'];
         this.communities = communitiesData.map((comm, idx) => ({
             ...comm,
             color: colors[idx % colors.length]
@@ -58,7 +58,6 @@ export class AdminPhysics {
     update(dragNode) {
         this.time += 0.016;
 
-        // Вращение ядер
         this.cores.forEach(core => {
             core.angle += 0.0015;
             core.x = Math.cos(core.angle) * core.orbitRadius;
@@ -67,7 +66,7 @@ export class AdminPhysics {
 
         const kSpring = 0.015, repulsion = 4500, gravity = 0.001, damping = 0.85;
 
-        // Отталкивание (Кулон)
+        // Отталкивание
         for (let i = 0; i < this.nodes.length; i++) {
             for (let j = i + 1; j < this.nodes.length; j++) {
                 const n1 = this.nodes[i], n2 = this.nodes[j];
@@ -84,17 +83,18 @@ export class AdminPhysics {
             }
         }
 
-        // Притяжение связей (Гук)
+        // Притяжение связей
         this.edges.forEach(edge => {
             const dx = edge.target.x - edge.source.x, dy = edge.target.y - edge.source.y;
-            const dist = Math.sqrt(dx * dx + dy * dy);
+            const dist = Math.sqrt(dx * dx + dy * dy) || 1;
             const force = (dist - 150) * kSpring; 
             edge.source.vx += (dx / dist) * force; edge.source.vy += (dy / dist) * force;
             edge.target.vx -= (dx / dist) * force; edge.target.vy -= (dy / dist) * force;
         });
 
-        // Гравитация ядер и центра
+        // Гравитация
         this.nodes.forEach(node => {
+            // Игры
             if (node.showcaseGames && node.showcaseGames.length > 0) {
                 const core = this.cores.find(c => c.id === 'games');
                 const dx = core.x - node.x, dy = core.y - node.y;
@@ -103,6 +103,7 @@ export class AdminPhysics {
                 node.vx += (dx / dist) * ((dist - 200) * strength); node.vy += (dy / dist) * ((dist - 200) * strength);
             }
             
+            // Музыка
             if (node.isOnline && node.playingMusicId) {
                 const core = this.cores.find(c => c.id === 'music');
                 const dx = core.x - node.x, dy = core.y - node.y;
@@ -122,6 +123,7 @@ export class AdminPhysics {
                 node.vx += (dx / dist) * ((dist - 150) * 0.005); node.vy += (dy / dist) * ((dist - 150) * 0.005);
             }
 
+            // Центр координат (0,0)
             node.vx += (0 - node.x) * gravity; node.vy += (0 - node.y) * gravity;
             node.vx *= damping; node.vy *= damping;
 
@@ -130,7 +132,7 @@ export class AdminPhysics {
             }
         });
 
-        // Частицы музыки
+        // Анимация стримов
         for (let i = this.musicStreams.length - 1; i >= 0; i--) {
             let p = this.musicStreams[i];
             p.progress += p.speed;
@@ -155,12 +157,12 @@ export class AdminPhysics {
         let pts = [...points].sort((a, b) => a.x !== b.x ? a.x - b.x : a.y - b.y);
         const cross = (o, a, b) => (a.x - o.x) * (b.y - o.y) - (a.y - o.y) * (b.x - o.x);
         
-        let lower =[];
+        let lower = [];
         for (let i = 0; i < pts.length; i++) {
             while (lower.length >= 2 && cross(lower[lower.length - 2], lower[lower.length - 1], pts[i]) <= 0) lower.pop();
             lower.push(pts[i]);
         }
-        let upper =[];
+        let upper = [];
         for (let i = pts.length - 1; i >= 0; i--) {
             while (upper.length >= 2 && cross(upper[upper.length - 2], upper[upper.length - 1], pts[i]) <= 0) upper.pop();
             upper.push(pts[i]);
