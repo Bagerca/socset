@@ -6,7 +6,8 @@ const { randomUUID } = require('crypto');
 
 class MessageService {
     
-    _sendSystemMessage(chatId, content, io, customTimestamp = null) {
+    // Сделали метод публичным (убрали _)
+    sendSystemMessage(chatId, content, io, customTimestamp = null) {
         const timestamp = customTimestamp || Date.now();
         const msgId = randomUUID();
         db.transaction(() => {
@@ -32,7 +33,7 @@ class MessageService {
             if (!groupMember || (groupMember.role !== 'admin' && groupMember.role !== 'moderator')) throw { status: 403, message: 'Вы должны быть администратором группы' };
         }
         MessageRepository.updateLinkedChat(channelId, groupId);
-        this._sendSystemMessage(channelId, groupId ? `🔗 Группа привязана для комментариев.` : `🔗 Группа отвязана.`, io);
+        this.sendSystemMessage(channelId, groupId ? `🔗 Группа привязана для комментариев.` : `🔗 Группа отвязана.`, io);
     }
 
     createChat(sender, type, name, members, initialMessage, io) {
@@ -49,7 +50,7 @@ class MessageService {
                 const targetStatus = MessageRepository.getMember(existing.id, target).status;
                 if (targetStatus === 'left' || targetStatus === 'declined') {
                     MessageRepository.updateMemberStatus(existing.id, target, 'invited');
-                    this._sendSystemMessage(existing.id, `📩 @${sender} пригласил(а) @${target} обратно.`, io);
+                    this.sendSystemMessage(existing.id, `📩 @${sender} пригласил(а) @${target} обратно.`, io);
                     if (io) io.to(`user_${target}`).emit('chat_invited', { chatId: existing.id, type, name: null, sender });
                 }
                 return { chatId: existing.id };
@@ -78,10 +79,10 @@ class MessageService {
         if (!memberRow || memberRow.status !== 'invited') throw { status: 400, message: 'Нет приглашения' };
         if (action === 'accept') {
             MessageRepository.updateMemberStatus(chatId, username, 'joined');
-            this._sendSystemMessage(chatId, `✅ @${username} принял(а) приглашение.`, io);
+            this.sendSystemMessage(chatId, `✅ @${username} принял(а) приглашение.`, io);
         } else if (action === 'decline') {
             MessageRepository.updateMemberStatus(chatId, username, 'declined');
-            this._sendSystemMessage(chatId, `❌ @${username} отклонил(а) приглашение.`, io);
+            this.sendSystemMessage(chatId, `❌ @${username} отклонил(а) приглашение.`, io);
             if (io) io.to(`user_${username}`).emit('chat_deleted', { chatId });
             this._cleanupEmptyChat(chatId);
         }
@@ -92,7 +93,7 @@ class MessageService {
         if (!chat) throw { status: 404, message: 'Чат не найден' };
         const memberInfo = MessageRepository.getMember(chatId, username);
         if (!memberInfo || memberInfo.status === 'left') return;
-        if (memberInfo.status === 'joined') this._sendSystemMessage(chatId, `🚪 @${username} покинул(а) чат.`, io);
+        if (memberInfo.status === 'joined') this.sendSystemMessage(chatId, `🚪 @${username} покинул(а) чат.`, io);
         db.transaction(() => {
             MessageRepository.updateMemberStatusAndClearedAt(chatId, username, 'left', Date.now());
             MessageRepository.markMessagesAsRead(chatId, username);
@@ -211,7 +212,7 @@ class MessageService {
         const memberRow = MessageRepository.getMember(chatId, username);
         if (!memberRow || (memberRow.role !== 'admin' && memberRow.role !== 'moderator')) throw { status: 403, message: 'У вас нет прав' };
         MessageRepository.updateGroupChat(chatId, name, avatar, description, Date.now());
-        this._sendSystemMessage(chatId, `⚙️ @${username} обновил профиль.`, io);
+        this.sendSystemMessage(chatId, `⚙️ @${username} обновил профиль.`, io);
         if (io) {
             const members = MessageRepository.getActiveMembers(chatId);
             members.forEach(m => io.to(`user_${m.username}`).emit('group_updated', { chatId, name, avatar, description }));
@@ -229,7 +230,7 @@ class MessageService {
         const chat = MessageRepository.getChatById(chatId);
         const newPinId = chat.pinned_message_id === messageId ? null : messageId;
         MessageRepository.updateChatPinnedMessage(chatId, newPinId);
-        this._sendSystemMessage(chatId, `📌 @${username} ${newPinId ? 'закрепил' : 'открепил'} сообщение.`, io);
+        this.sendSystemMessage(chatId, `📌 @${username} ${newPinId ? 'закрепил' : 'открепил'} сообщение.`, io);
         if (io) {
             const members = MessageRepository.getActiveMembers(chatId);
             let pinnedMsgData = null;
@@ -252,7 +253,7 @@ class MessageService {
             if (exist && (exist.status === 'joined' || exist.status === 'invited')) throw { status: 400, message: 'Пользователь уже здесь' };
             if (exist) MessageRepository.updateMemberStatusAndRole(chatId, targetUsername, 'invited', 'member');
             else MessageRepository.addMember(chatId, targetUsername, 'member', 'invited', 0);
-            this._sendSystemMessage(chatId, `📩 @${myUsername} пригласил(а) @${targetUsername}.`, io);
+            this.sendSystemMessage(chatId, `📩 @${myUsername} пригласил(а) @${targetUsername}.`, io);
             if (io) io.to(`user_${targetUsername}`).emit('chat_invited', { chatId, type: chat.type, name: chat.name, sender: myUsername });
             return;
         }
@@ -261,18 +262,18 @@ class MessageService {
 
         if (action === 'kick') {
             MessageRepository.updateMemberStatus(chatId, targetUsername, 'left');
-            this._sendSystemMessage(chatId, `👢 @${myUsername} исключил(а) @${targetUsername}.`, io);
+            this.sendSystemMessage(chatId, `👢 @${myUsername} исключил(а) @${targetUsername}.`, io);
             if (io) io.to(`user_${targetUsername}`).emit('chat_deleted', { chatId }); 
         } else if (action === 'role') {
             if (myRow.role !== 'admin') throw { status: 403, message: 'Только админ может менять роли' };
             if (newRole !== 'admin' && newRole !== 'moderator' && newRole !== 'member') throw { status: 400, message: 'Неверная роль' };
             MessageRepository.updateMemberRole(chatId, targetUsername, newRole);
-            this._sendSystemMessage(chatId, `🛡️ @${targetUsername} назначена роль: ${newRole.toUpperCase()}.`, io);
+            this.sendSystemMessage(chatId, `🛡️ @${targetUsername} назначена роль: ${newRole.toUpperCase()}.`, io);
         } else if (action === 'mute_user') {
             if (targetRow.role === 'admin') throw { status: 403, message: 'Нельзя замутить создателя' };
             const newCanWrite = targetRow.can_write === 1 ? 0 : 1;
             MessageRepository.updateMemberCanWrite(chatId, targetUsername, newCanWrite);
-            this._sendSystemMessage(chatId, `🔇 @${myUsername} ${newCanWrite === 0 ? 'запретил писать' : 'разрешил писать'} @${targetUsername}.`, io);
+            this.sendSystemMessage(chatId, `🔇 @${myUsername} ${newCanWrite === 0 ? 'запретил писать' : 'разрешил писать'} @${targetUsername}.`, io);
             if (io) io.to(`user_${targetUsername}`).emit('member_restricted', { chatId, canWrite: newCanWrite });
         }
 
@@ -352,7 +353,6 @@ class MessageService {
         return { message: enrichedMsg, chatId };
     }
 
-    // НОВОЕ: Реакции
     reactMessage(chatId, messageId, username, emoji, io) {
         const chat = MessageRepository.getChatWithTypeAndMember(chatId, username);
         if (!chat || chat.status !== 'joined') throw { status: 403, message: 'Доступ запрещен' };
@@ -362,7 +362,6 @@ class MessageService {
 
         let rx = JSON.parse(msg.reactions || '{}');
 
-        // Toggle logic
         if (!rx[emoji]) rx[emoji] = [];
         const idx = rx[emoji].indexOf(username);
         if (idx > -1) {

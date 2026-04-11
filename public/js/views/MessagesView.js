@@ -51,7 +51,7 @@ export const MessagesView = {
                         </div>
 
                         <div class="ms-header-options" style="position: relative; display: flex; align-items: center; gap: 4px;">
-                            <!-- НОВАЯ КНОПКА: Кинозал -->
+                            <button id="btnStartCall" class="icon-btn" title="Начать звонок" style="display:none; color:#44bd32;"><i class="fa-solid fa-phone"></i></button>
                             <button id="btnToggleScreeningRoom" class="icon-btn" title="Запустить кинозал" style="display:none;"><i class="fa-solid fa-film"></i></button>
                             
                             <button id="msOptionsBtn" class="icon-btn"><i class="fa-solid fa-ellipsis-vertical"></i></button>
@@ -74,35 +74,18 @@ export const MessagesView = {
                         <button id="msUnpinMsgBtn" class="icon-btn-small" style="display: none;"><i class="fa-solid fa-xmark"></i></button>
                     </div>
 
-                    <!-- НОВОЕ: БАННЕР КИНОЗАЛА -->
                     <div id="srJoinBanner" class="sr-join-banner" style="display: none;">
                         <span><i class="fa-solid fa-popcorn"></i> В этом чате идет Кинозал</span>
                         <button id="srBtnJoin">Присоединиться</button>
                     </div>
 
-                    <!-- НОВОЕ: КОНТЕЙНЕР КИНОЗАЛА -->
-                    <div id="srContainer" class="sr-container" style="display: none;">
-                        <!-- Панель Хоста -->
-                        <div id="srControlsArea" class="sr-controls-area">
-                            <h3><i class="fa-solid fa-film" style="color:var(--accent-games);"></i> Запуск Кинозала</h3>
-                            <div class="sr-input-row">
-                                <input type="text" id="srInputUrl" placeholder="Ссылка на YouTube">
-                                <button id="srBtnStart" class="btn-post" style="background: var(--accent-games); color: #fff;">Запуск</button>
-                            </div>
-                            <div style="margin: 10px 0; color: var(--text-muted);">ИЛИ</div>
-                            <input type="file" id="srInputFile" accept="video/mp4,video/webm" style="display:none;">
-                            <button id="srBtnUpload" class="btn-post" style="background: rgba(255,255,255,0.1); color: #fff;"><i class="fa-solid fa-upload"></i> Загрузить видеофайл (MP4)</button>
-                        </div>
-                        <!-- Плеер -->
-                        <div id="srVideoArea" class="sr-video-area" style="display: none;">
-                            <button id="srBtnClose" class="sr-btn-close" title="Закрыть кинозал"><i class="fa-solid fa-xmark"></i></button>
-                            <div id="srVideoTarget" style="width: 100%; height: 100%; position: relative;"></div>
-                        </div>
+                    <div id="callJoinBanner" class="call-join-banner" style="display: none;">
+                        <span><i class="fa-solid fa-phone-volume"></i> Идет голосовой звонок (<span id="callParticipantsCount">0</span>)</span>
+                        <button id="callBtnJoin">Присоединиться</button>
                     </div>
                     
                     <div class="ms-messages-list" id="messagesList"></div>
 
-                    <!-- Дальше без изменений... -->
                     <div id="msBlockedState" class="ms-blocked-state" style="display:none;">
                         <p id="msBlockedText">Чат заблокирован</p>
                         <button id="msUnblockBtn" class="btn-post" style="display:none; margin-top:10px;">Разблокировать</button>
@@ -173,8 +156,8 @@ export const MessagesView = {
             <div class="menu-item menu-item-danger" id="ctxMsgDelete" style="display:none;"><i class="fa-solid fa-trash"></i><span>Удалить</span></div>
         </div>
 
+        <!-- Модалки создания чата и тд... -->
         <div id="createChatModal" class="modal-overlay">
-            <!-- (Модалки создания чата и тд остаются без изменений, пропускаю для краткости) -->
             <div class="modal-content" style="max-width: 400px;">
                 <div class="modal-header">
                     <span class="modal-title">Создать...</span>
@@ -198,23 +181,15 @@ export const MessagesView = {
 
         <div id="linkGroupModal" class="modal-overlay">
             <div class="modal-content" style="max-width: 400px; background: #141416;">
-                <div class="modal-header">
-                    <span class="modal-title">Привязать группу</span>
-                    <button id="closeLinkGroupModalBtn" class="icon-btn-small"><i class="fa-solid fa-xmark"></i></button>
-                </div>
-                <div class="modal-body" id="adminGroupsList" style="max-height: 400px; overflow-y: auto; padding: 10px; display: flex; flex-direction: column; gap: 8px;">
-                </div>
+                <div class="modal-header"><span class="modal-title">Привязать группу</span><button id="closeLinkGroupModalBtn" class="icon-btn-small"><i class="fa-solid fa-xmark"></i></button></div>
+                <div class="modal-body" id="adminGroupsList" style="max-height: 400px; overflow-y: auto; padding: 10px; display: flex; flex-direction: column; gap: 8px;"></div>
             </div>
         </div>
 
         <div id="inviteToGroupModal" class="modal-overlay" style="z-index: 1000000;">
             <div class="modal-content" style="max-width: 400px; background: #141416;">
-                <div class="modal-header">
-                    <span class="modal-title">Пригласить участника</span>
-                    <button id="closeInviteModalBtn" class="icon-btn-small"><i class="fa-solid fa-xmark"></i></button>
-                </div>
-                <div class="modal-body" id="inviteFriendsList" style="max-height: 400px; overflow-y: auto; padding: 10px; display: flex; flex-direction: column; gap: 8px;">
-                </div>
+                <div class="modal-header"><span class="modal-title">Пригласить участника</span><button id="closeInviteModalBtn" class="icon-btn-small"><i class="fa-solid fa-xmark"></i></button></div>
+                <div class="modal-body" id="inviteFriendsList" style="max-height: 400px; overflow-y: auto; padding: 10px; display: flex; flex-direction: column; gap: 8px;"></div>
             </div>
         </div>
     `,

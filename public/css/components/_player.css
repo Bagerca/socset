@@ -1,6 +1,130 @@
 /* css/components/_player.css */
 
-.floating-mini-player { position: fixed; top: 0; left: 0; width: 360px; background: rgba(20, 20, 22, 0.85); border: 1px solid rgba(255, 255, 255, 0.1); border-radius: var(--radius-lg); box-shadow: var(--shadow-lg); z-index: 9999; backdrop-filter: blur(20px); overflow: hidden; cursor: grab; touch-action: none; transform: translate3d(var(--fmp-x, 0px), var(--fmp-y, 0px), 0); will-change: transform; transition: transform var(--transition-smooth), opacity 0.2s ease; }
+/* ======================================================= */
+/* УМНАЯ ЗОНА ЗАКРЕПЛЕНИЯ ВИДЖЕТОВ (RIGHT DOCK)            */
+/* ======================================================= */
+
+/* --- АДАПТИВНАЯ ШИРИНА ПАНЕЛИ --- */
+:root {
+    --dock-width: 340px; /* Ширина по умолчанию (для Ленты, Профиля) */
+}
+body.view-messages {
+    --dock-width: 280px; /* Узкая ширина для Мессенджера */
+}
+/* -------------------------------- */
+
+.right-dock-area {
+    position: fixed;
+    top: 24px;
+    bottom: 24px;
+    right: 24px;
+    height: auto;
+    width: var(--dock-width); /* ИСПОЛЬЗУЕМ ПЕРЕМЕННУЮ */
+    z-index: 9998; 
+    pointer-events: none; 
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+    align-items: center; /* Центрируем, если виджеты уже, чем панель */
+    transition: width 0.5s cubic-bezier(0.25, 1, 0.5, 1); /* ПЛАВНАЯ АНИМАЦИЯ ШИРИНЫ */
+}
+
+/* Силуэт: появляется только когда тащим */
+.right-dock-area::after {
+    content: 'ЗАКРЕПИТЬ';
+    display: none; 
+    width: var(--drag-w, 100%); /* Использует ширину перетаскиваемого виджета */
+    height: var(--drag-h, 150px);
+    border: 2px dashed rgba(255, 255, 255, 0.15);
+    border-radius: var(--drag-r, 20px);
+    background: rgba(10, 10, 12, 0.4);
+    backdrop-filter: blur(8px);
+    color: rgba(255, 255, 255, 0.3);
+    align-items: center; justify-content: center;
+    font-size: 14px; font-weight: 800; letter-spacing: 2px;
+    opacity: 0; 
+    transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+    flex-shrink: 0; 
+    transform: scale(0.95);
+}
+
+body.is-dragging-widget .right-dock-area::after { 
+    display: flex;
+    opacity: 1; 
+    transform: scale(1);
+}
+
+body.is-dragging-widget .right-dock-area.drag-over::after {
+    border: 2px solid var(--accent-games);
+    background: rgba(124, 58, 237, 0.1);
+    color: var(--accent-games);
+    box-shadow: 0 0 40px rgba(124, 58, 237, 0.2);
+    transform: scale(1.02); 
+}
+
+.widget-docked {
+    position: relative !important;
+    top: auto !important; left: auto !important; right: auto !important; bottom: auto !important;
+    width: 100% !important; 
+    pointer-events: auto !important;
+    box-shadow: 0 10px 40px rgba(0,0,0,0.3) !important;
+    flex-shrink: 0; 
+    transform: none; 
+    animation: dockSnap 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
+    /* АНИМИРУЕМ ИЗМЕНЕНИЕ ШИРИНЫ ВИДЖЕТА ВНУТРИ ДОКА */
+    transition: width 0.5s cubic-bezier(0.25, 1, 0.5, 1), opacity 0.3s, transform 0.3s;
+}
+
+@keyframes dockSnap {
+    0% { opacity: 0.5; transform: scale(1.05); }
+    100% { opacity: 1; transform: scale(1); }
+}
+
+.grabbing { cursor: grabbing !important; }
+.grabbing * { pointer-events: none !important; } 
+
+.fmp-docked-overlay { display: none !important; }
+
+@media (max-width: 1100px) {
+    .right-dock-area { 
+        right: -380px; 
+        background: rgba(20, 20, 22, 0.95);
+        backdrop-filter: blur(20px);
+        border-left: 1px solid rgba(255,255,255,0.1);
+        padding: 20px;
+        border-radius: 24px 0 0 24px;
+        box-shadow: -10px 0 50px rgba(0,0,0,0.5);
+        width: 340px; /* Фиксируем ширину для выезжающей панели */
+    }
+    
+    .right-dock-area:not(:empty) {
+        transform: translateX(-15px); 
+        pointer-events: auto;
+    }
+    
+    .right-dock-area:not(:empty):hover,
+    .right-dock-area:not(:empty):active {
+        right: 0;
+        transform: translateX(0);
+    }
+}
+
+@media (max-width: 768px) {
+    .right-dock-area { display: none !important; } 
+}
+
+
+/* ======================================================= */
+/* ПЛЕЕР МУЗЫКИ                                            */
+/* ======================================================= */
+.floating-mini-player { 
+    position: fixed; top: 0; left: 0; width: 360px; 
+    background: rgba(20, 20, 22, 0.85); border: 1px solid rgba(255, 255, 255, 0.1); 
+    border-radius: var(--radius-lg); box-shadow: var(--shadow-lg); z-index: 9999; 
+    backdrop-filter: blur(20px); overflow: hidden; cursor: grab; touch-action: none; 
+    transform: translate3d(var(--fmp-x, 0px), var(--fmp-y, 0px), 0); 
+    will-change: transform; transition: transform var(--transition-smooth), opacity 0.2s ease; 
+}
 .floating-mini-player:active { cursor: grabbing; }
 .floating-mini-player.hidden { opacity: 0; pointer-events: none; transform: translate3d(var(--fmp-x, 0px), var(--fmp-y, 0px), 0) scale(0.9); }
 
@@ -18,7 +142,7 @@
 .fmp-info { flex: 1; min-width: 0; display: flex; flex-direction: column; justify-content: center; pointer-events: none; }
 .fmp-title { font-size: var(--font-sm); font-weight: 700; color: #fff; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-bottom: 2px; }
 .fmp-artist { font-size: 12px; color: rgba(255,255,255,0.7); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.fmp-fav { color: var(--text-muted); font-size: var(--font-md); }
+.fmp-fav { color: var(--text-muted); font-size: var(--font-md); cursor: pointer; }
 .fmp-fav.active { color: var(--danger); }
 
 .fmp-controls-row { display: flex; align-items: center; justify-content: space-between; }
@@ -40,48 +164,103 @@
 @media (hover: hover) { .fmp-slider:hover::-webkit-slider-thumb { width: 10px; height: 10px; } }
 .fmp-slider.vol { width: 100px; height: 4px; }
 
-.floating-mini-player.docked-left .fmp-inner, .floating-mini-player.docked-right .fmp-inner { opacity: 0; pointer-events: none; }
-.fmp-docked-overlay { position: absolute; top: 0; left: 0; width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; opacity: 0; pointer-events: none; transition: opacity 0.3s ease; cursor: pointer; }
-.floating-mini-player.docked-left .fmp-docked-overlay, .floating-mini-player.docked-right .fmp-docked-overlay { opacity: 1; pointer-events: auto; }
-.floating-mini-player.docked-left .fmp-docked-overlay { justify-content: flex-end; padding-right: var(--space-12); }
-.floating-mini-player.docked-right .fmp-docked-overlay { justify-content: flex-start; padding-left: var(--space-12); }
-.fmp-docked-cover { position: absolute; top: 0; left: 0; width: 100%; height: 100%; object-fit: cover; opacity: 0.4; z-index: -1; pointer-events: none; }
-.docked-play { width: 44px; height: 44px; font-size: var(--font-md); box-shadow: 0 4px 10px rgba(0,0,0,0.5); }
 
 /* ======================================================= */
-/* АДАПТАЦИЯ ПЛЕЕРА ДЛЯ МОБИЛОК (ВОЗВРАЩАЕМ DRAG & DROP)   */
+/* ВХОДЯЩИЙ ЗВОНОК                                         */
+/* ======================================================= */
+.incoming-call-toast {
+    position: fixed; top: 24px; left: 50%; transform: translate(-50%, -150%);
+    background: rgba(30, 30, 34, 0.95); backdrop-filter: blur(20px);
+    border: 1px solid rgba(255,255,255,0.1); border-radius: 24px;
+    padding: 12px 20px; display: flex; align-items: center; gap: 16px;
+    box-shadow: 0 15px 40px rgba(0,0,0,0.5); z-index: 100000;
+    transition: transform 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275), opacity 0.4s ease;
+    opacity: 0; pointer-events: none;
+}
+.incoming-call-toast.active { transform: translate(-50%, 0); opacity: 1; pointer-events: auto; }
+@keyframes pulseCall { 0% { transform: scale(1); opacity: 0.8; } 100% { transform: scale(1.5); opacity: 0; } }
+.call-pulse-ring { position: absolute; inset: -10px; border-radius: 50%; border: 2px solid #44bd32; animation: pulseCall 1.5s infinite ease-out; z-index: -1; }
+
+
+/* ======================================================= */
+/* ПЛАВАЮЩИЙ ВИДЖЕТ ЗВОНКА                                 */
+/* ======================================================= */
+.floating-call-widget {
+    position: fixed; top: 0; left: 0; width: 320px; height: 480px;
+    background: #050508; border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 20px; box-shadow: 0 20px 60px rgba(0,0,0,0.6);
+    z-index: 10000; overflow: hidden; display: flex; flex-direction: column;
+    cursor: grab; touch-action: none;
+    transform: translate3d(var(--fcw-x, 0px), var(--fcw-y, 0px), 0);
+    will-change: transform; transition: transform var(--transition-smooth), opacity 0.2s ease;
+}
+.floating-call-widget:active { cursor: grabbing; }
+.floating-call-widget.hidden { opacity: 0; pointer-events: none; transform: translate3d(var(--fcw-x, 0px), var(--fcw-y, 0px), 0) scale(0.9); }
+
+.fcw-drag-handle { width: 100%; height: 24px; display: flex; align-items: center; justify-content: center; background: rgba(0,0,0,0.5); position: absolute; top: 0; left: 0; z-index: 10; }
+.fcw-drag-handle .drag-bar { width: 40px; height: 4px; border-radius: 2px; background: rgba(255,255,255,0.4); }
+
+.fcw-video-grid { flex: 1; background: #0a0a0c; display: flex; flex-wrap: wrap; align-content: stretch; position: relative; overflow: hidden; }
+.fcw-status { position: absolute; top: 34px; left: 50%; transform: translateX(-50%); background: rgba(0,0,0,0.6); padding: 6px 12px; border-radius: 20px; color: #fff; font-size: 12px; font-weight: 600; backdrop-filter: blur(10px); z-index: 5; white-space: nowrap; }
+
+.video-cell { position: relative; flex: 1 1 50%; min-width: 40%; min-height: 40%; border: 1px solid #000; box-sizing: border-box; background: #111; }
+.video-cell:first-child:nth-last-child(1) { flex: 1 1 100%; }
+.video-cell video { width: 100%; height: 100%; object-fit: cover; }
+.video-cell.local video { transform: scaleX(-1); }
+.video-name-badge { position: absolute; bottom: 8px; left: 8px; background: rgba(0,0,0,0.6); color: #fff; font-size: 10px; font-weight: 600; padding: 3px 8px; border-radius: 6px; z-index: 2; text-transform: uppercase; letter-spacing: 0.5px;}
+
+.fcw-controls { height: 70px; background: rgba(20,20,22,0.95); display: flex; align-items: center; justify-content: center; gap: 16px; border-top: 1px solid var(--border-color); z-index: 10; padding: 0 10px; flex-shrink: 0;}
+.fcw-btn { width: 44px; height: 44px; background: rgba(255,255,255,0.1); color: #fff; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 16px; transition: 0.2s; border: none; cursor: pointer; }
+.fcw-btn:hover { background: rgba(255,255,255,0.2); }
+.fcw-btn.danger { background: var(--danger); box-shadow: 0 4px 15px rgba(255,69,58,0.4); }
+.fcw-btn.danger:hover { background: #ff2a1f; transform: scale(1.05); }
+
+
+/* ======================================================= */
+/* ПЛАВАЮЩИЙ ВИДЖЕТ КИНОЗАЛА                               */
+/* ======================================================= */
+.floating-sr-widget {
+    position: fixed; top: 0; left: 0; width: 420px; height: 280px;
+    background: #050508; border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 16px; box-shadow: 0 20px 60px rgba(0,0,0,0.6);
+    z-index: 9998; overflow: hidden; display: flex; flex-direction: column;
+    cursor: grab; touch-action: none;
+    transform: translate3d(var(--fsr-x, 0px), var(--fsr-y, 0px), 0);
+    will-change: transform; transition: transform var(--transition-smooth), opacity 0.2s ease;
+}
+.floating-sr-widget:active { cursor: grabbing; }
+.floating-sr-widget.hidden { opacity: 0; pointer-events: none; transform: translate3d(var(--fsr-x, 0px), var(--fsr-y, 0px), 0) scale(0.9); }
+.fsr-drag-handle { width: 100%; height: 24px; display: flex; align-items: center; justify-content: center; background: rgba(0,0,0,0.8); position: absolute; top: 0; left: 0; z-index: 10; }
+.fsr-drag-handle .drag-bar { width: 40px; height: 4px; border-radius: 2px; background: rgba(255,255,255,0.4); }
+
+.fsr-controls-area { padding: 40px 20px 20px 20px; display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100%; text-align: center; }
+.fsr-controls-area h3 { color: #fff; font-size: 16px; margin-bottom: 12px; }
+.fsr-input-row { display: flex; gap: 8px; width: 100%; }
+.fsr-input-row input { flex: 1; background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.2); border-radius: 8px; color: #fff; padding: 8px 12px; outline: none; font-size: 13px; }
+.fsr-video-area { flex: 1; position: relative; background: #000; overflow: hidden; }
+.fsr-btn-close { position: absolute; top: 34px; right: 10px; z-index: 60; background: rgba(0,0,0,0.6); color: #fff; border: none; width: 32px; height: 32px; border-radius: 50%; display: flex; align-items: center; justify-content: center; cursor: pointer; transition: 0.2s; backdrop-filter: blur(4px); }
+.fsr-btn-close:hover { background: var(--danger); }
+
+
+/* ======================================================= */
+/* АДАПТАЦИЯ ВСЕХ ВИДЖЕТОВ                                 */
 /* ======================================================= */
 @media (max-width: 768px) {
-    .floating-mini-player {
-        width: 320px; 
-        max-width: calc(100vw - 32px);
-        border-radius: 16px;
-    }
-    
-    .floating-mini-player.hidden {
-        opacity: 0;
-        pointer-events: none;
-    }
-
-    .fmp-drag-handle { 
-        display: flex; 
-        padding: 8px 0; 
-    }
-    
-    .fmp-inner {
-        padding: 0 12px 12px 12px;
-        gap: 8px;
-    }
-
-    .fmp-cover {
-        width: 40px;
-        height: 40px;
-    }
-
+    .floating-mini-player { width: 320px; max-width: calc(100vw - 32px); border-radius: 16px; }
+    .fmp-drag-handle { display: flex; padding: 8px 0; }
+    .fmp-inner { padding: 0 12px 12px 12px; gap: 8px; }
+    .fmp-cover { width: 40px; height: 40px; }
     .fmp-buttons { gap: 10px; }
     .fmp-btn.play { width: 32px; height: 32px; font-size: 12px; }
+    .fmp-volume-row { display: none; }
+
+    .floating-call-widget { width: 140px; height: 220px; }
+    .fcw-controls { height: 50px; gap: 8px; }
+    .fcw-btn { width: 32px; height: 32px; font-size: 12px; }
+    .fcw-status { font-size: 10px; padding: 4px 8px; top: 28px; }
+    .video-name-badge { font-size: 8px; padding: 2px 4px; bottom: 4px; left: 4px; }
     
-    .fmp-volume-row { 
-        display: none; 
-    }
+    .incoming-call-toast { width: 90%; flex-wrap: wrap; justify-content: center; text-align: center; }
+    
+    .floating-sr-widget { width: 320px; height: 220px; max-width: calc(100vw - 32px); }
 }

@@ -5,7 +5,9 @@ import { escapeHTML } from '../ui/utils/utils.js';
 import { NotificationsAPI } from '../api/NotificationsAPI.js';
 import { AudioPlayerHandler } from '../ui/utils/AudioPlayerHandler.js';
 import { GlobalPlayer } from '../ui/widgets/GlobalPlayer.js';
-import { ChatGalleryHandler } from '../ui/widgets/ChatGalleryHandler.js'; // <--- ИМПОРТ
+import { ChatGalleryHandler } from '../ui/widgets/ChatGalleryHandler.js'; 
+import { CallHandler } from '../ui/widgets/CallHandler.js';
+import { ScreeningRoomHandler } from '../ui/widgets/ScreeningRoomHandler.js'; // <--- ИМПОРТ
 
 export class AppInitializer {
     constructor(stores) {
@@ -18,7 +20,12 @@ export class AppInitializer {
         
         AudioPlayerHandler.init();
         this.stores.player = new GlobalPlayer(this.stores);
-        this.galleryHandler = new ChatGalleryHandler(); // <--- АКТИВАЦИЯ ГАЛЕРЕИ ДЛЯ ВСЕГО САЙТА
+        this.galleryHandler = new ChatGalleryHandler();
+        
+        window.cycleCallHandler = new CallHandler(this.stores);
+        
+        // НОВОЕ: Глобальная инициализация Кинозала
+        window.cycleScreeningRoomHandler = new ScreeningRoomHandler(this.stores);
         
         await this._initNotificationsBadge();
         this._setupUIEvents();

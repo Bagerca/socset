@@ -15,7 +15,7 @@ export class ScreeningRoomPlayer {
         this.lastReportedState = null;
         this.lastReportedTime = -1;
         this.isBuffering = false;
-        this.isSeekingLocal = false; // НОВОЕ: Флаг активной перемотки
+        this.isSeekingLocal = false; 
     }
 
     load(videoUrl) {
@@ -61,7 +61,16 @@ export class ScreeningRoomPlayer {
 
         this.ytPlayer = new YT.Player('yt-player-target', {
             videoId: videoId,
-            playerVars: { 'autoplay': 0, 'controls': this.isHost ? 1 : 0, 'disablekb': 1, 'modestbranding': 1, 'rel': 0 },
+            playerVars: { 
+                'autoplay': 0, 
+                'controls': this.isHost ? 1 : 0, 
+                'disablekb': 1, 
+                'modestbranding': 1, 
+                'rel': 0,
+                // ИСПРАВЛЕНИЕ: Передаем origin сайта, чтобы YouTube не ругался в консоль
+                'origin': window.location.origin,
+                'enablejsapi': 1 
+            },
             events: {
                 'onStateChange': (e) => {
                     if (!this.isHost) {
@@ -85,7 +94,6 @@ export class ScreeningRoomPlayer {
         this.localVideo.style.objectFit = 'contain';
         this.localVideo.style.background = '#000';
         
-        // НОВОЕ: Включаем preload, чтобы браузер активнее качал метаданные
         this.localVideo.preload = 'auto'; 
         
         if (this.isHost) this.localVideo.controls = true;
@@ -93,7 +101,6 @@ export class ScreeningRoomPlayer {
         this.container.appendChild(this.localVideo);
 
         if (!this.isHost) {
-            // НОВОЕ: Отлов состояний перемотки
             this.localVideo.addEventListener('seeking', () => { this.isSeekingLocal = true; });
             this.localVideo.addEventListener('seeked', () => { this.isSeekingLocal = false; });
             
@@ -120,17 +127,11 @@ export class ScreeningRoomPlayer {
         if (this.playerType === 'youtube' && this.ytPlayer && this.ytPlayer.pauseVideo) this.ytPlayer.pauseVideo();
         if (this.playerType === 'local' && this.localVideo) this.localVideo.pause();
     }
-
-    // --- УПРАВЛЕНИЕ ИЗВНЕ (ДЛЯ ЗРИТЕЛЕЙ) ---
     
     syncWithServer(state, time, serverTimestamp, exactServerTimeNow) {
         if (this.isHost) return;
         
-        // ИСПРАВЛЕНИЕ: Если Зритель уже перематывает или буферизирует локальное видео,
-        // игнорируем новые пакеты синхронизации, чтобы не мешать плееру докачать кусок.
         if (this.playerType === 'local' && (this.isBuffering || this.isSeekingLocal)) return;
-
-        // Для YouTube буферизацию игнорируем так же
         if (this.playerType === 'youtube' && this.isBuffering) return;
 
         const timePassedSinceEvent = Math.max(0, (exactServerTimeNow - serverTimestamp) / 1000);
@@ -147,7 +148,6 @@ export class ScreeningRoomPlayer {
             else this.ytPlayer.pauseVideo();
             
         } else if (this.playerType === 'local' && this.localVideo) {
-            // Проверка, готово ли видео вообще принимать команды (у зрителей с медленным интернетом meta может грузиться долго)
             if (this.localVideo.readyState === 0) return;
 
             const current = this.localVideo.currentTime;
@@ -157,11 +157,9 @@ export class ScreeningRoomPlayer {
             }
             
             if (state === 'playing') {
-                // ИСПРАВЛЕНИЕ: Безопасный вызов play(), который не крашит консоль
                 const playPromise = this.localVideo.play();
                 if (playPromise !== undefined) {
                     playPromise.catch(e => {
-                        // Автоплей мог быть заблокирован браузером или видео зависло
                         console.warn("Autoplay prevented or seeking in progress:", e);
                     });
                 }
@@ -170,8 +168,6 @@ export class ScreeningRoomPlayer {
             }
         }
     }
-
-    // --- ВНУТРЕННЯЯ ЛОГИКА ХОСТА ---
 
     _triggerSync(state, force = false) {
         const time = this._getCurrentTime();

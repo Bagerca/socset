@@ -1,5 +1,6 @@
 // public/js/ui/widgets/GlobalPlayer.js
 import { SocketService } from '../../services/SocketService.js';
+import { DraggableWidget } from './DraggableWidget.js';
 
 export class GlobalPlayer {
     constructor(stores) {
@@ -18,7 +19,7 @@ export class GlobalPlayer {
         this.btnShuffle = document.getElementById('fmpShuffle');
         this.btnRepeat = document.getElementById('fmpRepeat');
         this.btnFav = document.getElementById('fmpFavBtn');
-        this.btnClose = document.getElementById('fmpCloseBtn'); // <--- НОВАЯ КНОПКА
+        this.btnClose = document.getElementById('fmpCloseBtn');
         
         this.progressBar = document.getElementById('fmpProgressBar');
         this.timeCurrent = document.getElementById('fmpCurrentTime');
@@ -27,13 +28,9 @@ export class GlobalPlayer {
         this.volumeBar = document.getElementById('fmpVolumeBar');
         this.volumeIcon = document.getElementById('fmpVolumeIcon');
 
-        this.dockedOverlay = document.getElementById('fmpDockedOverlay');
-        this.dockedCover = document.getElementById('fmpDockedCover');
-        this.dockedPlayBtn = document.getElementById('fmpDockedPlayBtn');
-
         this.playlist = [];
         this.currentIndex = -1;
-        this.isDragging = false;
+        this.isDraggingTime = false;
         
         this.isShuffle = false;
         this.repeatMode = 0; 
@@ -42,9 +39,14 @@ export class GlobalPlayer {
     }
 
     init() {
+        // Подключаем наш новый универсальный модуль перетаскивания
+        this.draggable = new DraggableWidget(this.widget, '--fmp-x', '--fmp-y', {
+            defaultX: 24,
+            defaultY: window.innerHeight - 250
+        });
+
         this.updateSliderBg(this.progressBar);
         this.updateSliderBg(this.volumeBar);
-        this.initDraggablePlayer();
 
         this.audio.addEventListener('timeupdate', () => this.updateProgress());
         
@@ -77,7 +79,6 @@ export class GlobalPlayer {
         this.btnNext.addEventListener('click', () => this.next());
         this.btnPrev.addEventListener('click', () => this.prev());
         
-        // --- ЛОГИКА ЗАКРЫТИЯ ПЛЕЕРА ---
         if (this.btnClose) {
             this.btnClose.addEventListener('click', () => this.closePlayer());
         }
@@ -104,13 +105,13 @@ export class GlobalPlayer {
         });
 
         this.progressBar.addEventListener('input', () => {
-            this.isDragging = true;
+            this.isDraggingTime = true;
             this.timeCurrent.textContent = this.formatTime(this.progressBar.value);
             this.updateSliderBg(this.progressBar);
         });
         
         this.progressBar.addEventListener('change', () => {
-            this.isDragging = false;
+            this.isDraggingTime = false;
             this.audio.currentTime = parseFloat(this.progressBar.value);
         });
 
@@ -118,97 +119,10 @@ export class GlobalPlayer {
         this.volumeIcon.addEventListener('click', () => { this.audio.muted = !this.audio.muted; });
     }
 
-    // Метод для закрытия плеера
     closePlayer() {
-        this.audio.pause(); // Ставим на паузу
-        this.widget.classList.add('hidden'); // Прячем виджет
-    }
-
-    initDraggablePlayer() {
-        const widget = this.widget;
-        let isDraggingPlayer = false;
-        let startX, startY;
-        
-        widget.style.top = '0px';
-        widget.style.left = '0px';
-
-        let currentX = window.innerWidth - 360 - 24; 
-        let currentY = window.innerHeight - 220 - 24; 
-
-        widget.style.setProperty('--fmp-x', `${currentX}px`);
-        widget.style.setProperty('--fmp-y', `${currentY}px`);
-
-        const clamp = (val, min, max) => Math.max(min, Math.min(val, max));
-
-        const snapToCorners = () => {
-            const pad = 24;
-            const w = widget.offsetWidth;
-            const h = widget.offsetHeight;
-            const screenW = window.innerWidth;
-            const screenH = window.innerHeight;
-
-            if (currentX < -w / 3) { widget.classList.add('docked-left'); currentX = -w + 64; widget.style.setProperty('--fmp-x', `${currentX}px`); return; }
-            if (currentX > screenW - (w * 0.66)) { widget.classList.add('docked-right'); currentX = screenW - 64; widget.style.setProperty('--fmp-x', `${currentX}px`); return; }
-
-            widget.classList.remove('docked-left', 'docked-right');
-
-            const snapLeft = pad;
-            const snapRight = screenW - w - pad;
-            const snapTop = 80; 
-            const snapBottom = screenH - h - pad;
-
-            const distLeft = Math.abs(currentX - snapLeft);
-            const distRight = Math.abs(currentX - snapRight);
-            const distTop = Math.abs(currentY - snapTop);
-            const distBottom = Math.abs(currentY - snapBottom);
-
-            currentX = distLeft < distRight ? snapLeft : snapRight;
-            currentY = distTop < distBottom ? snapTop : snapBottom;
-            currentY = clamp(currentY, snapTop, snapBottom);
-
-            widget.style.setProperty('--fmp-x', `${currentX}px`);
-            widget.style.setProperty('--fmp-y', `${currentY}px`);
-        };
-
-        window.addEventListener('resize', () => { if (!isDraggingPlayer && !widget.classList.contains('hidden')) snapToCorners(); });
-
-        widget.addEventListener('pointerdown', (e) => {
-            if (e.target.closest('button, input')) return;
-            isDraggingPlayer = true;
-            widget.style.transition = 'none'; 
-            startX = e.clientX - currentX;
-            startY = e.clientY - currentY;
-            widget.setPointerCapture(e.pointerId);
-            widget.style.cursor = 'grabbing';
-        });
-
-        widget.addEventListener('pointermove', (e) => {
-            if (!isDraggingPlayer) return;
-            currentX = e.clientX - startX;
-            currentY = e.clientY - startY;
-            if (widget.classList.contains('docked-left') && currentX > -widget.offsetWidth / 2) widget.classList.remove('docked-left');
-            if (widget.classList.contains('docked-right') && currentX < window.innerWidth - widget.offsetWidth / 2) widget.classList.remove('docked-right');
-            widget.style.setProperty('--fmp-x', `${currentX}px`);
-            widget.style.setProperty('--fmp-y', `${currentY}px`);
-        });
-
-        widget.addEventListener('pointerup', (e) => {
-            if (!isDraggingPlayer) return;
-            isDraggingPlayer = false;
-            widget.releasePointerCapture(e.pointerId);
-            widget.style.cursor = 'grab';
-            widget.style.transition = 'transform 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275), opacity 0.2s ease';
-            snapToCorners(); 
-        });
-
-        this.dockedOverlay.addEventListener('click', (e) => {
-            if (e.target.closest('#fmpDockedPlayBtn')) { this.togglePlay(); return; }
-            widget.classList.remove('docked-left', 'docked-right');
-            widget.style.transition = 'transform 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275), opacity 0.2s ease';
-            if (currentX < 0) currentX = 24;
-            if (currentX > window.innerWidth - widget.offsetWidth) currentX = window.innerWidth - widget.offsetWidth - 24;
-            widget.style.setProperty('--fmp-x', `${currentX}px`);
-        });
+        this.audio.pause(); 
+        this.widget.classList.add('hidden'); 
+        this.draggable.reset(); // Возвращаем на исходную позицию
     }
 
     async safePlay() {
@@ -233,7 +147,6 @@ export class GlobalPlayer {
             this.audio.src = track.url;
             
             this.elCover.src = track.cover;
-            this.dockedCover.src = track.cover;
             this.bg.style.backgroundImage = `url('${track.cover}')`;
             
             this.elTitle.textContent = track.title;
@@ -298,7 +211,7 @@ export class GlobalPlayer {
     }
 
     updateProgress() {
-        if (this.isDragging) return;
+        if (this.isDraggingTime) return;
         this.progressBar.value = this.audio.currentTime;
         this.timeCurrent.textContent = this.formatTime(this.audio.currentTime);
         this.updateSliderBg(this.progressBar);
@@ -307,7 +220,6 @@ export class GlobalPlayer {
     updatePlayBtn(isPlaying) {
         const iconHTML = isPlaying ? '<i class="fa-solid fa-pause"></i>' : '<i class="fa-solid fa-play"></i>';
         this.btnPlay.innerHTML = iconHTML;
-        this.dockedPlayBtn.innerHTML = iconHTML;
         
         document.dispatchEvent(new CustomEvent('cycle:play-state', { detail: isPlaying }));
         this.syncPostPlayButtons();

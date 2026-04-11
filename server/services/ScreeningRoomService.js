@@ -1,5 +1,6 @@
 // server/services/ScreeningRoomService.js
 const MessageRepository = require('../repositories/MessageRepository');
+const MessageService = require('./MessageService');
 
 class ScreeningRoomService {
     constructor() {
@@ -7,10 +8,9 @@ class ScreeningRoomService {
         this.io = null;
     }
 
-    // Инициализация сборщика мусора
     init(io) {
         this.io = io;
-        setInterval(() => this._garbageCollector(), 30000); // Проверка каждые 30 сек
+        setInterval(() => this._garbageCollector(), 30000); 
     }
 
     handleAction(data, ws, io) {
@@ -40,12 +40,14 @@ class ScreeningRoomService {
             videoType: payload.videoType,
             state: 'paused',
             time: 0,
-            lastSeen: Date.now(), // НОВОЕ: время последней активности хоста
+            lastSeen: Date.now(),
             timestamp: Date.now()
         };
 
         this.activeRooms.set(chatId, roomState);
-        this._broadcastToChat(chatId, io, 'sr_update', { action: 'started', roomState });
+        // ИСПРАВЛЕНИЕ: Добавили chatId в payload
+        this._broadcastToChat(chatId, io, 'sr_update', { action: 'started', roomState, chatId });
+        MessageService.sendSystemMessage(chatId, `🍿 @${username} запустил(а) Кинозал.`, io);
     }
 
     _syncRoom(chatId, username, payload, io) {
@@ -54,19 +56,19 @@ class ScreeningRoomService {
 
         room.state = payload.state;
         room.time = payload.time;
-        room.lastSeen = Date.now(); // Обновляем TTL
+        room.lastSeen = Date.now(); 
         room.timestamp = Date.now();
 
-        this._broadcastToChat(chatId, io, 'sr_update', { action: 'sync', roomState: room });
+        this._broadcastToChat(chatId, io, 'sr_update', { action: 'sync', roomState: room, chatId });
     }
 
     _handleBuffering(chatId, username, payload, io) {
         const room = this.activeRooms.get(chatId);
         if (!room) return;
-        // Оповещаем всех (особенно Хоста), что кто-то завис на буферизации
         this._broadcastToChat(chatId, io, 'sr_update', { 
             action: payload.isBuffering ? 'buffering_start' : 'buffering_stop', 
-            username: username 
+            username: username,
+            chatId
         });
     }
 
@@ -77,14 +79,17 @@ class ScreeningRoomService {
         const member = MessageRepository.getMember(chatId, username);
         if (room.host === username || member.role === 'admin' || member.role === 'moderator') {
             this.activeRooms.delete(chatId);
-            this._broadcastToChat(chatId, io, 'sr_update', { action: 'closed' });
+            this._broadcastToChat(chatId, io, 'sr_update', { action: 'closed', chatId });
+            MessageService.sendSystemMessage(chatId, `🛑 @${username} закрыл(а) Кинозал.`, io);
         }
     }
 
     _sendStateToUser(chatId, username, io) {
         const room = this.activeRooms.get(chatId);
         if (room) {
-            io.to(`user_${username}`).emit('sr_update', { action: 'state', roomState: room });
+            io.to(`user_${username}`).emit('sr_update', { action: 'state', roomState: room, chatId });
+        } else {
+            io.to(`user_${username}`).emit('sr_update', { action: 'closed', chatId });
         }
     }
 
@@ -92,7 +97,8 @@ class ScreeningRoomService {
         for (const [chatId, room] of this.activeRooms.entries()) {
             if (room.host === username) {
                 this.activeRooms.delete(chatId);
-                this._broadcastToChat(chatId, io, 'sr_update', { action: 'closed' });
+                this._broadcastToChat(chatId, io, 'sr_update', { action: 'closed', chatId });
+                MessageService.sendSystemMessage(chatId, `🛑 @${username} закрыл(а) Кинозал.`, io);
             }
         }
     }
@@ -100,10 +106,12 @@ class ScreeningRoomService {
     _garbageCollector() {
         const now = Date.now();
         for (const [chatId, room] of this.activeRooms.entries()) {
-            // Если Хост не слал sync больше 45 секунд — убиваем комнату
             if (now - room.lastSeen > 45000) {
                 this.activeRooms.delete(chatId);
-                if (this.io) this._broadcastToChat(chatId, this.io, 'sr_update', { action: 'closed' });
+                if (this.io) {
+                    this._broadcastToChat(chatId, this.io, 'sr_update', { action: 'closed', chatId });
+                    MessageService.sendSystemMessage(chatId, `🛑 Кинозал завершен (Таймаут соединения)`, this.io);
+                }
             }
         }
     }

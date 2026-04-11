@@ -5,6 +5,7 @@ export class Router {
         this.stores = stores;
         this.appContent = document.getElementById('app-content');
         this.currentManager = null; 
+        this.lastViewClass = ''; // Храним последний добавленный класс
 
         window.addEventListener('hashchange', () => this.handleRoute());
     }
@@ -27,6 +28,15 @@ export class Router {
 
         let route = this.routes[basePath];
         if (!route) { basePath = '/'; route = this.routes[basePath]; }
+        
+        // --- НОВАЯ ЛОГИКА: СИГНАЛИМ CSS О СМЕНЕ СТРАНИЦЫ ---
+        if (this.lastViewClass) {
+            document.body.classList.remove(this.lastViewClass);
+        }
+        // Убираем слэши и создаем класс, например, 'view-messages' или 'view-profile'
+        this.lastViewClass = `view${basePath.replace(/\//g, '-') || '-feed'}`; 
+        document.body.classList.add(this.lastViewClass);
+        // --- КОНЕЦ НОВОЙ ЛОГИКИ ---
 
         if (this.currentManager && typeof this.currentManager.destroy === 'function') {
             this.currentManager.destroy();
@@ -34,9 +44,7 @@ export class Router {
 
         this.appContent.innerHTML = route.html;
         document.querySelectorAll('.nav-link').forEach(link => link.classList.toggle('active', link.dataset.route === basePath));
-
-        // ИСПРАВЛЕНО: Контроллеры сами запускают себя в конструкторе.
-        // Вызывать this.currentManager.init() ЗДЕСЬ НЕ НУЖНО.
+        
         this.currentManager = new route.Manager(this.stores, param);
     }
 }

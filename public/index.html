@@ -48,6 +48,12 @@
         <main id="app-content" class="feed"></main>
     </div>
 
+    <!-- ======================================= -->
+    <!-- ЗОНА ЗАКРЕПЛЕНИЯ ВИДЖЕТОВ (RIGHT DOCK)  -->
+    <!-- ======================================= -->
+    <div id="rightDockArea" class="right-dock-area"></div>
+
+
     <!-- ГЛОБАЛЬНАЯ ГАЛЕРЕЯ КАРТИНОК -->
     <div id="chatImageModal" class="modal-overlay" style="z-index: 9999999;">
         <div class="modal-content" style="max-width: 95vw; max-height: 95vh; background: transparent; box-shadow: none; border: none; align-items: center; justify-content: center; padding: 0; position: relative;">
@@ -62,7 +68,59 @@
         </div>
     </div>
 
-    <!-- Плеер -->
+    <!-- Входящий звонок -->
+    <div id="incomingCallToast" class="incoming-call-toast">
+        <div style="position:relative; width:48px; height:48px; flex-shrink:0;">
+            <img id="incomingCallAvatar" src="" style="width:100%;height:100%;border-radius:50%;object-fit:cover;">
+            <div class="call-pulse-ring" style="inset:-6px; border-width:2px;"></div>
+        </div>
+        <div style="flex:1; min-width:120px; text-align: left;">
+            <div id="incomingCallName" style="color:#fff; font-size:16px; font-weight:800; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">Имя</div>
+            <div style="color:var(--text-muted); font-size:13px;">Видеозвонок...</div>
+        </div>
+        <div style="display:flex; gap:10px;">
+            <button id="btnDeclineCall" class="icon-btn" style="background:var(--danger); color:#fff; width:44px; height:44px; border-radius:50%; box-shadow:0 4px 10px rgba(255,69,58,0.4);"><i class="fa-solid fa-phone-slash"></i></button>
+            <button id="btnAcceptCall" class="icon-btn" style="background:#44bd32; color:#fff; width:44px; height:44px; border-radius:50%; box-shadow:0 4px 10px rgba(68,189,50,0.4);"><i class="fa-solid fa-phone"></i></button>
+        </div>
+    </div>
+
+    <!-- Плавающий виджет активного звонка (Сетка) -->
+    <div class="floating-call-widget hidden" id="floatingCallWidget">
+        <div class="fcw-drag-handle">
+            <div class="drag-bar"></div>
+        </div>
+        <div class="fcw-video-grid" id="fcwVideoGrid">
+            <div id="callStatusText" class="fcw-status">Соединение...</div>
+        </div>
+        <div class="fcw-controls">
+            <button id="btnToggleMic" class="icon-btn fcw-btn"><i class="fa-solid fa-microphone"></i></button>
+            <button id="btnToggleCam" class="icon-btn fcw-btn"><i class="fa-solid fa-video"></i></button>
+            <button id="btnEndCall" class="btn-post fcw-btn danger"><i class="fa-solid fa-phone-slash"></i></button>
+        </div>
+    </div>
+
+    <!-- ГЛОБАЛЬНЫЙ КИНОЗАЛ -->
+    <div class="floating-sr-widget hidden" id="floatingSRWidget">
+        <div class="fsr-drag-handle">
+            <div class="drag-bar"></div>
+        </div>
+        <div id="fsrControlsArea" class="fsr-controls-area">
+            <h3><i class="fa-solid fa-film" style="color:var(--accent-games);"></i> Запуск Кинозала</h3>
+            <div class="fsr-input-row">
+                <input type="text" id="fsrInputUrl" placeholder="Ссылка на YouTube">
+                <button id="fsrBtnStart" class="btn-post" style="background: var(--accent-games); color: #fff;">Запуск</button>
+            </div>
+            <div style="margin: 10px 0; color: var(--text-muted); font-size:12px;">ИЛИ</div>
+            <input type="file" id="fsrInputFile" accept="video/mp4,video/webm" style="display:none;">
+            <button id="fsrBtnUpload" class="btn-post" style="background: rgba(255,255,255,0.1); color: #fff; width:100%;"><i class="fa-solid fa-upload"></i> Загрузить MP4</button>
+        </div>
+        <div id="fsrVideoArea" class="fsr-video-area" style="display: none;">
+            <button id="fsrBtnClose" class="fsr-btn-close" title="Закрыть кинозал"><i class="fa-solid fa-xmark"></i></button>
+            <div id="fsrVideoTarget" style="width: 100%; height: 100%; position: relative;"></div>
+        </div>
+    </div>
+
+    <!-- Плеер музыки -->
     <div class="floating-mini-player hidden" id="floatingMiniPlayer">
         <div class="fmp-bg-blur" id="fmpBg"></div>
         <div class="fmp-drag-handle">
@@ -96,10 +154,6 @@
                 <i class="fa-solid fa-volume-low" id="fmpVolumeIcon"></i>
                 <input type="range" id="fmpVolumeBar" class="fmp-slider vol" value="100" min="0" max="100">
             </div>
-        </div>
-        <div class="fmp-docked-overlay" id="fmpDockedOverlay">
-            <img src="" class="fmp-docked-cover" id="fmpDockedCover">
-            <button id="fmpDockedPlayBtn" class="fmp-btn play docked-play"><i class="fa-solid fa-play"></i></button>
         </div>
     </div>
 
