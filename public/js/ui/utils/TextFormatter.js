@@ -8,54 +8,15 @@ export class TextFormatter {
         return div.innerHTML;
     }
 
-    static parse(rawText) {
-        if (!rawText) return '';
-        
-        // 1. Защита от XSS (превращаем теги в безопасные символы)
-        let html = this.escapeHTML(rawText);
-
-        // 2. ССЫЛКИ [url=https://...]Текст[/url]
-        // Выполняем до других тегов, чтобы защитить href от парсинга
-        html = html.replace(/\[url=([^\]]+)\]([\s\S]*?)\[\/url\]/gi, (match, url, text) => {
-            const cleanUrl = this.sanitizeUrl(url);
-            if (!cleanUrl) return text; // Если URL опасный, выводим просто текст
-            return `<a href="${cleanUrl}" target="_blank" rel="noopener noreferrer" class="cycle-link">${text}</a>`;
-        });
-
-        // 3. БЛОКИ (Центр, Право)
-        // Убираем \n вокруг блоков, чтобы не было пустых дыр в верстке
-        html = html.replace(/\n?\[center\]([\s\S]*?)\[\/center\]\n?/gi, '<div class="cycle-text-center">$1</div>');
-        html = html.replace(/\n?\[right\]([\s\S]*?)\[\/right\]\n?/gi, '<div class="cycle-text-right">$1</div>');
-
-        // 4. РАЗМЕРЫ
-        html = html.replace(/\[large\]([\s\S]*?)\[\/large\]/gi, '<span class="cycle-text-large">$1</span>');
-        html = html.replace(/\[small\]([\s\S]*?)\[\/small\]/gi, '<span class="cycle-text-small">$1</span>');
-
-        // 5. ИНЛАЙН ФОРМАТИРОВАНИЕ (Жирный, Подчеркнутый, Спойлер)
-        html = html.replace(/\*\*(.*?)\*\*/g, '<b>$1</b>');
-        html = html.replace(/__(.*?)__/g, '<u class="cycle-text-underline">$1</u>');
-        html = html.replace(/\|\|(.*?)\|\|/g, '<span class="post-spoiler" onclick="this.classList.toggle(\'revealed\')">$1</span>');
-
-        // 6. ЦИТАТЫ (Старый стандарт: > текст)
-        html = html.replace(/(?:^|\n)&gt; (.*)/g, '<div class="post-quote">$1</div>');
-        
-        // Подчищаем лишние переносы после закрытия блочных элементов
-        html = html.replace(/<\/div>\n/g, '</div>');
-
-        return html;
-    }
-
-    // Жесткая валидация URL-адресов
     static sanitizeUrl(url) {
         let decoded = url.replace(/&amp;/g, '&').trim();
-        // Автоматически подставляем https:// если пользователь забыл
+        // Подставляем протокол, если юзер ввел просто "youtube.com"
         if (!/^https?:\/\//i.test(decoded)) {
             decoded = 'https://' + decoded;
         }
-        
         try {
             const parsed = new URL(decoded);
-            // Разрешаем только безопасные протоколы (никаких javascript:alert())
+            // Разрешаем только безопасные протоколы
             if (parsed.protocol === 'http:' || parsed.protocol === 'https:') {
                 return parsed.href;
             }
@@ -63,5 +24,92 @@ export class TextFormatter {
             return null;
         }
         return null;
+    }
+
+    static parse(rawText) {
+        if (!rawText) return '';
+
+        // 1. Экранирование HTML (Защита от XSS)
+        let text = this.escapeHTML(rawText);
+
+        // 2. Ссылки (Обрабатываем первыми, чтобы защитить саму ссылку от форматирования)
+        // Пример: [url=test.com]Мой __сайт__[/url] -> <a href="...">Мой __сайт__</a>
+        text = text.replace(/\[url=([^\]]+?)\]([\s\S]+?)\[\/url\]/gi, (match, url, linkText) => {
+            const cleanUrl = this.sanitizeUrl(url);
+            return cleanUrl ? `<a href="${cleanUrl}" target="_blank" rel="noopener noreferrer" class="cycle-link">${linkText}</a>` : linkText;
+        });
+
+        // 3. Блочные элементы и размеры
+        const blockTags = [
+            { bb: 'center', open: '<div class="cycle-text-center">', close: '</div>' },
+            { bb: 'right', open: '<div class="cycle-text-right">', close: '</div>' },
+            { bb: 'large', open: '<span class="cycle-text-large">', close: '</span>' },
+            { bb: 'small', open: '<span class="cycle-text-small">', close: '</span>' }
+        ];
+
+        blockTags.forEach(t => {
+            const regex = new RegExp(`\\[${t.bb}\\]([\\s\\S]*?)\\[\\/${t.bb}\\]`, 'gi');
+            let prev;
+            // Делаем в цикле на случай вложенности одинаковых тегов (например [center][center]...[/center][/center])
+            do {
+                prev = text;
+                text = text.replace(regex, `${t.open}$1${t.close}`);
+            } while (text !== prev);
+        });
+
+        // 4. Инлайн форматирование (Жирный, Подчеркнутый, Спойлер)
+        // Запускаем в цикле, чтобы легко "переваривать" пересечения вроде **__текст__**
+        let prevInline;
+        do {
+            prevInline = text;
+            text = text.replace(/\*\*([\s\S]+?)\*\*/g, '<b>$1</b>');
+            text = text.replace(/__([\s\S]+?)__/g, '<u class="cycle-text-underline">$1</u>');
+            text = text.replace(/\|\|([\s\S]+?)\|\|/g, '<span class="post-spoiler" onclick="this.classList.toggle(\'revealed\')">$1</span>');
+        } while (text !== prevInline);
+
+        // 5. Цитаты (Интеллектуальная обработка многострочных цитат)
+        // Разбиваем на строки, чтобы аккуратно склеить несколько > в один красивый блок
+        const lines = text.split('\n');
+        let inQuote = false;
+        let resultHtml = '';
+
+        for (let i = 0; i < lines.length; i++) {
+            let line = lines[i];
+            
+            // Ищем строку, начинающуюся с > (с учетом экранирования &gt; и пробелов)
+            if (/^\s*&gt;/.test(line)) {
+                const quoteText = line.replace(/^\s*&gt;\s?/, ''); // Убираем саму стрелочку
+                
+                if (!inQuote) {
+                    resultHtml += `<div class="post-quote">`;
+                    inQuote = true;
+                } else {
+                    resultHtml += `<br>`; // Если это вторая строка цитаты, просто делаем перенос внутри блока
+                }
+                resultHtml += quoteText;
+            } else {
+                if (inQuote) {
+                    resultHtml += `</div>`; // Закрываем блок цитаты, если следующая строка обычная
+                    inQuote = false;
+                }
+                resultHtml += line + (i < lines.length - 1 ? '\n' : '');
+            }
+        }
+        
+        // Закрываем цитату, если она была в самом конце текста
+        if (inQuote) {
+            resultHtml += `</div>`;
+        }
+        text = resultHtml;
+
+        // 6. Финальная очистка переносов строк
+        // Превращаем оставшиеся \n в <br>
+        text = text.replace(/\n/g, '<br>');
+        
+        // Убираем уродливые пустые отступы (<br>) сразу до или после блочных элементов <div>
+        text = text.replace(/<br>\s*<div/g, '<div');
+        text = text.replace(/<\/div>\s*<br>/g, '</div>');
+
+        return text;
     }
 }
