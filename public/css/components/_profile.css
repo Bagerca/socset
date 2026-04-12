@@ -184,4 +184,13 @@
     
     .wall-input-container { flex-direction: row; align-items: center; }
     .wall-input-wrapper { width: 100%; }
+
+    /* ИСПРАВЛЕНИЕ ДЛЯ ГОРИЗОНТАЛЬНОГО СКРОЛЛА КАРУСЕЛИ ИГР */
+    .showcase-carousel {
+        width: calc(100% + 20px);
+        margin-left: -10px;
+        margin-right: -10px;
+        padding-left: 10px;
+        padding-right: 10px;
+    }
 }

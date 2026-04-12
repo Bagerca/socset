@@ -25,8 +25,16 @@ export class PostsStore {
         SocketService.on('update_post', (updatedPost) => {
             const index = this.posts.findIndex(p => p.id === updatedPost.id);
             if (index !== -1) {
-                this.posts[index] = this._personalize(updatedPost);
-                document.dispatchEvent(new CustomEvent('cycle:post_updated', { detail: this.posts[index] }));
+                const isOwner = updatedPost.author.username === this.authStore.user?.username;
+                const isAdmin = this.authStore.user?.isAdmin || this.authStore.user?.activeCommunityAdmin === updatedPost.community_id;
+                
+                if (updatedPost.visibility === 'private' && !isOwner && !isAdmin) {
+                    this.posts.splice(index, 1);
+                    document.dispatchEvent(new CustomEvent('cycle:post_deleted', { detail: updatedPost.id }));
+                } else {
+                    this.posts[index] = this._personalize(updatedPost);
+                    document.dispatchEvent(new CustomEvent('cycle:post_updated', { detail: this.posts[index] }));
+                }
             }
         });
 
@@ -174,8 +182,28 @@ export class PostsStore {
         await PostsAPI.likePost(postId);
     }
 
-    async togglePostVisibility(postId) { await PostsAPI.togglePostVisibility(postId); }
-    async votePoll(postId, optionId) { await PostsAPI.votePoll(postId, optionId); }
+    async togglePostVisibility(postId) { 
+        // ИСПРАВЛЕНИЕ: Оптимистичное обновление скрытия/открытия поста
+        const post = this.posts.find(p => p.id === postId);
+        if (post) {
+            post.visibility = post.visibility === 'public' ? 'private' : 'public';
+            document.dispatchEvent(new CustomEvent('cycle:post_updated', { detail: post }));
+        }
+        await PostsAPI.togglePostVisibility(postId); 
+    }
+
+    async votePoll(postId, optionId) { 
+        // ИСПРАВЛЕНИЕ: Оптимистичное обновление голоса в опросе
+        const post = this.posts.find(p => p.id === postId);
+        if (post && post.poll && !post.poll.votedOptionId) {
+            post.poll.votedOptionId = optionId;
+            post.poll.totalVotes++;
+            const opt = post.poll.options.find(o => o.id === optionId);
+            if (opt) opt.votes++;
+            document.dispatchEvent(new CustomEvent('cycle:post_updated', { detail: post }));
+        }
+        await PostsAPI.votePoll(postId, optionId); 
+    }
     
     async deleteComment(postId, commentId) {
         const post = this.posts.find(p => p.id === postId);

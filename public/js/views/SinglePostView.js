@@ -3,8 +3,8 @@ import { PostsAPI } from '../api/PostsAPI.js';
 import { PostComponent } from '../ui/widgets/PostComponent.js';
 import { CommentContextMenu } from '../ui/widgets/CommentContextMenu.js';
 
-export const SinglePostView = {
-    html: `
+export class SinglePostView {
+    static html = `
         <div class="single-post-page" style="max-width: 680px; margin: 0 auto; width: 100%; animation: fadeIn 0.3s ease;">
             <div class="sp-header" style="display: flex; align-items: center; gap: 16px; margin-bottom: 20px; cursor: pointer; padding: 0 10px; width: fit-content;" onclick="window.history.back()">
                 <button class="icon-btn" style="background: rgba(255,255,255,0.05); color: #fff;"><i class="fa-solid fa-arrow-left"></i></button>
@@ -13,14 +13,14 @@ export const SinglePostView = {
             
             <div id="singlePostWrapper"></div>
         </div>
-    `,
-    Manager: class {
+    `;
+    
+    static Manager = class {
         constructor(stores, postId) {
             this.stores = stores;
             this.postId = postId;
             this.wrapper = document.getElementById('singlePostWrapper');
             
-            // Инициализация контекстного меню для комментов
             this.commentMenu = new CommentContextMenu(this.stores, (deletedPostId) => {
                 const postEl = document.querySelector(`.post[data-id="${deletedPostId}"]`);
                 if (postEl && postEl.__component) postEl.__component._renderComments();
@@ -37,21 +37,23 @@ export const SinglePostView = {
                 if (res.post) {
                     this.wrapper.innerHTML = '';
                     
-                    // ИСПРАВЛЕНИЕ: Обязательная персонализация поста (подсчет лайков, реакций и т.д.)
                     const enrichedPost = this.stores.posts._personalize(res.post);
+                    
+                    // ИСПРАВЛЕНИЕ: Внедряем пост в глобальный массив, чтобы работал Optimistic UI и WebSockets!
+                    if (!this.stores.posts.posts.find(p => p.id === enrichedPost.id)) {
+                        this.stores.posts.posts.push(enrichedPost);
+                    } else {
+                        const idx = this.stores.posts.posts.findIndex(p => p.id === enrichedPost.id);
+                        this.stores.posts.posts[idx] = enrichedPost;
+                    }
                     
                     const comp = new PostComponent(enrichedPost, this.stores);
                     const el = comp.getElement();
                     
-                    // Раскрываем комментарии сразу
                     const commentsSec = el.querySelector('.comments-section');
-                    if (commentsSec) {
-                        commentsSec.classList.add('active');
-                    }
+                    if (commentsSec) commentsSec.classList.add('active');
                     
                     this.wrapper.appendChild(el);
-                    
-                    // Биндим контекстное меню
                     this.wrapper.addEventListener('contextmenu', (e) => this.commentMenu.handleContextMenu(e));
 
                 } else {

@@ -1,14 +1,13 @@
---- START OF FILE _base.css ---
-
 /* css/base/_base.css */
 
 :root { color-scheme: dark; }
 
 * { margin: 0; padding: 0; box-sizing: border-box; }
 
+/* ИСПРАВЛЕНИЕ: Единый центр управления скроллом. Никаких двойных контейнеров. */
 html {
-    overflow-y: scroll; 
-    scrollbar-gutter: stable;
+    overflow-x: hidden; /* Жестко отсекаем любой горизонтальный вылет */
+    overflow-y: scroll; /* Форсируем вертикальную полосу, чтобы верстка не прыгала */
     scrollbar-color: rgba(255, 255, 255, 0.15) transparent;
     scrollbar-width: thin;
 }
@@ -28,6 +27,8 @@ body {
     background-color: var(--bg-base);
     min-height: 100vh;
     word-break: break-word; 
+    width: 100%;
+    /* ВАЖНО: Здесь больше нет overflow, чтобы body не создавал вторую полосу прокрутки */
 }
 
 a { text-decoration: none; color: inherit; outline: none; }

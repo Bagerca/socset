@@ -22,15 +22,15 @@ export class PostRenderer {
         if (isPrivate) postClasses.push('private-post');
         if (post.attachment_type === 'game') postClasses.push('post-type-game');
 
-        let optionsMenuHTML = '';
-        if (isAuthor || isAdmin) {
-            optionsMenuHTML = `
-                <button class="icon-btn post-options-btn"><i class="fa-solid fa-ellipsis"></i></button>
-                <div class="options-menu">
-                    ${isAuthor ? `<div class="menu-item toggle-visibility-btn"><i class="fa-solid ${isPrivate ? 'fa-eye' : 'fa-eye-slash'}"></i><span>${isPrivate ? 'Сделать публичным' : 'Скрыть'}</span></div>` : ''}
-                    <div class="menu-item menu-item-danger delete-post-btn"><i class="fa-solid fa-trash-can"></i><span>Удалить</span></div>
-                </div>`;
-        }
+        // ИСПРАВЛЕНИЕ: Новое расширенное меню
+        let optionsMenuHTML = `
+            <button class="icon-btn post-options-btn"><i class="fa-solid fa-ellipsis"></i></button>
+            <div class="options-menu">
+                <div class="menu-item save-post-btn"><i class="fa-regular fa-bookmark"></i><span>Сохранить</span></div>
+                ${isAuthor ? `<div class="menu-item toggle-visibility-btn"><i class="fa-solid ${isPrivate ? 'fa-eye' : 'fa-eye-slash'}"></i><span>${isPrivate ? 'Сделать публичным' : 'Скрыть'}</span></div>` : ''}
+                ${!isAuthor ? `<div class="menu-item report-post-btn"><i class="fa-solid fa-flag"></i><span>Пожаловаться</span></div>` : ''}
+                ${(isAuthor || isAdmin) ? `<div class="menu-item menu-item-danger delete-post-btn"><i class="fa-solid fa-trash-can"></i><span>Удалить</span></div>` : ''}
+            </div>`;
 
         const formattedTime = formatTime(post.timestamp);
         const profileLink = `#/profile/${encodeURIComponent(authorData.username)}`;
@@ -70,7 +70,7 @@ export class PostRenderer {
                                 <a href="${profileLink}" class="post-username-link"><span class="post-username">@${escapeHTML(authorData.username)}</span></a>
                                 <span class="meta-divider">·</span>
                                 <span class="post-time">${formattedTime} ${pendingIcon}</span>
-                                <span class="post-visibility-icon" title="${isPrivate ? 'Приватный' : 'Публичный'}"><i class="fa-solid ${isPrivate ? 'fa-lock' : 'fa-globe'}"></i></span>
+                                <span class="post-visibility-icon" title="${isPrivate ? 'Только для вас' : 'Публичный'}"><i class="fa-solid ${isPrivate ? 'fa-lock' : 'fa-globe'}"></i></span>
                             </div>
                         </div>
                         
@@ -246,18 +246,10 @@ export class PostRenderer {
     static createAttachmentHTML(attachment, stores) {
         if (!attachment) return '';
         
-        // ИСПРАВЛЕНИЕ РЕПОСТОВ
         if (attachment.type === 'repost') {
-            // 1. Сначала извлекаем медиа из сырого контента
             const { textContent, mediaHTML } = this.parseMediaContent(attachment.content || '', false);
-            
-            // 2. Прогоняем оставшийся текст через форматер
             const formattedText = parseFormatting(textContent);
-
-            // 3. Собираем вложенные игры/музыку
             let origAttHTML = this.createAttachmentHTML(attachment.originalAttachment, stores);
-            
-            // 4. Добавляем ID и иконку перехода
             const postIdAttr = attachment.originalPostId ? `data-post-id="${attachment.originalPostId}"` : '';
             const linkIcon = attachment.originalPostId ? `<i class="fa-solid fa-arrow-up-right-from-square" style="margin-left:auto; font-size:12px; opacity:0.5; color:var(--text-muted);"></i>` : '';
 

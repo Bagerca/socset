@@ -128,6 +128,15 @@ export class AppInitializer {
             burgerBtn.addEventListener('click', (e) => { e.stopPropagation(); subSidebar.classList.toggle('active'); burgerBtn.classList.toggle('active'); });
             document.addEventListener('click', (e) => { if (!subSidebar.contains(e.target) && !burgerBtn.contains(e.target)) { subSidebar.classList.remove('active'); burgerBtn.classList.remove('active'); } });
         }
+
+        // ИСПРАВЛЕНИЕ: Глобальное закрытие менюшек постов (Трех точек)
+        document.addEventListener('click', (e) => {
+            if (!e.target.closest('.post-options-btn') && !e.target.closest('.options-menu')) {
+                document.querySelectorAll('.post .options-menu.active').forEach(menu => {
+                    menu.classList.remove('active');
+                });
+            }
+        });
     }
 
     _injectAdminLink() {

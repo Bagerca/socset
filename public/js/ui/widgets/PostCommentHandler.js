@@ -14,7 +14,7 @@ export class PostCommentHandler {
         
         this.audioRecorder = new CommentAudioRecorder(this.stores, this.post.id);
         this.pendingAttachments = [];
-        this.replyTargetUser = null; // Храним никнейм того, кому отвечаем
+        this.replyTargetUser = null; 
         
         this.init();
     }
@@ -28,7 +28,7 @@ export class PostCommentHandler {
 
     renderLayout() {
         const currentUser = this.stores.auth.user;
-        // НОВАЯ СТРУКТУРА ВВОДА: Добавлена панель контекста ответа и Textarea
+        // ИСПРАВЛЕНИЕ: Убрали жесткие ID (id="commentPill_${this.post.id}"), перешли на классы.
         this.container.innerHTML = `
             <div class="comments-section-inner">
                 <div class="comments-list"></div>
@@ -40,12 +40,12 @@ export class PostCommentHandler {
                     <div class="comment-input-island">
                         <div class="comment-attachment-preview" style="display:none;"></div>
                         
-                        <div class="comment-context-bar" id="replyContextBar_${this.post.id}">
-                            <div class="ccb-info"><i class="fa-solid fa-reply"></i> Ответ <span id="replyTargetName_${this.post.id}"></span></div>
-                            <button class="ccb-close" id="cancelReplyBtn_${this.post.id}"><i class="fa-solid fa-xmark"></i></button>
+                        <div class="comment-context-bar">
+                            <div class="ccb-info"><i class="fa-solid fa-reply"></i> Ответ <span class="reply-target-name"></span></div>
+                            <button class="ccb-close"><i class="fa-solid fa-xmark"></i></button>
                         </div>
 
-                        <div class="comment-input-pill" id="commentPill_${this.post.id}">
+                        <div class="comment-input-pill">
                             <input type="file" class="comment-file-input" style="display:none;" accept="image/*">
                             <button class="attach-comment-media-btn" title="Прикрепить фото"><i class="fa-solid fa-image"></i></button>
                             
@@ -61,6 +61,7 @@ export class PostCommentHandler {
     }
 
     cacheDOM() {
+        // ИСПРАВЛЕНИЕ: Ищем элементы только по классам внутри конкретного контейнера поста
         this.listEl = this.container.querySelector('.comments-list');
         this.inputEl = this.container.querySelector('.comment-textarea');
         this.fileInputEl = this.container.querySelector('.comment-file-input');
@@ -68,9 +69,10 @@ export class PostCommentHandler {
         this.sendBtn = this.container.querySelector('.send-comment-btn');
         this.voiceBtn = this.container.querySelector('.record-btn');
         
-        this.replyContextBar = this.container.querySelector(`#replyContextBar_${this.post.id}`);
-        this.replyTargetName = this.container.querySelector(`#replyTargetName_${this.post.id}`);
-        this.cancelReplyBtn = this.container.querySelector(`#cancelReplyBtn_${this.post.id}`);
+        this.replyContextBar = this.container.querySelector('.comment-context-bar');
+        this.replyTargetName = this.container.querySelector('.reply-target-name');
+        this.cancelReplyBtn = this.container.querySelector('.ccb-close');
+        this.inputPill = this.container.querySelector('.comment-input-pill');
     }
 
     updateComments(comments) {
@@ -162,8 +164,7 @@ export class PostCommentHandler {
                 return;
             }
             
-            // Диктофон
-            if (target.closest('.record-btn')) return this.audioRecorder.start(this.container.querySelector(`#commentPill_${this.post.id}`));
+            if (target.closest('.record-btn')) return this.audioRecorder.start(this.inputPill);
             if (target.closest('.rec-btn.stop')) return this.audioRecorder.stop();
             if (target.closest('.rec-btn.cancel')) return this.audioRecorder.cancel();
             if (target.closest('.rec-btn.send')) return this.audioRecorder.send();
@@ -261,7 +262,6 @@ export class PostCommentHandler {
     async handleSend() {
         let textContent = this.inputEl ? this.inputEl.value.trim() : '';
         
-        // Внедряем никнейм в самое начало, если есть активный контекст ответа
         if (this.replyTargetUser && (textContent.length > 0 || this.pendingAttachments.length > 0)) {
             textContent = `@${this.replyTargetUser}, ${textContent}`;
         }
@@ -290,7 +290,7 @@ export class PostCommentHandler {
             await this.stores.posts.addComment(this.post.id, textContent, 'text'); 
             if (this.inputEl) {
                 this.inputEl.value = ''; 
-                this.inputEl.style.height = 'auto'; // Сброс размера
+                this.inputEl.style.height = 'auto'; 
             }
             this.clearReplyContext();
         }

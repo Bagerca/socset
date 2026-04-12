@@ -3,17 +3,31 @@ import { PostRenderer } from '../renderers/PostRenderer.js';
 import { PostCommentHandler } from './PostCommentHandler.js';
 import { ProfileAPI } from '../../api/ProfileAPI.js';
 import { Toast } from '../utils/Toast.js';
+import { ConfirmModal } from '../modals/ConfirmModal.js';
 
 export class PostComponent {
     constructor(post, stores) {
         this.post = post;
         this.stores = stores;
         
-        this.element = document.createElement('article');
+        // ИСПРАВЛЕНИЕ: Избавляемся от <article>. 
+        // Парсим строку и привязываем логику прямо к элементу .post
+        const temp = document.createElement('div');
+        temp.innerHTML = PostRenderer.renderPost(this.post, this.stores);
+        this.element = temp.firstElementChild; 
+        
+        // Теперь AppInitializer гарантированно найдет метод updateUI!
         this.element.__component = this; 
         
-        this.render();
+        this.initComments();
         this.bindEvents();
+    }
+
+    initComments() {
+        const commentsContainer = this.element.querySelector(`#comments-sec-${this.post.id}`);
+        if (commentsContainer) {
+            this.commentHandler = new PostCommentHandler(commentsContainer, this.post, this.stores);
+        }
     }
 
     getElement() { return this.element; }
@@ -34,6 +48,7 @@ export class PostComponent {
         if (commentsCount) commentsCount.textContent = this.post.comments ? this.post.comments.length : 0;
         
         if (this.commentHandler) {
+            this.commentHandler.post = this.post; 
             this.commentHandler.updateComments(this.post.comments);
         }
 
@@ -46,15 +61,10 @@ export class PostComponent {
         const isPrivate = this.post.visibility === 'private';
         this.element.classList.toggle('private-post', isPrivate);
         const toggleVisBtn = this.element.querySelector('.toggle-visibility-btn');
-        if (toggleVisBtn) toggleVisBtn.innerHTML = `<i class="fa-solid ${isPrivate ? 'fa-eye' : 'fa-eye-slash'}"></i><span>${isPrivate ? 'Сделать публичным' : 'Скрыть'}</span>`;
-    }
-
-    render() {
-        this.element.innerHTML = PostRenderer.renderPost(this.post, this.stores);
-        
-        const commentsContainer = this.element.querySelector(`#comments-sec-${this.post.id}`);
-        if (commentsContainer) {
-            this.commentHandler = new PostCommentHandler(commentsContainer, this.post, this.stores);
+        if (toggleVisBtn) {
+            toggleVisBtn.innerHTML = `<i class="fa-solid ${isPrivate ? 'fa-eye' : 'fa-eye-slash'}"></i><span>${isPrivate ? 'Сделать публичным' : 'Скрыть'}</span>`;
+            const visIcon = this.element.querySelector('.post-visibility-icon i');
+            if (visIcon) visIcon.className = `fa-solid ${isPrivate ? 'fa-lock' : 'fa-globe'}`;
         }
     }
 
@@ -67,7 +77,6 @@ export class PostComponent {
         
         if (target.closest('.comments-section')) return;
 
-        // ИСПРАВЛЕНИЕ: Обработка клика по репосту
         const repostCard = target.closest('.post-repost-card');
         if (repostCard && repostCard.dataset.postId && !target.closest('a')) {
             window.location.hash = `/post/${repostCard.dataset.postId}`;
@@ -79,7 +88,7 @@ export class PostComponent {
             !target.closest('.poll-wrapper') && !target.closest('.post-music-play-btn') &&
             !target.closest('.post-spoiler') && !target.closest('.cycle-media-img') && 
             !target.closest('.cycle-audio-btn') && !target.closest('.post-game-card') &&
-            !target.closest('.post-repost-card')) { // Добавили исключение для репоста
+            !target.closest('.post-repost-card')) { 
             
             if (!window.location.hash.startsWith(`#/post/${this.post.id}`)) { window.location.hash = `/post/${this.post.id}`; }
             return;
@@ -88,17 +97,28 @@ export class PostComponent {
         if (target.closest('.post-options-btn')) {
             const btn = target.closest('.post-options-btn');
             const menu = btn.nextElementSibling;
-            document.querySelectorAll('.options-menu.active').forEach(m => { if(m !== menu) m.classList.remove('active'); });
-            menu.classList.toggle('active');
+            const isActive = menu.classList.contains('active');
+            
+            document.querySelectorAll('.post .options-menu.active').forEach(m => m.classList.remove('active'));
+            if (!isActive) menu.classList.add('active');
             return;
-        } else {
-            const activeMenu = this.element.querySelector('.options-menu.active');
-            if (activeMenu && !target.closest('.options-menu')) activeMenu.classList.remove('active');
+        }
+
+        if (target.closest('.delete-post-btn')) return this.handleDelete();
+        if (target.closest('.toggle-visibility-btn')) {
+            this.element.querySelector('.options-menu').classList.remove('active');
+            return this.stores.posts.togglePostVisibility(this.post.id);
+        }
+        if (target.closest('.save-post-btn')) {
+            this.element.querySelector('.options-menu').classList.remove('active');
+            return Toast.show('Функция сохранения в разработке', 'info');
+        }
+        if (target.closest('.report-post-btn')) {
+            this.element.querySelector('.options-menu').classList.remove('active');
+            return Toast.show('Жалоба отправлена модераторам', 'success');
         }
 
         if (target.closest('.like-btn')) return this.stores.posts.toggleLike(this.post.id);
-        if (target.closest('.delete-post-btn')) return this.handleDelete();
-        if (target.closest('.toggle-visibility-btn')) return this.stores.posts.togglePostVisibility(this.post.id);
         if (target.closest('.poll-vote-btn')) return this.stores.posts.votePoll(this.post.id, target.closest('.poll-vote-btn').dataset.optionId);
         
         if (target.closest('.action-btn-comment')) {
@@ -114,7 +134,17 @@ export class PostComponent {
     }
 
     async handleDelete() {
-        if (confirm('Удалить пост?')) {
+        this.element.querySelector('.options-menu').classList.remove('active');
+
+        const confirmed = await ConfirmModal.show({
+            title: 'Удаление записи',
+            message: 'Вы уверены, что хотите навсегда удалить этот пост? Это действие нельзя отменить.',
+            confirmText: 'Удалить',
+            cancelText: 'Отмена',
+            danger: true
+        });
+
+        if (confirmed) {
             await this.stores.posts.deletePost(this.post.id);
             this.element.remove(); 
             if (window.location.hash.startsWith(`#/post/${this.post.id}`)) { window.history.back(); }
@@ -122,7 +152,13 @@ export class PostComponent {
     }
 
     async handleRepost() { 
-        if(confirm('Сделать репост этой записи к себе в ленту?')) await this.stores.posts.repostPost(this.post.id); 
+        const confirmed = await ConfirmModal.show({
+            title: 'Поделиться',
+            message: 'Сделать репост этой записи к себе на страницу?',
+            confirmText: 'Репост',
+            cancelText: 'Отмена'
+        });
+        if (confirmed) await this.stores.posts.repostPost(this.post.id); 
     }
 
     handleShare(btn) {

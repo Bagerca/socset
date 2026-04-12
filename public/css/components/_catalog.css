@@ -61,7 +61,7 @@
 .game-tier-badge { position: absolute; top: 10px; left: 10px; padding: 3px var(--space-sm); border-radius: var(--space-xs); font-size: 10px; font-weight: 800; text-transform: uppercase; color: #fff; box-shadow: 0 2px 8px rgba(0,0,0,0.5); z-index: 5; }
 .game-fav-btn { position: absolute; top: 10px; right: 10px; width: 32px; height: 32px; border-radius: 50%; background: rgba(0,0,0,0.6); backdrop-filter: blur(4px); border: 1px solid rgba(255,255,255,0.1); color: #fff; display: flex; align-items: center; justify-content: center; cursor: pointer; opacity: 0; transform: translateY(-10px); transition: var(--transition-fast); z-index: 10; }
 .game-card:hover .game-fav-btn { opacity: 1; transform: translateY(0); }
-.game-fav-btn.active { opacity: 1; transform: translateY(0); color: var(--danger); border-color: rgba(255,69,58,0.3); }
+.game-fav-btn.active { opacity: 1; transform: translateY(0); color: var(--danger); border-color: rgba(255,69,58,0.3); background: rgba(255,69,58,0.1) !important; }
 
 .game-info { padding: 14px; background: var(--surface); display: flex; flex-direction: column; gap: 6px; flex: 1; }
 .game-title { font-weight: 700; font-size: var(--font-md); color: #fff; line-height: 1.2; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
@@ -104,6 +104,16 @@
     .games-search-wrapper { width: 100%; flex: none; }
     .filter-toggle-btn { width: 100%; justify-content: center; }
     .filter-drawer { width: 100%; right: -100%; padding: var(--space-lg) var(--space-md); border-left: none; }
+    
+    /* ИСПРАВЛЕНИЕ ДЛЯ ГОРИЗОНТАЛЬНОГО СКРОЛЛА */
+    .games-chips-wrapper,
+    .games-scroll-mask {
+        width: calc(100% + 20px);
+        margin: 0 -10px;
+    }
+    .games-horizontal-scroll {
+        padding: 10px 10px 20px 10px;
+    }
 }
 
 /* --- СТРАНИЦА ИГРЫ --- */

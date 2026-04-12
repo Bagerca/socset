@@ -59,3 +59,92 @@
     .gd-info { align-items: center; }
     .attached-content-preview { flex-direction: column; align-items: flex-start; } /* Вложения могут быть длинными */
 }
+
+/* css/components/_modals.css */
+
+/* ... ВЕСЬ ТВОЙ ПРЕДЫДУЩИЙ КОД ФАЙЛА ... */
+
+/* ======================================================= */
+/* CONFIRM MODAL (Окно подтверждения)                      */
+/* ======================================================= */
+.confirm-modal-content {
+    max-width: 400px;
+    padding: 24px;
+    text-align: center;
+    gap: 16px;
+    background: rgba(20, 20, 24, 0.95);
+    backdrop-filter: blur(20px);
+}
+
+.confirm-header {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 12px;
+}
+
+.confirm-icon {
+    width: 48px;
+    height: 48px;
+    border-radius: 50%;
+    background: rgba(255, 255, 255, 0.1);
+    color: var(--text-main);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 24px;
+}
+
+.confirm-icon.danger {
+    background: rgba(255, 69, 58, 0.15);
+    color: var(--danger);
+    box-shadow: 0 4px 15px rgba(255, 69, 58, 0.3);
+}
+
+.confirm-title {
+    font-size: 20px;
+    font-weight: 800;
+    color: #fff;
+    margin: 0;
+}
+
+.confirm-body p {
+    font-size: 15px;
+    color: var(--text-muted);
+    line-height: 1.5;
+    margin: 0;
+}
+
+.confirm-actions {
+    display: flex;
+    gap: 12px;
+    margin-top: 8px;
+    width: 100%;
+}
+
+.confirm-actions button {
+    flex: 1;
+    padding: 12px;
+    font-size: 15px;
+}
+
+.confirm-actions .cancel-btn {
+    background: rgba(255, 255, 255, 0.05);
+    color: #fff;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.confirm-actions .cancel-btn:hover {
+    background: rgba(255, 255, 255, 0.1);
+}
+
+.confirm-actions .danger-btn {
+    background: var(--danger);
+    color: #fff;
+    border: none;
+}
+
+.confirm-actions .danger-btn:hover {
+    background: #ff2a1f;
+    box-shadow: 0 4px 15px rgba(255, 69, 58, 0.4);
+}
