@@ -16,22 +16,23 @@ export class CommentAudioRecorder {
     async start(targetPillEl) {
         if (this.activeRecording) return;
         
-        // targetPillEl - это теперь блок `.comment-input-pill`
         const originalHTML = targetPillEl.innerHTML;
         const originalStyles = targetPillEl.style.cssText;
+        const textarea = targetPillEl.querySelector('.comment-textarea');
+        const savedText = textarea ? textarea.value : '';
         
         const barsHTML = Array(20).fill('<div class="rec-bar"></div>').join('');
         
-        // Меняем стиль пилюли, чтобы она выглядела как диктофон
         targetPillEl.style.padding = '4px 12px';
         targetPillEl.style.border = '1px solid var(--danger)';
         targetPillEl.style.backgroundColor = 'rgba(255, 69, 58, 0.05)';
+        targetPillEl.style.alignItems = 'center';
         
         targetPillEl.innerHTML = `
-            <div class="chat-recording-widget" style="padding: 0; border: none; background: transparent;">
+            <div class="chat-recording-widget" style="padding: 0; border: none; background: transparent; height: 36px; margin: 0;">
                 <div class="rec-indicator"></div>
                 <div class="rec-timer">0:00</div>
-                <div class="rec-visualizer">${barsHTML}</div>
+                <div class="rec-visualizer" style="height: 24px;">${barsHTML}</div>
                 <div class="rec-controls">
                     <button class="rec-btn stop" title="Стоп"><i class="fa-solid fa-stop"></i></button>
                     <button class="rec-btn cancel" title="Отмена"><i class="fa-solid fa-xmark"></i></button>
@@ -41,7 +42,7 @@ export class CommentAudioRecorder {
         const success = await this.audioService.start();
         
         if (success) {
-            this.activeRecording = { originalHTML, originalStyles, containerEl: targetPillEl, startTime: Date.now(), data: null };
+            this.activeRecording = { originalHTML, originalStyles, savedText, containerEl: targetPillEl, startTime: Date.now(), data: null };
             
             this.recordingTimer = setInterval(() => {
                 const diff = Math.floor((Date.now() - this.activeRecording.startTime) / 1000);
@@ -62,8 +63,7 @@ export class CommentAudioRecorder {
             };
             animateWave();
         } else {
-            targetPillEl.innerHTML = originalHTML;
-            targetPillEl.style.cssText = originalStyles;
+            this._restoreOriginalUI(targetPillEl, originalHTML, originalStyles, savedText);
         }
     }
 
@@ -71,14 +71,11 @@ export class CommentAudioRecorder {
         if (!this.activeRecording) return;
         clearInterval(this.recordingTimer);
         
-        const tempOriginal = this.activeRecording.originalHTML;
-        const tempStyles = this.activeRecording.originalStyles;
-        const containerEl = this.activeRecording.containerEl;
+        const { originalHTML, originalStyles, savedText, containerEl } = this.activeRecording;
         
         const result = await this.audioService.stop();
         if (!result) {
-            containerEl.innerHTML = tempOriginal;
-            containerEl.style.cssText = tempStyles;
+            this._restoreOriginalUI(containerEl, originalHTML, originalStyles, savedText);
             this.activeRecording = null;
             return;
         }
@@ -92,7 +89,7 @@ export class CommentAudioRecorder {
             const barsHTML = result.waveform.slice(0, 20).map(h => `<div class="rec-bar" style="height: ${Math.max(15, h)}%; background: var(--text-muted);"></div>`).join('');
             widget.innerHTML = `
                 <button class="rec-btn play-preview"><i class="fa-solid fa-play"></i></button>
-                <div class="rec-visualizer" style="opacity: 1;">${barsHTML}</div>
+                <div class="rec-visualizer" style="opacity: 1; height: 24px;">${barsHTML}</div>
                 <div class="rec-controls">
                     <button class="rec-btn cancel" title="Удалить"><i class="fa-solid fa-trash"></i></button>
                     <button class="rec-btn send" title="Отправить"><i class="fa-solid fa-arrow-up"></i></button>
@@ -131,6 +128,13 @@ export class CommentAudioRecorder {
     async send() {
         if (!this.activeRecording || !this.activeRecording.data) return;
         
+        const containerEl = this.activeRecording.containerEl;
+        const sendBtn = containerEl.querySelector('.rec-btn.send');
+        if (sendBtn) {
+            sendBtn.disabled = true;
+            sendBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i>';
+        }
+
         const file = new File([this.activeRecording.data.blob], "voice.mp3", { type: "audio/mp3" });
         const res = await UploadAPI.uploadFile(file);
         
@@ -139,16 +143,30 @@ export class CommentAudioRecorder {
             this.cancel();
         } else {
             Toast.show("Ошибка загрузки аудио", "error");
+            if (sendBtn) {
+                sendBtn.disabled = false;
+                sendBtn.innerHTML = '<i class="fa-solid fa-arrow-up"></i>';
+            }
         }
     }
 
     cancel() {
         clearInterval(this.recordingTimer);
         if (this.activeRecording && this.activeRecording.containerEl) {
-            this.activeRecording.containerEl.innerHTML = this.activeRecording.originalHTML;
-            this.activeRecording.containerEl.style.cssText = this.activeRecording.originalStyles;
+            this._restoreOriginalUI(this.activeRecording.containerEl, this.activeRecording.originalHTML, this.activeRecording.originalStyles, this.activeRecording.savedText);
         }
         this.activeRecording = null;
         if (this.previewAudio) { this.previewAudio.pause(); this.previewAudio = null; }
+    }
+
+    _restoreOriginalUI(containerEl, html, styles, text) {
+        containerEl.innerHTML = html;
+        containerEl.style.cssText = styles;
+        const textarea = containerEl.querySelector('.comment-textarea');
+        if (textarea) {
+            textarea.value = text;
+            textarea.style.height = 'auto';
+            textarea.style.height = (textarea.scrollHeight) + 'px';
+        }
     }
 }

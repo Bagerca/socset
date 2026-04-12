@@ -48,7 +48,6 @@ export class AudioRecorderUI {
                 </div>
             `;
             
-            // ИСПРАВЛЕНИЕ: Вставляем виджет строго в родителя кнопки микрофона
             this.voiceBtnEl.parentNode.insertBefore(widget, this.voiceBtnEl);
 
             this.activeRecording = { widget, startTime: Date.now(), data: null };

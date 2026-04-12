@@ -118,7 +118,21 @@ export class PostRenderer {
             rawContent = `[AUDIO:${comment.content}|${waveStr}]`;
         }
 
-        const { textContent, mediaHTML } = this.parseMediaContent(rawContent, true);
+        let { textContent, mediaHTML } = this.parseMediaContent(rawContent, true);
+
+        // --- НОВАЯ ЛОГИКА: ПАРСИНГ ОТВЕТОВ ---
+        let replyBadgeHTML = '';
+        const mentionMatch = textContent.match(/^@([a-zA-Z0-9_]+)[,\s]+/);
+        if (mentionMatch) {
+            const mentionedUser = mentionMatch[1];
+            textContent = textContent.replace(/^@([a-zA-Z0-9_]+)[,\s]+/, '').trim();
+            replyBadgeHTML = `
+                <div class="comment-reply-badge">
+                    <i class="fa-solid fa-reply"></i> Ответ <span onclick="window.location.hash='#/profile/${encodeURIComponent(mentionedUser)}'">@${escapeHTML(mentionedUser)}</span>
+                </div>
+            `;
+        }
+        // -------------------------------------
 
         let contentHTML = '';
         if (textContent) {
@@ -134,8 +148,7 @@ export class PostRenderer {
 
         const nameHTML = ProfileRenderer.renderUserName(authorData.name, authorData.fontId, stores.shop);
         const titleHTML = ProfileRenderer.renderUserTitle(authorData.titleId, stores.shop);
-
-        // ИСПРАВЛЕНИЕ: Добавлен comment-media-wrapper для защиты отступов
+        
         const mediaBlock = mediaHTML ? `<div class="comment-media-wrapper" style="margin-top: 4px; margin-bottom: 8px;">${mediaHTML}</div>` : '';
 
         return `
@@ -153,10 +166,11 @@ export class PostRenderer {
                             <a href="${profileLink}" class="comment-name-link"><span class="comment-author">${nameHTML}</span></a>
                             ${this.createBadgeHTML(authorData.isVerified, authorData.verifiedBadgeType)}
                             ${titleHTML}
-                            <span class="meta-divider" style="margin: 0 2px;">·</span>
+                            <span class="meta-divider" style="margin: 0 4px;">·</span>
                             <span class="comment-date">${formatTime(comment.timestamp)} ${pendingIcon}</span>
                         </div>
                     </div>
+                    ${replyBadgeHTML}
                     ${contentHTML}
                     ${mediaBlock}
                     <div class="comment-actions">
@@ -182,7 +196,6 @@ export class PostRenderer {
         while ((match = imgRegex.exec(textContent)) !== null) { images.push(match[1]); }
         textContent = textContent.replace(imgRegex, '');
 
-        // ИСПРАВЛЕННЫЙ REGEX: теперь он корректно захватывает закрывающую скобку массива
         const audioRegex = /\[AUDIO:([^|\]]+)(?:\|(\[.*?\]))?\]/g;
         while ((match = audioRegex.exec(textContent)) !== null) {
             let url = match[1];

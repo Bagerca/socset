@@ -4,7 +4,7 @@ import { CommentAudioRecorder } from '../editors/CommentAudioRecorder.js';
 import { UploadAPI } from '../../api/UploadAPI.js';
 import { MediaProcessorService } from '../../services/MediaProcessorService.js';
 import { Toast } from '../utils/Toast.js';
-import { formatTime } from '../utils/utils.js';
+import { formatTime, escapeHTML } from '../utils/utils.js';
 
 export class PostCommentHandler {
     constructor(container, post, stores) {
@@ -14,6 +14,7 @@ export class PostCommentHandler {
         
         this.audioRecorder = new CommentAudioRecorder(this.stores, this.post.id);
         this.pendingAttachments = [];
+        this.replyTargetUser = null; // Храним никнейм того, кому отвечаем
         
         this.init();
     }
@@ -27,20 +28,29 @@ export class PostCommentHandler {
 
     renderLayout() {
         const currentUser = this.stores.auth.user;
+        // НОВАЯ СТРУКТУРА ВВОДА: Добавлена панель контекста ответа и Textarea
         this.container.innerHTML = `
             <div class="comments-section-inner">
                 <div class="comments-list"></div>
-                <div class="comment-input-area">
+                <div class="comment-compose-wrapper">
                     <div class="comment-avatar-container">
                         <img src="${currentUser.avatar}" class="comment-input-avatar" onerror="this.src='img/logo.svg'">
                         ${PostRenderer.createFrameHTML(currentUser.frameId, this.stores.shop)}
                     </div>
-                    <div style="flex:1; display:flex; flex-direction:column; min-width:0;">
+                    <div class="comment-input-island">
                         <div class="comment-attachment-preview" style="display:none;"></div>
+                        
+                        <div class="comment-context-bar" id="replyContextBar_${this.post.id}">
+                            <div class="ccb-info"><i class="fa-solid fa-reply"></i> Ответ <span id="replyTargetName_${this.post.id}"></span></div>
+                            <button class="ccb-close" id="cancelReplyBtn_${this.post.id}"><i class="fa-solid fa-xmark"></i></button>
+                        </div>
+
                         <div class="comment-input-pill" id="commentPill_${this.post.id}">
                             <input type="file" class="comment-file-input" style="display:none;" accept="image/*">
                             <button class="attach-comment-media-btn" title="Прикрепить фото"><i class="fa-solid fa-image"></i></button>
-                            <input type="text" class="comment-input" placeholder="Написать комментарий...">
+                            
+                            <textarea class="comment-textarea" placeholder="Написать комментарий..." rows="1"></textarea>
+                            
                             <button class="record-btn" title="Голосовой"><i class="fa-solid fa-microphone"></i></button>
                             <button class="send-comment-btn" title="Отправить" style="display:none;"><i class="fa-solid fa-arrow-up"></i></button>
                         </div>
@@ -52,11 +62,15 @@ export class PostCommentHandler {
 
     cacheDOM() {
         this.listEl = this.container.querySelector('.comments-list');
-        this.inputEl = this.container.querySelector('.comment-input');
+        this.inputEl = this.container.querySelector('.comment-textarea');
         this.fileInputEl = this.container.querySelector('.comment-file-input');
         this.previewContainer = this.container.querySelector('.comment-attachment-preview');
         this.sendBtn = this.container.querySelector('.send-comment-btn');
         this.voiceBtn = this.container.querySelector('.record-btn');
+        
+        this.replyContextBar = this.container.querySelector(`#replyContextBar_${this.post.id}`);
+        this.replyTargetName = this.container.querySelector(`#replyTargetName_${this.post.id}`);
+        this.cancelReplyBtn = this.container.querySelector(`#cancelReplyBtn_${this.post.id}`);
     }
 
     updateComments(comments) {
@@ -130,7 +144,6 @@ export class PostCommentHandler {
     }
 
     bindEvents() {
-        // Делегирование событий ТОЛЬКО для комментариев
         this.container.addEventListener('click', (e) => {
             const target = e.target;
             
@@ -145,11 +158,7 @@ export class PostCommentHandler {
             }
             if (target.closest('.comment-reply-btn')) {
                 const username = target.closest('.comment-reply-btn').dataset.username;
-                const mention = `@${username}, `;
-                if (this.inputEl) {
-                    if (this.inputEl.value.length > 0 && !this.inputEl.value.endsWith(' ')) this.inputEl.value += ' ';
-                    this.inputEl.value += mention; this.inputEl.focus();
-                }
+                this.setReplyContext(username);
                 return;
             }
             
@@ -161,9 +170,21 @@ export class PostCommentHandler {
             if (target.closest('.rec-btn.play-preview')) return this.audioRecorder.playPreview(target.closest('.rec-btn.play-preview'));
         });
 
+        if (this.cancelReplyBtn) {
+            this.cancelReplyBtn.addEventListener('click', () => this.clearReplyContext());
+        }
+
         if (this.inputEl) {
-            this.inputEl.addEventListener('keydown', (e) => { if (e.key === 'Enter') this.handleSend(); });
-            this.inputEl.addEventListener('input', () => this.updateInputButtons());
+            this.inputEl.addEventListener('keydown', (e) => { 
+                if (e.key === 'Enter' && !e.shiftKey) {
+                    e.preventDefault();
+                    this.handleSend(); 
+                }
+            });
+            this.inputEl.addEventListener('input', () => {
+                this.autoResizeTextarea();
+                this.updateInputButtons();
+            });
         }
 
         if (this.fileInputEl) {
@@ -183,6 +204,23 @@ export class PostCommentHandler {
         }
     }
 
+    autoResizeTextarea() {
+        this.inputEl.style.height = 'auto';
+        this.inputEl.style.height = (this.inputEl.scrollHeight) + 'px';
+    }
+
+    setReplyContext(username) {
+        this.replyTargetUser = username;
+        this.replyTargetName.textContent = `@${username}`;
+        this.replyContextBar.classList.add('active');
+        this.inputEl.focus();
+    }
+
+    clearReplyContext() {
+        this.replyTargetUser = null;
+        this.replyContextBar.classList.remove('active');
+    }
+
     renderAttachmentPreview() {
         if (this.pendingAttachments.length === 0) {
             this.previewContainer.style.display = 'none';
@@ -192,7 +230,7 @@ export class PostCommentHandler {
 
         this.previewContainer.style.display = 'flex';
         this.previewContainer.innerHTML = this.pendingAttachments.map(att => `
-            <div class="msg-att-item" style="width: 40px; height: 40px;">
+            <div class="msg-att-item" style="width: 48px; height: 48px;">
                 <img src="${att.url}">
                 <button class="remove-att-btn" data-id="${att.id}"><i class="fa-solid fa-xmark"></i></button>
             </div>
@@ -223,6 +261,11 @@ export class PostCommentHandler {
     async handleSend() {
         let textContent = this.inputEl ? this.inputEl.value.trim() : '';
         
+        // Внедряем никнейм в самое начало, если есть активный контекст ответа
+        if (this.replyTargetUser && (textContent.length > 0 || this.pendingAttachments.length > 0)) {
+            textContent = `@${this.replyTargetUser}, ${textContent}`;
+        }
+        
         if (this.pendingAttachments.length > 0) {
             if (this.sendBtn) {
                 this.sendBtn.disabled = true;
@@ -245,7 +288,11 @@ export class PostCommentHandler {
         textContent = textContent.trim();
         if (textContent) { 
             await this.stores.posts.addComment(this.post.id, textContent, 'text'); 
-            if (this.inputEl) this.inputEl.value = ''; 
+            if (this.inputEl) {
+                this.inputEl.value = ''; 
+                this.inputEl.style.height = 'auto'; // Сброс размера
+            }
+            this.clearReplyContext();
         }
 
         this.updateInputButtons();
