@@ -1,27 +1,13 @@
 // public/js/ui/utils/utils.js
 
+import { TextFormatter } from './TextFormatter.js';
+
 export function escapeHTML(str) {
-    if (!str) return '';
-    const div = document.createElement('div');
-    div.textContent = str;
-    return div.innerHTML;
+    return TextFormatter.escapeHTML(str);
 }
 
 export function parseFormatting(str) {
-    if (!str) return '';
-    let html = escapeHTML(str);
-    
-    // Цитата
-    html = html.replace(/(?:^|\n)&gt; (.*)/g, '<div class="post-quote">$1</div>');
-    html = html.replace(/<\/div>\n/g, '</div>');
-    
-    // Жирный текст
-    html = html.replace(/\*\*(.*?)\*\*/g, '<b>$1</b>');
-    
-    // Спойлер
-    html = html.replace(/\|\|(.*?)\|\|/g, '<span class="post-spoiler" onclick="this.classList.toggle(\'revealed\')">$1</span>');
-    
-    return html;
+    return TextFormatter.parse(str);
 }
 
 export function generateId() {
@@ -43,7 +29,6 @@ export function formatTime(timestamp) {
     return date.toLocaleDateString('ru-RU', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
 }
 
-// ДИНАМИЧЕСКИЙ ЗАГРУЗЧИК ШРИФТОВ (Защищает от дублей)
 export function loadGoogleFont(fontFamily) {
     if (!fontFamily) return;
     const fontId = `gfont-${fontFamily.replace(/\s+/g, '-')}`;
@@ -56,66 +41,41 @@ export function loadGoogleFont(fontFamily) {
     }
 }
 
-// ----------------------------------------------------
-// ВАЛИДАТОРЫ БЕЗОПАСНОСТИ ДЛЯ РАЗНЫХ ТИПОВ ПРЕДМЕТОВ
-// ----------------------------------------------------
-
 function baseValidation(cssString) {
     if (!cssString) return { valid: false, error: 'CSS не может быть пустым' };
     const cleanCSS = cssString.replace(/\s+/g, ' ').toLowerCase();
-    
-    // Блокируем XSS и внешние инъекции
-    if (cleanCSS.includes('url(') || cleanCSS.includes('@import')) {
-        return { valid: false, error: 'Использование url() и @import запрещено.' };
-    }
-    if (cleanCSS.includes('<') || cleanCSS.includes('>')) {
-        return { valid: false, error: 'Использование HTML тегов запрещено.' };
-    }
-    // Разрешаем transform, но жестко блочим fixed и absolute позиционирование
-    if (cleanCSS.match(/position\s*:\s*(fixed|absolute)/)) {
-        return { valid: false, error: 'Fixed и Absolute позиционирование запрещено.' };
-    }
+    if (cleanCSS.includes('url(') || cleanCSS.includes('@import')) { return { valid: false, error: 'Использование url() и @import запрещено.' }; }
+    if (cleanCSS.includes('<') || cleanCSS.includes('>')) { return { valid: false, error: 'Использование HTML тегов запрещено.' }; }
+    if (cleanCSS.match(/position\s*:\s*(fixed|absolute)/)) { return { valid: false, error: 'Fixed и Absolute позиционирование запрещено.' }; }
     return { valid: true, cleanCSS };
 }
 
-// Валидатор Рамок 
 export function validateFrameCSS(cssString) {
     const base = baseValidation(cssString);
     if (!base.valid) return base;
-    
     const forbiddenProps = ['width', 'height', 'max-', 'min-', 'margin', 'padding', 'content', 'display', 'cursor'];
     for (let prop of forbiddenProps) {
-        if (base.cleanCSS.includes(`${prop}:`)) {
-            return { valid: false, error: `Свойство "${prop}" запрещено. Разрешены: border, box-shadow, background, transform, animation.` };
-        }
+        if (base.cleanCSS.includes(`${prop}:`)) return { valid: false, error: `Свойство "${prop}" запрещено. Разрешены: border, box-shadow, background, transform, animation.` };
     }
     return { valid: true, error: null };
 }
 
-// Валидатор Званий
 export function validateTitleCSS(cssString) {
     const base = baseValidation(cssString);
     if (!base.valid) return base;
-
     const forbiddenProps = ['width', 'height', 'margin', 'display', 'font-size', 'cursor'];
     for (let prop of forbiddenProps) {
-        if (base.cleanCSS.includes(`${prop}:`)) {
-            return { valid: false, error: `Свойство "${prop}" запрещено для званий.` };
-        }
+        if (base.cleanCSS.includes(`${prop}:`)) return { valid: false, error: `Свойство "${prop}" запрещено для званий.` };
     }
     return { valid: true, error: null };
 }
 
-// Валидатор Шрифтов 
 export function validateFontCSS(cssString) {
     const base = baseValidation(cssString);
     if (!base.valid) return base;
-
     const forbiddenProps = ['width', 'height', 'margin', 'padding', 'display', 'font-size', 'border', 'cursor', 'box-shadow'];
     for (let prop of forbiddenProps) {
-        if (base.cleanCSS.includes(`${prop}:`)) {
-            return { valid: false, error: `Свойство "${prop}" запрещено для шрифтов.` };
-        }
+        if (base.cleanCSS.includes(`${prop}:`)) return { valid: false, error: `Свойство "${prop}" запрещено для шрифтов.` };
     }
     return { valid: true, error: null };
 }

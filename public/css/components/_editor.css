@@ -1,0 +1,78 @@
+/* css/components/_editor.css */
+
+.cycle-floating-toolbar {
+    position: absolute;
+    z-index: 999999;
+    background: rgba(30, 30, 34, 0.95);
+    backdrop-filter: blur(12px);
+    border: 1px solid var(--border-color);
+    border-radius: 12px;
+    padding: 6px;
+    box-shadow: 0 10px 40px rgba(0,0,0,0.6);
+    opacity: 0;
+    visibility: hidden;
+    transform: translateY(10px);
+    transition: opacity 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275), transform 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275), visibility 0.2s;
+}
+
+.cycle-floating-toolbar.active {
+    opacity: 1; 
+    visibility: visible; 
+    transform: translateY(0);
+}
+
+.cycle-ft-menu {
+    display: flex;
+    align-items: center;
+    gap: 2px;
+}
+
+.cycle-ft-btn {
+    background: transparent; 
+    border: none; 
+    color: var(--text-muted);
+    width: 32px; 
+    height: 32px; 
+    border-radius: 8px; 
+    cursor: pointer;
+    display: flex; 
+    align-items: center; 
+    justify-content: center;
+    transition: 0.2s; 
+    font-size: 14px;
+}
+
+.cycle-ft-btn:hover { 
+    background: rgba(255,255,255,0.1); 
+    color: #fff; 
+}
+
+.cycle-ft-divider { 
+    width: 1px; 
+    height: 20px;
+    background: rgba(255,255,255,0.1); 
+    margin: 0 4px; 
+}
+
+.cycle-ft-link-input {
+    display: flex; 
+    align-items: center; 
+    gap: 6px; 
+    padding: 0 4px;
+}
+
+.cycle-ft-link-input input {
+    background: rgba(0,0,0,0.3); 
+    border: 1px solid rgba(255,255,255,0.1);
+    color: #fff; 
+    padding: 6px 12px; 
+    border-radius: 8px; 
+    font-size: 13px;
+    outline: none; 
+    width: 200px;
+    transition: 0.2s;
+}
+
+.cycle-ft-link-input input:focus {
+    border-color: var(--accent-games);
+}
