@@ -4,7 +4,6 @@ export class FloatingToolbar {
     constructor(inputEl) {
         this.inputEl = inputEl;
         this.abortController = new AbortController();
-        this.isLinkMode = false;
         
         this.createToolbar();
         this.bindEvents();
@@ -18,7 +17,6 @@ export class FloatingToolbar {
     }
 
     renderDefaultMenu() {
-        this.isLinkMode = false;
         this.container.innerHTML = `
             <div class="cycle-ft-menu">
                 <button class="cycle-ft-btn" data-action="bold" title="Жирный"><i class="fa-solid fa-bold"></i></button>
@@ -38,71 +36,71 @@ export class FloatingToolbar {
         `;
     }
 
-    renderLinkMenu() {
-        this.isLinkMode = true;
-        this.container.innerHTML = `
-            <div class="cycle-ft-link-input">
-                <input type="text" id="cycleFtUrlInput" placeholder="https://..." autocomplete="off">
-                <button class="cycle-ft-btn" id="cycleFtUrlSave" style="color: #44bd32;"><i class="fa-solid fa-check"></i></button>
-                <button class="cycle-ft-btn" id="cycleFtUrlCancel" style="color: var(--danger);"><i class="fa-solid fa-xmark"></i></button>
-            </div>
-        `;
-        setTimeout(() => document.getElementById('cycleFtUrlInput').focus(), 50);
-    }
-
     bindEvents() {
         const signal = this.abortController.signal;
 
-        // Отслеживаем выделение текста
         document.addEventListener('selectionchange', () => this.checkSelection(), { signal });
-        
-        // Для textarea иногда требуется отслеживать mouseup и keyup отдельно
         this.inputEl.addEventListener('mouseup', () => this.checkSelection(), { signal });
         this.inputEl.addEventListener('keyup', () => this.checkSelection(), { signal });
 
-        // Обработка кликов по кнопкам тулбара
         this.container.addEventListener('mousedown', (e) => {
-            e.preventDefault(); // Чтобы не сбрасывалось выделение
-            
+            e.preventDefault();
             const btn = e.target.closest('.cycle-ft-btn');
             if (!btn) return;
-
             const action = btn.dataset.action;
             if (action) {
-                if (action === 'link') { this.renderLinkMenu(); return; }
-                this.applyFormat(action);
-            } else if (btn.id === 'cycleFtUrlSave') {
-                const url = document.getElementById('cycleFtUrlInput').value.trim();
-                if (url) this.applyFormat('url', url);
-                this.renderDefaultMenu();
-            } else if (btn.id === 'cycleFtUrlCancel') {
-                this.renderDefaultMenu();
-                this.checkSelection();
+                // ИЗМЕНЕНИЕ: Отдельная логика для ссылки
+                if (action === 'link') {
+                    this.handleLinkCreation();
+                } else {
+                    this.applyFormat(action);
+                }
             }
         }, { signal });
 
-        // Скрытие тулбара при клике в пустоту
         document.addEventListener('mousedown', (e) => {
             if (!this.container.contains(e.target) && !this.inputEl.contains(e.target)) {
                 this.hide();
             }
         }, { signal });
     }
+    
+    // НОВЫЙ МЕТОД: Логика создания ссылки
+    handleLinkCreation() {
+        const url = prompt("Введите URL-адрес (например, https://example.com):");
+        if (!url || !url.trim()) return;
+
+        let selectedText = '';
+        if (this.inputEl.tagName === 'TEXTAREA') {
+            selectedText = this.inputEl.value.substring(this.inputEl.selectionStart, this.inputEl.selectionEnd);
+        } else {
+            const selection = window.getSelection();
+            if (selection.rangeCount > 0) {
+                selectedText = selection.toString();
+            }
+        }
+
+        if (selectedText.trim().length > 0) {
+            // Если текст уже выделен, просто оборачиваем его
+            this.applyFormat('url', url, selectedText);
+        } else {
+            // Если текст не выделен, спрашиваем и его
+            const text = prompt("Введите текст ссылки:");
+            if (!text || !text.trim()) return;
+            this.applyFormat('url', url, text);
+        }
+    }
 
     checkSelection() {
-        if (this.isLinkMode) return;
-
         let text = '';
         let rect = null;
 
-        // Проверяем, какой тип инпута мы используем (textarea или div contenteditable)
         if (this.inputEl.tagName === 'TEXTAREA' || this.inputEl.tagName === 'INPUT') {
             const start = this.inputEl.selectionStart;
             const end = this.inputEl.selectionEnd;
             if (start !== end) {
                 text = this.inputEl.value.substring(start, end);
                 const inputRect = this.inputEl.getBoundingClientRect();
-                // Для textarea просто показываем над самим полем
                 rect = { top: inputRect.top, left: inputRect.left + (inputRect.width / 2), width: 0 };
             }
         } else {
@@ -124,13 +122,10 @@ export class FloatingToolbar {
 
     show(rect) {
         this.container.classList.add('active');
-        
-        // Вычисляем позицию, чтобы тулбар не уходил за экран
         const tbRect = this.container.getBoundingClientRect();
         let top = rect.top + window.scrollY - tbRect.height - 10;
         let left = rect.left + window.scrollX + (rect.width / 2) - (tbRect.width / 2);
 
-        // На мобилках выравниваем по центру
         if (window.innerWidth <= 768) {
             left = (window.innerWidth / 2) - (tbRect.width / 2);
         } else {
@@ -146,10 +141,10 @@ export class FloatingToolbar {
 
     hide() {
         this.container.classList.remove('active');
-        if (this.isLinkMode) this.renderDefaultMenu();
     }
 
-    applyFormat(action, url = '') {
+    // ИЗМЕНЕНИЕ: Метод applyFormat теперь может принимать текст для вставки
+    applyFormat(action, url = '', textToInsert = '') {
         const formats = {
             'bold': { pre: '**', suf: '**' },
             'underline': { pre: '__', suf: '__' },
@@ -166,25 +161,22 @@ export class FloatingToolbar {
         if (!f) return;
 
         if (this.inputEl.tagName === 'TEXTAREA' || this.inputEl.tagName === 'INPUT') {
-            // Вставка для Textarea
             const start = this.inputEl.selectionStart;
             const end = this.inputEl.selectionEnd;
             const text = this.inputEl.value;
-            const selected = text.substring(start, end);
+            const selected = textToInsert || text.substring(start, end);
             
             this.inputEl.value = text.substring(0, start) + f.pre + selected + f.suf + text.substring(end);
             this.inputEl.focus();
             this.inputEl.setSelectionRange(start + f.pre.length, start + f.pre.length + selected.length);
         } else {
-            // Вставка для ContentEditable (execCommand сохраняет историю Ctrl+Z)
             const selection = window.getSelection();
             if (!selection.rangeCount) return;
-            const selected = selection.toString();
+            const selected = textToInsert || selection.toString();
             document.execCommand('insertText', false, f.pre + selected + f.suf);
         }
 
         this.hide();
-        // Триггерим событие input для обновления состояния кнопки "Опубликовать"
         this.inputEl.dispatchEvent(new Event('input', { bubbles: true }));
     }
 
