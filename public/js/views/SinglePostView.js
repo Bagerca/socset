@@ -36,7 +36,11 @@ export const SinglePostView = {
                 const res = await PostsAPI.getPost(this.postId);
                 if (res.post) {
                     this.wrapper.innerHTML = '';
-                    const comp = new PostComponent(res.post, this.stores);
+                    
+                    // ИСПРАВЛЕНИЕ: Обязательная персонализация поста (подсчет лайков, реакций и т.д.)
+                    const enrichedPost = this.stores.posts._personalize(res.post);
+                    
+                    const comp = new PostComponent(enrichedPost, this.stores);
                     const el = comp.getElement();
                     
                     // Раскрываем комментарии сразу

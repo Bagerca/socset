@@ -1,9 +1,7 @@
---- START OF FILE _media_content.css ---
-
 /* css/components/_media_content.css */
 
 /* ========================================= */
-/* УНИВЕРСАЛЬНЫЙ АУДИО-ПЛЕЕР (ЧАТЫ И КОММЕНТЫ)*/
+/* УНИВЕРСАЛЬНЫЙ АУДИО-ПЛЕЕР                 */
 /* ========================================= */
 
 .cycle-audio-player { 
@@ -39,7 +37,6 @@
     transform: scale(0.9); 
 }
 
-/* МОНОШИРИННЫЙ ШРИФТ И АНИМАЦИЯ */
 .cycle-audio-time { 
     font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
     font-size: 12px; 
@@ -50,24 +47,16 @@
     text-align: right; 
     flex-shrink: 0; 
     color: var(--text-muted); 
-    background: transparent;
-    padding: 0;
-    box-shadow: none;
-    border-radius: 0;
     transition: color 0.3s ease; 
 }
 
-/* АНИМАЦИЯ ТИКА */
 @keyframes digitTick {
     0% { transform: scale(1); filter: brightness(1); }
     50% { transform: scale(1.1); filter: brightness(1.5); color: #fff; }
     100% { transform: scale(1); filter: brightness(1); }
 }
-.cycle-audio-time.tick { 
-    animation: digitTick 0.3s ease-out; 
-}
+.cycle-audio-time.tick { animation: digitTick 0.3s ease-out; }
 
-/* ВОЛНА */
 .cycle-audio-waveform { 
     flex: 1; 
     min-width: 120px; 
@@ -78,84 +67,60 @@
     width: auto !important; 
 }
 .wave-bg, .wave-active { 
-    position: absolute; 
-    inset: 0;
-    display: flex; 
-    align-items: center; 
-    justify-content: flex-start; 
-    gap: 2px; 
+    position: absolute; inset: 0; display: flex; align-items: center; justify-content: flex-start; gap: 2px; 
 }
+.wave-active { clip-path: inset(0 calc(100% - var(--progress, 0%)) 0 0); }
 
-.wave-active {
-    clip-path: inset(0 calc(100% - var(--progress, 0%)) 0 0);
-}
+.wave-bar { flex: 1; min-width: 2px; max-width: 6px; border-radius: 4px; transition: 0.2s ease; background: rgba(255, 255, 255, 0.1); transform-origin: center; }
+.wave-active .wave-bar { background: var(--accent-games); box-shadow: 0 0 8px rgba(124, 58, 237, 0.8); }
 
-.wave-bar { 
-    flex: 1; 
-    min-width: 2px; 
-    max-width: 6px; 
-    border-radius: 4px; 
-    transition: background-color 0.2s ease, box-shadow 0.2s ease; 
-    background: rgba(255, 255, 255, 0.1); 
-    transform-origin: center; 
+/* --- THE VOICE MODIFIER (ИСПРАВЛЕНИЯ) --- */
+.cycle-audio-player--voice {
+    background: rgba(124, 58, 237, 0.1) !important;
+    border: 1px solid rgba(124, 58, 237, 0.2) !important;
+    border-radius: 30px !important;
+    padding: 4px 12px 4px 4px !important;
+    gap: 10px !important;
+    box-shadow: none !important;
+    height: auto !important; /* Убрано жесткое ограничение в 44px */
+    min-height: 44px; /* Добавлено для страховки */
+    align-items: center !important;
+    max-width: 280px !important;
+    flex-wrap: nowrap !important; /* Защита от переносов */
 }
-.wave-active .wave-bar { 
-    background: var(--accent-games); 
-    box-shadow: 0 0 8px rgba(124, 58, 237, 0.8); 
+.cycle-audio-player--voice:hover {
+    border-color: rgba(124, 58, 237, 0.4) !important;
+    background: rgba(124, 58, 237, 0.15) !important;
 }
+.cycle-audio-player--voice .cycle-audio-btn {
+    width: 34px !important; height: 34px !important; font-size: 13px !important;
+    background: var(--accent-games) !important; color: #fff !important;
+    box-shadow: 0 4px 10px rgba(124, 58, 237, 0.3) !important;
+}
+.cycle-audio-player--voice .cycle-audio-waveform { height: 22px !important; min-width: 100px !important; }
+.cycle-audio-player--voice .wave-bar { background: rgba(124, 58, 237, 0.3) !important; width: 2px !important; border-radius: 2px !important; }
+.cycle-audio-player--voice .wave-active .wave-bar { background: var(--accent-games) !important; box-shadow: none !important; }
+.cycle-audio-player--voice .cycle-audio-time { color: var(--accent-games) !important; font-weight: 700 !important; font-size: 11px !important; margin-top: 0 !important; }
 
 /* ========================================= */
-/* ОДИНОЧНЫЕ КАРТИНКИ (Как было)             */
+/* ОДИНОЧНЫЕ КАРТИНКИ                        */
 /* ========================================= */
 .cycle-media-img {
-    display: block; 
-    max-width: 100%; 
-    max-height: 350px; 
-    border-radius: 16px; 
-    cursor: zoom-in; 
-    object-fit: cover; 
-    border: 1px solid rgba(255,255,255,0.1); 
-    box-shadow: 0 5px 20px rgba(0,0,0,0.3); 
-    transition: filter 0.2s; 
+    display: block; max-width: 100%; max-height: 350px; border-radius: 16px; 
+    cursor: zoom-in; object-fit: cover; border: 1px solid rgba(255,255,255,0.1); 
+    box-shadow: 0 5px 20px rgba(0,0,0,0.3); transition: filter 0.2s; 
 }
 .cycle-media-img:hover { filter: brightness(1.1); }
 
-
-/* ========================================= */
-/* УНИВЕРСАЛЬНАЯ СЕТКА МЕДИА ДЛЯ ПОСТОВ      */
-/* (Модульная сетка для будущих фото в ленте)*/
-/* ========================================= */
-.universal-media-grid {
-    display: grid;
-    gap: 4px; /* Зазор между картинками */
-    width: 100%;
-    border-radius: 16px; /* Закругление всего блока фотографий в ленте */
-    overflow: hidden;
-    margin-top: 12px;
-}
-
+.universal-media-grid { display: grid; gap: 4px; width: 100%; border-radius: 16px; overflow: hidden; margin-top: 12px; }
 .universal-media-grid.grid-1 { grid-template-columns: 1fr; }
 .universal-media-grid.grid-2 { grid-template-columns: 1fr 1fr; }
 .universal-media-grid.grid-3 { grid-template-columns: 1fr 1fr; }
 .universal-media-grid.grid-4 { grid-template-columns: 1fr 1fr; }
 
-/* Картинки внутри сетки жестко квадратные, родитель сам обрежет углы */
-.universal-media-grid img {
-    width: 100%;
-    height: 100%;
-    object-fit: cover;
-    display: block;
-    border: none !important;
-    box-shadow: none !important;
-    border-radius: 0 !important; 
-    cursor: zoom-in;
-    transition: filter 0.2s ease;
-}
-
+.universal-media-grid img { width: 100%; height: 100%; object-fit: cover; display: block; border: none !important; box-shadow: none !important; border-radius: 0 !important; cursor: zoom-in; transition: filter 0.2s ease; }
 .universal-media-grid img:hover { filter: brightness(1.1); }
 
 .universal-media-grid.grid-1 img { max-height: 400px; aspect-ratio: auto; }
-.universal-media-grid.grid-2 img, 
-.universal-media-grid.grid-4 img, 
-.universal-media-grid.grid-3 img:not(:first-child) { aspect-ratio: 1/1; }
+.universal-media-grid.grid-2 img, .universal-media-grid.grid-4 img, .universal-media-grid.grid-3 img:not(:first-child) { aspect-ratio: 1/1; }
 .universal-media-grid.grid-3 img:first-child { grid-column: span 2; aspect-ratio: 2/1; }

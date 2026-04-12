@@ -2,11 +2,17 @@
 
 .post { 
     background: var(--surface); border-radius: var(--radius-xl); 
-    padding: 20px var(--space-lg) 4px var(--space-lg); /* Уменьшен отступ снизу с 10px до 4px */
+    padding: 20px var(--space-lg) 4px var(--space-lg); 
     border: 1px solid var(--border-color); box-shadow: var(--shadow-md);
     display: flex; flex-direction: column; gap: var(--space-sm); 
-    animation: slideDownPost 0.4s ease; position: relative; transition: opacity 0.3s;
-    contain: layout style;
+    animation: slideDownPost 0.4s ease; position: relative; transition: opacity 0.3s, border-color 0.3s, box-shadow 0.3s;
+    /* УБРАЛИ contain: layout style; чтобы свечение не резалось границами поста */
+}
+
+/* Выделение игрового поста */
+.post.post-type-game {
+    border-color: rgba(124, 58, 237, 0.4);
+    box-shadow: 0 4px 30px rgba(124, 58, 237, 0.1);
 }
 
 .post-main-body { display: flex; gap: var(--space-md); width: 100%; }
@@ -25,23 +31,34 @@
 .post-avatar-wrapper { position: relative; width: var(--space-xxl); height: var(--space-xxl); flex-shrink: 0; overflow: visible; z-index: 1; }
 .post-avatar-wrapper .avatar { width: 100%; height: 100%; border-radius: 50%; background-color: #333; position: relative; z-index: 1; }
 .post-avatar-wrapper .avatar img { width: 100%; height: 100%; object-fit: cover; border-radius: 50%; }
-.post-avatar-frame { position: absolute; width: 200%; height: 200%; top: -50%; left: -50%; transform: scale(0.55); z-index: 2; pointer-events: none; display: block; }
+.post-avatar-frame { position: absolute; width: 200%; height: 200%; top: -50%; left: -50%; transform: scale(0.55); z-index: 2; pointer-events: none; display: block; overflow: visible;}
 .post-frame-content { width: 100%; height: 100%; border-radius: 50%; box-sizing: border-box; background-size: cover; background-position: center; background-repeat: no-repeat; }
 
+/* НОВАЯ ИЕРАРХИЯ ШАПКИ */
 .post-content { flex: 1; min-width: 0; }
-.post-header { display: flex; align-items: center; gap: var(--space-sm); margin-bottom: var(--space-sm); flex-wrap: wrap; padding-right: 40px; } /* Добавлен padding-right, чтобы текст не залезал под три точки */
-.post-name { font-weight: 600; font-size: var(--font-md); line-height: 1; }
-.post-username, .post-time { color: var(--text-muted); font-size: var(--font-sm); line-height: 1; }
+.post-header-container { display: flex; flex-direction: column; gap: 2px; margin-bottom: var(--space-sm); padding-right: 30px; }
+.post-author-line { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+.post-meta-line { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; color: var(--text-muted); font-size: 13px; font-weight: 500; }
+
+.post-name { font-weight: 700; font-size: var(--font-md); line-height: 1; color: #fff; }
+.post-username { color: var(--text-muted); transition: 0.2s; }
+@media (hover: hover) { .post-username:hover { color: #fff; } }
+
+.post-community-badge { display: flex; align-items: center; gap: 4px; background: rgba(124, 58, 237, 0.15); padding: 2px 8px; border-radius: 6px; font-weight: 700; color: var(--accent-games); border: 1px solid rgba(124, 58, 237, 0.2); }
+.post-community-badge a { color: inherit; text-decoration: none; }
+.post-community-badge a:hover { text-decoration: underline; }
+.meta-divider { color: rgba(255, 255, 255, 0.15); font-size: 14px; }
+.post-visibility-icon { color: rgba(255,255,255,0.3); font-size: 12px; margin-left: 2px; }
 
 .post-badge { margin-top: 1px; }
-.badge-1 { color: #1da1f2; font-size: var(--font-md); }
+.badge-1 { color: #1da1f2; font-size: 14px; }
 .badge-3 { font-size: 0.6em; filter: drop-shadow(0 2px 4px rgba(255, 215, 0, 0.3)); }
 .badge-3 .bg { color: #ffd700; }
 .badge-3 .fg { color: #000; font-size: 1.1em; }
 .badge-8 { display: flex; align-items: center; justify-content: center; width: var(--space-md); height: var(--space-md); background: #ff453a; color: #fff; border-radius: var(--space-xs); font-size: 10px; box-shadow: 0 2px 8px rgba(255, 69, 58, 0.4); transform: skewX(-10deg); }
 .badge-8 i { transform: skewX(10deg); }
 
-.post-text { font-size: var(--font-md); line-height: 1.5; margin-bottom: 0; word-wrap: break-word; color: #e0e0e0; white-space: pre-wrap;}
+.post-text { font-size: var(--font-base); line-height: 1.5; margin-bottom: 0; word-wrap: break-word; color: #e0e0e0; white-space: pre-wrap;}
 .post-text b, .comment-text b { font-weight: 800; color: var(--text-main); }
 
 .post-quote { position: relative; margin: var(--space-sm) 0; padding: var(--space-sm) 12px var(--space-sm) 18px; background: rgba(255, 255, 255, 0.03); border-radius: 6px; border-left: 3px solid rgba(255, 255, 255, 0.3); color: #c0c0c0; font-size: var(--font-sm); line-height: 1.4; font-style: italic; display: block; }
@@ -61,14 +78,20 @@
 .poll-item-percent { font-weight: 600; font-size: var(--font-sm); }
 .poll-meta { font-size: 13px; color: var(--text-muted); margin-top: var(--space-xs); }
 
-/* Исправлен блок кнопок поста */
+/* КНОПКИ ДЕЙСТВИЙ (Лайк, Коммент, Донат) */
 .post-actions { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; width: 100%; margin-top: var(--space-sm); }
-.action-btn { display: flex; align-items: center; justify-content: center; gap: var(--space-sm); cursor: pointer; transition: var(--transition-fast); user-select: none; font-size: var(--font-sm); color: var(--text-muted); padding: 6px 10px; border-radius: 20px; } /* Уменьшили высоту кнопок */
-@media (hover: hover) { .action-btn:hover { color: var(--text-main); background: rgba(255, 255, 255, 0.05); } }
-.action-btn.liked { color: var(--danger); }
+.action-btn { display: flex; align-items: center; justify-content: center; gap: var(--space-sm); cursor: pointer; transition: var(--transition-fast); user-select: none; font-size: 13px; font-weight: 600; color: var(--text-muted); padding: 6px 12px; border-radius: 20px; border: 1px solid transparent; background: rgba(255,255,255,0.02); }
+@media (hover: hover) { .action-btn:hover { color: var(--text-main); background: rgba(255, 255, 255, 0.08); border-color: rgba(255,255,255,0.1); transform: translateY(-2px); } }
+
+.action-btn.liked { color: var(--danger); background: rgba(255, 69, 58, 0.1); border-color: rgba(255, 69, 58, 0.2); }
 .action-btn.liked i { font-weight: 900; }
-.views-btn { margin-left: auto; cursor: default; }
-@media (hover: hover) { .views-btn:hover { color: var(--text-muted); background: transparent; } }
+
+.action-btn.gift-btn:hover { color: var(--accent-shop); background: rgba(255, 215, 0, 0.1); border-color: rgba(255, 215, 0, 0.2); }
+.action-btn.gift-btn i { font-size: 15px; color: var(--accent-shop); opacity: 0.8; transition: 0.2s; }
+.action-btn.gift-btn:hover i { opacity: 1; filter: drop-shadow(0 0 5px rgba(255,215,0,0.5)); }
+
+.views-btn { margin-left: auto; cursor: default; background: transparent; border: none; }
+@media (hover: hover) { .views-btn:hover { color: var(--text-muted); background: transparent; transform: none; border: none; } }
 
 .post-repost-card { margin-top: var(--space-12); padding: var(--space-md); background: rgba(255, 255, 255, 0.02); border: 1px solid var(--border-color); border-radius: var(--radius-md); border-left: 3px solid #1da1f2; overflow: hidden; }
 .repost-header { font-size: 13px; font-weight: 700; color: var(--text-muted); margin-bottom: var(--space-sm); display: flex; align-items: center; gap: var(--space-sm); }
@@ -79,18 +102,23 @@ a.post-avatar-wrapper, a.post-name-link, a.post-username-link { text-decoration:
 
 /* АДАПТАЦИЯ ПОСТА ДЛЯ МОБИЛОК */
 @media (max-width: 768px) {
-    .post { padding: 16px 12px 4px 12px; } /* Уменьшили нижний отступ на телефонах */
+    .post { padding: 16px 12px 4px 12px; }
     .post-main-body { gap: 10px; }
     .post-avatar-wrapper { width: 40px; height: 40px; }
     .post-name { font-size: var(--font-base); }
     .post-text { font-size: 15px; }
-    .action-btn { font-size: 13px; padding: 4px 8px; } /* Сделали кнопки еще компактнее */
-    .action-btn span { display: inline-block; } /* Оставляем цифры/текст видимыми, но компактными */
-    .repost-btn span { display: none; } /* Слово "Репост" прячем на телефоне, оставляем только иконку */
+    
+    .post-author-line { gap: 4px; }
+    .post-meta-line { font-size: 12px; }
+    
+    .action-btn { font-size: 12px; padding: 6px 10px; gap: 4px; }
+    .action-btn span { display: inline-block; } 
+    .repost-btn span { display: none; } /* Прячем текст репоста */
+    
     .options-menu { right: 0; left: auto; max-width: calc(100vw - 24px); }
 }
 
-/* --- МОДУЛЬНАЯ СЕТКА МЕДИА В ПОСТАХ --- */
+/* --- СЕТКА МЕДИА В ПОСТАХ (БЕЗ ИЗМЕНЕНИЙ) --- */
 .post-media-grid { display: grid; gap: 4px; width: 100%; margin-top: 12px; margin-bottom: 4px; border-radius: 12px; overflow: hidden; }
 .post-grid-1 { grid-template-columns: 1fr; }
 .post-grid-2 { grid-template-columns: 1fr 1fr; }
