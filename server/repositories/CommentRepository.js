@@ -26,14 +26,19 @@ class CommentRepository {
 
     create(comment) {
         db.prepare(`
-            INSERT INTO comments (id, post_id, author_username, content, type, waveform, timestamp) 
-            VALUES (?, ?, ?, ?, ?, ?, ?)
-        `).run(comment.id, comment.post_id, comment.author_username, comment.content, comment.type, comment.waveform, comment.timestamp);
+            INSERT INTO comments (id, post_id, author_username, content, type, waveform, timestamp, reply_to_id, attachment_type, attachment_data) 
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        `).run(
+            comment.id, comment.post_id, comment.author_username, comment.content, 
+            comment.type, comment.waveform, comment.timestamp, comment.reply_to_id, 
+            comment.attachment_type, comment.attachment_data
+        );
         return this.findById(comment.id);
     }
 
     delete(id) {
-        db.prepare('DELETE FROM comments WHERE id = ?').run(id);
+        // Удаляем сам коммент и все ответы на него
+        db.prepare('DELETE FROM comments WHERE id = ? OR reply_to_id = ?').run(id, id);
     }
 
     updateReactions(id, reactions) {

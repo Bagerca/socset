@@ -57,8 +57,9 @@ class PostsController {
         return { visibility: newVisibility };
     });
 
-    toggleLike = withHandler((req, res, ctx) => {
-        const result = PostService.toggleLike(req.body.postId, req.user, ctx.io);
+    // ИЗМЕНЕНО: Замена контроллера лайков на реакции
+    reactPost = withHandler((req, res, ctx) => {
+        const result = PostService.reactPost(req.body.postId, req.body.emoji, req.user, ctx.io);
         const updatedPost = PostService.getEnrichedPost(req.body.postId, null);
         if (updatedPost) ctx.io.emit('update_post', updatedPost);
         return result;

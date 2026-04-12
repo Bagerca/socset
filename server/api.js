@@ -80,7 +80,6 @@ api.get('/api/notifications', authenticateToken, NotificationsController.getNoti
 api.post('/api/notifications/read', authenticateToken, NotificationsController.markAsRead);
 api.get('/api/notifications/unread', authenticateToken, NotificationsController.getUnreadCount);
 
-// ИСПРАВЛЕНО: Убрали сломанные обертки
 api.get('/api/messages/chats', authenticateToken, MessagesController.getChats);
 api.get('/api/messages/friends', authenticateToken, MessagesController.getFriends);
 api.get('/api/messages/admin_groups', authenticateToken, MessagesController.getAdminGroups);
@@ -120,14 +119,14 @@ api.post('/api/admin/delete_user', adminMws, AdminController.deleteUser);
 api.post('/api/admin/reset_media', adminMws, AdminController.resetMedia);
 api.post('/api/admin/toggle_admin', adminMws, AdminController.toggleAdmin);
 
-// ИСПРАВЛЕНО
 api.get('/api/posts', PostsController.getFeed);
 api.get('/api/post/:id', PostsController.getOne);
 api.post('/api/posts', authenticateToken, PostsController.create);
 api.post('/api/posts/repost', authenticateToken, PostsController.repost);
 api.post('/api/posts/delete', authenticateToken, PostsController.delete);
 api.post('/api/posts/visibility', authenticateToken, PostsController.toggleVisibility);
-api.post('/api/posts/like', authenticateToken, PostsController.toggleLike);
+// ИЗМЕНЕНО: Новая конечная точка для реакций (заменяет старый like)
+api.post('/api/posts/react', authenticateToken, PostsController.reactPost);
 api.post('/api/posts/vote', authenticateToken, PostsController.votePoll);
 api.post('/api/posts/comment', authenticateToken, PostsController.addComment);
 api.post('/api/posts/comment/delete', authenticateToken, PostsController.deleteComment);

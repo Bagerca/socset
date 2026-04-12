@@ -10,13 +10,10 @@ export class PostComponent {
         this.post = post;
         this.stores = stores;
         
-        // ИСПРАВЛЕНИЕ: Избавляемся от <article>. 
-        // Парсим строку и привязываем логику прямо к элементу .post
         const temp = document.createElement('div');
         temp.innerHTML = PostRenderer.renderPost(this.post, this.stores);
         this.element = temp.firstElementChild; 
         
-        // Теперь AppInitializer гарантированно найдет метод updateUI!
         this.element.__component = this; 
         
         this.initComments();
@@ -35,13 +32,22 @@ export class PostComponent {
     updateUI(newPostData) {
         this.post = newPostData;
         
+        const reactionsList = this.element.querySelector('.post-reactions-list-container');
+        if (reactionsList) {
+            reactionsList.innerHTML = PostRenderer.renderReactionsList(this.post.reactionsMap, this.stores.auth.user.username);
+        }
+
+        const heartUsers = this.post.reactionsMap && this.post.reactionsMap['❤️'] ? this.post.reactionsMap['❤️'] : [];
+        const hasHeart = heartUsers.includes(this.stores.auth.user.username);
+        const heartCount = heartUsers.length;
+
         const likeBtn = this.element.querySelector('.like-btn');
         if (likeBtn) {
-            likeBtn.classList.toggle('liked', this.post.isLiked);
+            likeBtn.classList.toggle('liked', !!hasHeart);
             const icon = likeBtn.querySelector('i');
-            if (icon) icon.className = `fa-${this.post.isLiked ? 'solid' : 'regular'} fa-heart`;
-            const count = likeBtn.querySelector('.likes-count');
-            if (count) count.textContent = this.post.likes;
+            if (icon) icon.className = `fa-${hasHeart ? 'solid' : 'regular'} fa-heart`;
+            const countSpan = likeBtn.querySelector('.likes-count');
+            if (countSpan) countSpan.textContent = heartCount;
         }
 
         const commentsCount = this.element.querySelector('.comments-count');
@@ -70,6 +76,57 @@ export class PostComponent {
 
     bindEvents() {
         this.element.addEventListener('click', (e) => this.handleClick(e));
+        
+        const scrollArea = this.element.querySelector('.post-reactions-scroll-area');
+        if (scrollArea) {
+            let isDown = false;
+            let startX;
+            let scrollLeft;
+
+            scrollArea.addEventListener('mousedown', (e) => {
+                isDown = true;
+                startX = e.pageX - scrollArea.offsetLeft;
+                scrollLeft = scrollArea.scrollLeft;
+                scrollArea.classList.add('grabbing');
+            });
+            scrollArea.addEventListener('mouseleave', () => { isDown = false; scrollArea.classList.remove('grabbing'); });
+            scrollArea.addEventListener('mouseup', () => { isDown = false; scrollArea.classList.remove('grabbing'); });
+            scrollArea.addEventListener('mousemove', (e) => {
+                if (!isDown) return;
+                e.preventDefault();
+                const x = e.pageX - scrollArea.offsetLeft;
+                const walk = (x - startX) * 2; 
+                scrollArea.scrollLeft = scrollLeft - walk;
+            });
+            
+            scrollArea.addEventListener('wheel', (e) => {
+                if (e.deltaY !== 0) {
+                    e.preventDefault();
+                    scrollArea.scrollLeft += e.deltaY;
+                }
+            }, { passive: false });
+        }
+
+        let pressTimer;
+        const likeBtn = this.element.querySelector('.like-btn');
+        if (likeBtn) {
+            likeBtn.addEventListener('touchstart', (e) => {
+                pressTimer = window.setTimeout(() => {
+                    const popover = this.element.querySelector('.post-reaction-popover');
+                    if (popover) popover.classList.add('force-active');
+                }, 500); 
+            });
+            likeBtn.addEventListener('touchend', () => clearTimeout(pressTimer));
+            likeBtn.addEventListener('touchmove', () => clearTimeout(pressTimer));
+        }
+
+        document.addEventListener('click', (e) => {
+            const popover = this.element.querySelector('.post-reaction-popover');
+            if (popover && (popover.classList.contains('active') || popover.classList.contains('force-active')) && !e.target.closest('.post-like-wrapper')) {
+                popover.classList.remove('active');
+                popover.classList.remove('force-active');
+            }
+        });
     }
 
     handleClick(e) {
@@ -83,7 +140,8 @@ export class PostComponent {
             return;
         }
 
-        if (target.closest('.post-main-body') && 
+        // ИЗМЕНЕНО: Клик по .post-clickable-area вместо старого .post-main-body
+        if (target.closest('.post-clickable-area') && 
             !target.closest('a') && !target.closest('button') && 
             !target.closest('.poll-wrapper') && !target.closest('.post-music-play-btn') &&
             !target.closest('.post-spoiler') && !target.closest('.cycle-media-img') && 
@@ -118,7 +176,23 @@ export class PostComponent {
             return Toast.show('Жалоба отправлена модераторам', 'success');
         }
 
-        if (target.closest('.like-btn')) return this.stores.posts.toggleLike(this.post.id);
+        if (target.closest('.popover-emoji')) {
+            const emoji = target.closest('.popover-emoji').dataset.emoji;
+            const popover = this.element.querySelector('.post-reaction-popover');
+            if (popover) {
+                popover.classList.remove('active');
+                popover.classList.remove('force-active');
+            }
+            return this.stores.posts.reactPost(this.post.id, emoji);
+        }
+        if (target.closest('.post-reaction-badge')) {
+            const emoji = target.closest('.post-reaction-badge').dataset.emoji;
+            return this.stores.posts.reactPost(this.post.id, emoji);
+        }
+        if (target.closest('.like-btn')) {
+            return this.stores.posts.reactPost(this.post.id, '❤️');
+        }
+
         if (target.closest('.poll-vote-btn')) return this.stores.posts.votePoll(this.post.id, target.closest('.poll-vote-btn').dataset.optionId);
         
         if (target.closest('.action-btn-comment')) {

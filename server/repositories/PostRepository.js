@@ -7,13 +7,11 @@ class PostRepository {
         let whereClauses = [];
         let params = [];
 
-        // 1. Курсор пагинации (берем посты старше определенного времени)
         if (beforeTimestamp) {
             whereClauses.push('timestamp < ?');
             params.push(beforeTimestamp);
         }
 
-        // 2. Фильтрация по типу ленты
         if (feedType === 'game') {
             let gameClause = `(attachment_type = 'game' AND json_extract(attachment_data, '$.game') = ?)`;
             params.push(gameId);
@@ -34,11 +32,10 @@ class PostRepository {
                 whereClauses.push(`community_id IN (SELECT community_id FROM community_members WHERE username = ?)`);
                 params.push(currentViewer);
             } else {
-                return []; // Гость не имеет ленты сообществ
+                return []; 
             }
         } 
         else {
-            // Главная лента (main)
             if (currentViewer) {
                 whereClauses.push(`(community_id IS NULL OR community_id IN (SELECT community_id FROM community_members WHERE username = ?))`);
                 params.push(currentViewer);
@@ -66,7 +63,6 @@ class PostRepository {
         db.transaction(() => {
             db.prepare('DELETE FROM posts WHERE id = ?').run(postId); 
             db.prepare('DELETE FROM comments WHERE post_id = ?').run(postId);
-            db.prepare('DELETE FROM likes WHERE post_id = ?').run(postId); 
             db.prepare('DELETE FROM post_views WHERE post_id = ?').run(postId);
         })();
     }
@@ -81,15 +77,9 @@ class PostRepository {
     }
     incrementViewCount(postId) { db.prepare('UPDATE posts SET views = views + 1 WHERE id = ?').run(postId); }
     
-    findLike(postId, username) { return db.prepare('SELECT 1 FROM likes WHERE post_id = ? AND username = ?').get(postId, username); }
-    addLike(postId, username) { db.prepare('INSERT INTO likes (post_id, username) VALUES (?, ?)').run(postId, username); }
-    removeLike(postId, username) { db.prepare('DELETE FROM likes WHERE post_id = ? AND username = ?').run(postId, username); }
-    getLikedBy(postId) { return db.prepare('SELECT username FROM likes WHERE post_id = ?').all(postId).map(l => l.username); }
-
-    getLikesForPosts(postIds) {
-        if (!postIds || postIds.length === 0) return [];
-        const placeholders = postIds.map(() => '?').join(',');
-        return db.prepare(`SELECT post_id, username FROM likes WHERE post_id IN (${placeholders})`).all(...postIds);
+    // ИЗМЕНЕНО: Обновление JSON с реакциями напрямую в таблице posts
+    updateReactions(postId, reactionsJson) {
+        db.prepare('UPDATE posts SET reactions = ? WHERE id = ?').run(reactionsJson, postId);
     }
 }
 

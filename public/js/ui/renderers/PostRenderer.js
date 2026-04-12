@@ -5,6 +5,17 @@ import { ProfileRenderer } from './ProfileRenderer.js';
 
 export class PostRenderer {
 
+    static renderReactionsList(reactionsMap, currentUsername) {
+        if (!reactionsMap || Object.keys(reactionsMap).length === 0) return '';
+        let reactionsHTML = '';
+        for (const [emoji, users] of Object.entries(reactionsMap)) {
+            if (emoji === '❤️') continue; 
+            const iReacted = users.includes(currentUsername);
+            reactionsHTML += `<button class="post-reaction-badge ${iReacted ? 'active' : ''}" data-emoji="${emoji}"><span>${emoji}</span> <span class="rx-count">${users.length}</span></button>`;
+        }
+        return reactionsHTML;
+    }
+
     static renderPost(post, stores) {
         const currentUser = stores.auth.user;
         let authorData = post.author;
@@ -22,7 +33,6 @@ export class PostRenderer {
         if (isPrivate) postClasses.push('private-post');
         if (post.attachment_type === 'game') postClasses.push('post-type-game');
 
-        // ИСПРАВЛЕНИЕ: Новое расширенное меню
         let optionsMenuHTML = `
             <button class="icon-btn post-options-btn"><i class="fa-solid fa-ellipsis"></i></button>
             <div class="options-menu">
@@ -50,16 +60,28 @@ export class PostRenderer {
         const nameHTML = ProfileRenderer.renderUserName(authorData.name, authorData.fontId, stores.shop);
         const titleHTML = ProfileRenderer.renderUserTitle(authorData.titleId, stores.shop);
 
+        const emojis = ['👍', '😂', '😮', '😢', '😡', '👎', '💩'];
+        const popoverHTML = `
+            <div class="post-reaction-popover">
+                ${emojis.map(e => `<span class="popover-emoji" data-emoji="${e}">${e}</span>`).join('')}
+            </div>
+        `;
+
+        const heartUsers = post.reactionsMap && post.reactionsMap['❤️'] ? post.reactionsMap['❤️'] : [];
+        const hasHeart = heartUsers.includes(currentUser.username);
+        const heartCount = heartUsers.length;
+
         return `
             <div class="${postClasses.join(' ')}" data-id="${post.id}">
                 ${optionsMenuHTML}
-                <div class="post-main-body" style="cursor: pointer;">
-                    <a href="${profileLink}" class="post-avatar-wrapper">
-                        <div class="avatar"><img src="${authorData.avatar}" alt="Аватар" onerror="this.src='img/logo.svg'"></div>
-                        ${this.createFrameHTML(authorData.frameId, stores.shop)}
-                    </a>
-                    <div class="post-content">
-                        <div class="post-header-container">
+                
+                <div class="post-clickable-area" style="cursor: pointer;">
+                    <div class="post-header-row">
+                        <a href="${profileLink}" class="post-avatar-wrapper">
+                            <div class="avatar"><img src="${authorData.avatar}" alt="Аватар" onerror="this.src='img/logo.svg'"></div>
+                            ${this.createFrameHTML(authorData.frameId, stores.shop)}
+                        </a>
+                        <div class="post-header-info">
                             <div class="post-author-line">
                                 <a href="${profileLink}" class="post-name-link"><span class="post-name">${nameHTML}</span></a>
                                 ${this.createBadgeHTML(authorData.isVerified, authorData.verifiedBadgeType)}
@@ -73,32 +95,96 @@ export class PostRenderer {
                                 <span class="post-visibility-icon" title="${isPrivate ? 'Только для вас' : 'Публичный'}"><i class="fa-solid ${isPrivate ? 'fa-lock' : 'fa-globe'}"></i></span>
                             </div>
                         </div>
-                        
+                    </div>
+                    
+                    <div class="post-content-body">
                         <div class="post-text">${textContent ? parseFormatting(textContent) : ''}</div>
-                        
                         ${mediaHTML}
                         ${this.createAttachmentHTML(post.attachment, stores)}
                         <div class="poll-wrapper-container">${this.createPollHTML(post.poll)}</div>
                     </div>
                 </div>
+                
                 <div class="post-actions">
-                    <div class="action-btn like-btn ${post.isLiked ? 'liked' : ''}" title="Лайк">
-                        <i class="fa-${post.isLiked ? 'solid' : 'regular'} fa-heart"></i><span class="likes-count">${post.likes}</span>
+                    <div class="post-actions-left">
+                        <div class="post-like-wrapper">
+                            <div class="action-btn like-btn ${hasHeart ? 'liked' : ''}" title="Нравится">
+                                <i class="fa-${hasHeart ? 'solid' : 'regular'} fa-heart"></i>
+                                <span class="likes-count">${heartCount > 0 ? heartCount : ''}</span>
+                            </div>
+                            ${popoverHTML}
+                        </div>
+                        
+                        <div class="action-btn action-btn-comment" title="Комментарии">
+                            <i class="fa-regular fa-comment"></i><span class="comments-count">${post.comments ? post.comments.length : 0}</span>
+                        </div>
+                        <div class="action-btn repost-btn" title="Репост"><i class="fa-solid fa-retweet"></i><span>Репост</span></div>
+                        <div class="action-btn gift-btn" title="Поддержать автора" data-username="${authorData.username}"><i class="fa-solid fa-gift"></i></div>
+                        <div class="action-btn share-btn" title="Скопировать ссылку"><i class="fa-solid fa-link"></i></div>
                     </div>
-                    <div class="action-btn action-btn-comment" title="Комментарии">
-                        <i class="fa-regular fa-comment"></i><span class="comments-count">${post.comments ? post.comments.length : 0}</span>
+                    
+                    <div class="post-reactions-scroll-area">
+                        <div class="post-reactions-list-container">
+                            ${this.renderReactionsList(post.reactionsMap, currentUser.username)}
+                        </div>
                     </div>
-                    <div class="action-btn repost-btn" title="Репост"><i class="fa-solid fa-retweet"></i><span>Репост</span></div>
-                    <div class="action-btn gift-btn" title="Поддержать автора" data-username="${authorData.username}"><i class="fa-solid fa-gift"></i></div>
-                    <div class="action-btn share-btn" title="Скопировать ссылку"><i class="fa-solid fa-link"></i></div>
+                    
                     <div class="action-btn views-btn" title="Просмотры"><i class="fa-solid fa-chart-simple"></i><span>${post.views || 0}</span></div>
                 </div>
+                
                 <div class="comments-section" id="comments-sec-${post.id}"></div>
             </div>
         `;
     }
 
-    static renderComment(comment, stores) {
+    static renderCommentsTree(comments, stores) {
+        if (!comments || comments.length === 0) return '';
+
+        const commentsMap = new Map();
+        comments.forEach(c => commentsMap.set(c.id, { ...c, children: [] }));
+
+        const rootComments = [];
+
+        const getRootId = (commentId) => {
+            let current = commentsMap.get(commentId);
+            while (current && current.reply_to_id && commentsMap.has(current.reply_to_id)) {
+                current = commentsMap.get(current.reply_to_id);
+            }
+            return current ? current.id : commentId;
+        };
+
+        comments.forEach(c => {
+            if (!c.reply_to_id || !commentsMap.has(c.reply_to_id)) {
+                rootComments.push(commentsMap.get(c.id));
+            } else {
+                const rootId = getRootId(c.id);
+                if (rootId === c.id) {
+                    rootComments.push(commentsMap.get(c.id));
+                } else {
+                    const rootNode = commentsMap.get(rootId);
+                    if (rootNode) rootNode.children.push(commentsMap.get(c.id));
+                }
+            }
+        });
+
+        rootComments.sort((a, b) => a.timestamp - b.timestamp);
+
+        let html = '';
+        rootComments.forEach(root => {
+            html += this.renderSingleComment(root, stores, false);
+            if (root.children.length > 0) {
+                root.children.sort((a, b) => a.timestamp - b.timestamp);
+                html += `<div class="comment-replies-wrapper">`;
+                root.children.forEach(child => {
+                    html += this.renderSingleComment(child, stores, true);
+                });
+                html += `</div>`;
+            }
+        });
+        return html;
+    }
+
+    static renderSingleComment(comment, stores, isReply = false) {
         const currentUser = stores.auth.user;
         let authorData = comment.author;
 
@@ -117,14 +203,6 @@ export class PostRenderer {
 
         let { textContent, mediaHTML } = this.parseMediaContent(rawContent, true);
 
-        let replyBadgeHTML = '';
-        const mentionMatch = textContent.match(/^@([a-zA-Z0-9_]+)[,\s]+/);
-        if (mentionMatch) {
-            const mentionedUser = mentionMatch[1];
-            textContent = textContent.replace(/^@([a-zA-Z0-9_]+)[,\s]+/, '').trim();
-            replyBadgeHTML = `<div class="comment-reply-badge"><i class="fa-solid fa-reply"></i> Ответ <span onclick="window.location.hash='#/profile/${encodeURIComponent(mentionedUser)}'">@${escapeHTML(mentionedUser)}</span></div>`;
-        }
-
         let contentHTML = '';
         if (textContent) {
             let text = parseFormatting(textContent);
@@ -132,22 +210,44 @@ export class PostRenderer {
             contentHTML = `<div class="comment-text">${text}</div>`;
         }
 
-        const likedClass = comment.userReaction === 'like' ? 'active-like' : '';
-        const dislikedClass = comment.userReaction === 'dislike' ? 'active-dislike' : '';
         const pendingIcon = comment.isPending ? `<i class="fa-regular fa-clock" style="color: var(--text-muted); font-size: 11px; margin-left: 4px;"></i>` : '';
         const profileLink = `#/profile/${encodeURIComponent(authorData.username)}`;
         const nameHTML = ProfileRenderer.renderUserName(authorData.name, authorData.fontId, stores.shop);
         const titleHTML = ProfileRenderer.renderUserTitle(authorData.titleId, stores.shop);
-        const mediaBlock = mediaHTML ? `<div class="comment-media-wrapper" style="margin-top: 4px; margin-bottom: 8px;">${mediaHTML}</div>` : '';
+        const mediaBlock = mediaHTML ? `<div class="comment-media-wrapper" style="margin-top: 4px; margin-bottom: 4px;">${mediaHTML}</div>` : '';
+        
+        const attachmentHTML = this.createAttachmentHTML(comment.attachment, stores);
+        const attachBlock = attachmentHTML ? `<div class="comment-attachment-block" style="margin-top: 4px; margin-bottom: 8px; max-width: 320px;">${attachmentHTML}</div>` : '';
+
+        // Возвращаем старые добрые лайки/дизлайки (Пилюли)
+        const likesCount = comment.reactionsMap && comment.reactionsMap['like'] ? comment.reactionsMap['like'].length : 0;
+        const hasLike = comment.reactionsMap && comment.reactionsMap['like'] && comment.reactionsMap['like'].includes(currentUser.username);
+        const hasDislike = comment.reactionsMap && comment.reactionsMap['dislike'] && comment.reactionsMap['dislike'].includes(currentUser.username);
+
+        const likedClass = hasLike ? 'active-like' : '';
+        const dislikedClass = hasDislike ? 'active-dislike' : '';
+
+        let optionsMenuHTML = '';
+        const canDelete = (authorData.username === currentUser.username || currentUser.isAdmin);
+        if (canDelete) {
+            optionsMenuHTML = `
+                <div class="comment-opts-wrapper">
+                    <button class="comment-action-btn comment-opts-btn" style="background: transparent; border: none;" data-id="${comment.id}"><i class="fa-solid fa-ellipsis"></i></button>
+                    <div class="options-menu comment-options-menu">
+                        <div class="menu-item menu-item-danger delete-comment-btn" data-id="${comment.id}"><i class="fa-solid fa-trash-can"></i><span>Удалить</span></div>
+                    </div>
+                </div>
+            `;
+        }
 
         return `
-            <div class="comment-item" data-id="${comment.id}" data-author="${authorData.username}">
+            <div class="comment-item ${isReply ? 'is-reply' : ''}" data-id="${comment.id}" data-author="${authorData.username}">
                 <div class="comment-left-col">
                     <a href="${profileLink}" class="comment-avatar-wrapper">
                         <img src="${authorData.avatar}" class="comment-avatar" onerror="this.src='img/logo.svg'">
                         ${this.createFrameHTML(authorData.frameId, stores.shop)}
                     </a>
-                    <div class="comment-thread-line"></div>
+                    ${!isReply ? `<div class="comment-thread-line"></div>` : ''}
                 </div>
                 <div class="comment-content-wrapper">
                     <div class="comment-header-container">
@@ -159,16 +259,20 @@ export class PostRenderer {
                             <span class="comment-date">${formatTime(comment.timestamp)} ${pendingIcon}</span>
                         </div>
                     </div>
-                    ${replyBadgeHTML}
                     ${contentHTML}
                     ${mediaBlock}
+                    ${attachBlock}
+                    
                     <div class="comment-actions">
                         <div class="comment-vote-group">
-                            <button class="comment-action-btn ${likedClass}" data-type="like" data-id="${comment.id}"><i class="fa-solid fa-thumbs-up"></i> <span class="vote-count">${comment.likes || ''}</span></button>
+                            <button class="comment-action-btn ${likedClass}" data-type="like" data-id="${comment.id}"><i class="fa-solid fa-thumbs-up"></i> <span class="vote-count">${likesCount > 0 ? likesCount : ''}</span></button>
                             <div class="comment-vote-divider"></div>
                             <button class="comment-action-btn ${dislikedClass}" data-type="dislike" data-id="${comment.id}"><i class="fa-solid fa-thumbs-down"></i></button>
                         </div>
-                        <button class="comment-reply-btn" data-username="${authorData.username}"><i class="fa-solid fa-reply"></i> Ответить</button>
+                        <button class="comment-reply-btn" data-id="${comment.id}" data-username="${authorData.username}">
+                            <i class="fa-solid fa-reply"></i> Ответить
+                        </button>
+                        ${optionsMenuHTML}
                     </div>
                 </div>
             </div>

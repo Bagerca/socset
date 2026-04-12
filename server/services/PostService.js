@@ -12,11 +12,13 @@ class PostService {
     _enrichPost(post, currentUser) {
         if (!post) return null;
         const author = UserRepository.findAuthorData(post.author_username);
-        const likedBy = PostRepository.getLikedBy(post.id);
+        
         const comments = CommentRepository.findByPostId(post.id).map(c => ({
             id: c.id, content: c.content, type: c.type, waveform: c.waveform ? JSON.parse(c.waveform) : null,
             reactionsMap: c.reactions ? JSON.parse(c.reactions) : {}, timestamp: c.timestamp,
-            author: { username: c.author_username, name: c.name, avatar: c.avatar, frameId: c.frameId, isVerified: c.isVerified, verifiedBadgeType: c.verifiedBadgeType }
+            reply_to_id: c.reply_to_id,
+            attachment: c.attachment_data ? JSON.parse(c.attachment_data) : null,
+            author: { username: c.author_username, name: c.name, avatar: c.avatar, frameId: c.frameId, titleId: c.titleId, fontId: c.fontId, isVerified: c.isVerified, verifiedBadgeType: c.verifiedBadgeType }
         }));
         const communityInfo = post.community_id ? CommunityRepository.findById(post.community_id) : null;
         
@@ -25,7 +27,8 @@ class PostService {
             attachment: post.attachment_data ? JSON.parse(post.attachment_data) : null,
             poll: post.poll_data ? JSON.parse(post.poll_data) : null,
             community: communityInfo, community_id: post.community_id,
-            likedBy, comments
+            reactionsMap: post.reactions ? JSON.parse(post.reactions) : {},
+            comments
         };
     }
 
@@ -42,7 +45,6 @@ class PostService {
         const authorUsernames = [...new Set(postsFromDb.map(p => p.author_username))];
         const communityIds = [...new Set(postsFromDb.map(p => p.community_id).filter(Boolean))];
 
-        const allLikes = PostRepository.getLikesForPosts(postIds);
         const allComments = CommentRepository.findByPostIds(postIds);
         const allAuthors = UserRepository.findAuthorsByUsernames(authorUsernames);
         
@@ -52,20 +54,16 @@ class PostService {
         }
 
         const authorsMap = new Map(allAuthors.map(a => [a.username, a]));
-        const likesMap = new Map();
         const commentsMap = new Map();
-
-        allLikes.forEach(l => {
-            if (!likesMap.has(l.post_id)) likesMap.set(l.post_id, []);
-            likesMap.get(l.post_id).push(l.username);
-        });
 
         allComments.forEach(c => {
             if (!commentsMap.has(c.post_id)) commentsMap.set(c.post_id, []);
             commentsMap.get(c.post_id).push({
                 id: c.id, content: c.content, type: c.type, waveform: c.waveform ? JSON.parse(c.waveform) : null,
                 reactionsMap: c.reactions ? JSON.parse(c.reactions) : {}, timestamp: c.timestamp,
-                author: { username: c.author_username, name: c.name, avatar: c.avatar, frameId: c.frameId, isVerified: c.isVerified, verifiedBadgeType: c.verifiedBadgeType }
+                reply_to_id: c.reply_to_id,
+                attachment: c.attachment_data ? JSON.parse(c.attachment_data) : null,
+                author: { username: c.author_username, name: c.name, avatar: c.avatar, frameId: c.frameId, titleId: c.titleId, fontId: c.fontId, isVerified: c.isVerified, verifiedBadgeType: c.verifiedBadgeType }
             });
         });
 
@@ -83,7 +81,7 @@ class PostService {
                 poll: post.poll_data ? JSON.parse(post.poll_data) : null,
                 community: post.community_id ? communitiesMap.get(post.community_id) : null, 
                 community_id: post.community_id,
-                likedBy: likesMap.get(post.id) || [], 
+                reactionsMap: post.reactions ? JSON.parse(post.reactions) : {},
                 comments: commentsMap.get(post.id) || []
             };
         });
@@ -107,7 +105,6 @@ class PostService {
         const originalPost = PostRepository.findById(postId);
         if (!originalPost) throw { status: 404, message: 'Post not found' };
         
-        // ИСПРАВЛЕНИЕ: Достаем корень (Root Post)
         let rootPostId = originalPost.id;
         let rootAuthor = originalPost.author_username;
         let rootContent = originalPost.content;
@@ -115,13 +112,12 @@ class PostService {
         
         if (originalPost.attachment_type === 'repost') {
             const parsed = JSON.parse(originalPost.attachment_data);
-            rootPostId = parsed.originalPostId || originalPost.id; // Подстраховка для старых постов
+            rootPostId = parsed.originalPostId || originalPost.id;
             rootAuthor = parsed.author; 
             rootContent = parsed.content; 
             rootAttachment = parsed.originalAttachment;
         }
         
-        // ИСПРАВЛЕНИЕ: Сохраняем originalPostId
         const attachmentData = { type: 'repost', originalPostId: rootPostId, author: rootAuthor, content: rootContent, originalAttachment: rootAttachment };
         return this.createPost({ content: '', attachment: attachmentData }, user);
     }
@@ -148,18 +144,26 @@ class PostService {
         return newVisibility;
     }
 
-    toggleLike(postId, user, io) {
-        let isLikedNow = false;
-        if (PostRepository.findLike(postId, user.username)) {
-            PostRepository.removeLike(postId, user.username);
+    reactPost(postId, emoji, user, io) {
+        const post = PostRepository.findById(postId);
+        if (!post) throw { status: 404, message: 'Post not found' };
+        
+        let reactions = JSON.parse(post.reactions || '{}');
+        const username = user.username;
+        
+        if (!reactions[emoji]) reactions[emoji] = [];
+        
+        const idx = reactions[emoji].indexOf(username);
+        if (idx > -1) {
+            reactions[emoji].splice(idx, 1);
+            if (reactions[emoji].length === 0) delete reactions[emoji];
         } else {
-            PostRepository.addLike(postId, user.username);
-            isLikedNow = true;
-            const post = PostRepository.findById(postId);
-            if (post) NotificationService.create(io, post.author_username, user.username, 'like', postId);
+            reactions[emoji].push(username);
+            NotificationService.create(io, post.author_username, username, 'reaction', postId, emoji);
         }
-        const likedBy = PostRepository.getLikedBy(postId);
-        return { likes: likedBy.length, likedBy };
+        
+        PostRepository.updateReactions(postId, JSON.stringify(reactions));
+        return { reactionsMap: reactions };
     }
     
     votePoll(postId, optionId, user) {
@@ -176,10 +180,16 @@ class PostService {
     }
 
     addComment(postId, commentData, user, io) {
+        const attachment_type = commentData.attachment ? (commentData.attachment.music ? 'music' : 'game') : null;
+        const attachment_data = commentData.attachment ? JSON.stringify(commentData.attachment) : null;
+
         const newComment = {
             id: randomUUID(), post_id: postId, author_username: user.username,
             content: commentData.content, type: commentData.type,
             waveform: commentData.waveform ? JSON.stringify(commentData.waveform) : null,
+            reply_to_id: commentData.replyToId || null,
+            attachment_type,
+            attachment_data,
             timestamp: Date.now()
         };
         CommentRepository.create(newComment);
@@ -187,11 +197,18 @@ class PostService {
         const post = PostRepository.findById(postId);
         if (post) {
             const previewText = commentData.type === 'text' ? commentData.content : 'Голосовое сообщение';
-            NotificationService.create(io, post.author_username, user.username, 'comment', postId, previewText);
+            if (commentData.replyToId) {
+                const parentComment = CommentRepository.findById(commentData.replyToId);
+                if (parentComment && parentComment.author_username !== user.username) {
+                    NotificationService.create(io, parentComment.author_username, user.username, 'comment', postId, previewText);
+                }
+            } else {
+                NotificationService.create(io, post.author_username, user.username, 'comment', postId, previewText);
+            }
         }
 
         const author = UserRepository.findAuthorData(user.username);
-        return { ...newComment, waveform: commentData.waveform, author, reactionsMap: {} };
+        return { ...newComment, waveform: commentData.waveform, attachment: commentData.attachment, author, reactionsMap: {} };
     }
 
     deleteComment(commentId, user) {
@@ -214,10 +231,20 @@ class PostService {
     reactComment(commentId, type, user) {
         const comment = CommentRepository.findById(commentId);
         if (!comment) throw { status: 404, message: 'Comment not found' };
+        
         let reactions = JSON.parse(comment.reactions || '{}');
         const username = user.username;
-        if (reactions[username] === type) delete reactions[username];
-        else reactions[username] = type;
+        
+        if (!reactions[type]) reactions[type] = [];
+        
+        const idx = reactions[type].indexOf(username);
+        if (idx > -1) {
+            reactions[type].splice(idx, 1);
+            if (reactions[type].length === 0) delete reactions[type];
+        } else {
+            reactions[type].push(username);
+        }
+        
         CommentRepository.updateReactions(commentId, reactions);
         return { reactionsMap: reactions, postId: comment.post_id };
     }

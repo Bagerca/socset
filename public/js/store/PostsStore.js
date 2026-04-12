@@ -76,9 +76,7 @@ export class PostsStore {
 
     _personalize(post) {
         const me = this.authStore.user?.username;
-        if (!post.likedBy) post.likedBy = [];
-        post.isLiked = post.likedBy.includes(me);
-        post.likes = post.likedBy.length;
+        if (!post.reactionsMap) post.reactionsMap = {};
 
         if (post.poll) {
             if (!post.poll.votedBy) post.poll.votedBy = {};
@@ -90,10 +88,6 @@ export class PostsStore {
         if (post.comments) {
             post.comments.forEach(comment => {
                 if (!comment.reactionsMap) comment.reactionsMap = {};
-                comment.userReaction = comment.reactionsMap[me] || null;
-                const reactions = Object.values(comment.reactionsMap);
-                comment.likes = reactions.filter(r => r === 'like').length;
-                comment.dislikes = reactions.filter(r => r === 'dislike').length;
             });
         }
         return post;
@@ -108,7 +102,7 @@ export class PostsStore {
         return {
             id: tempId, author: { username: me.username, name: me.name, avatar: me.avatar, frameId: me.frameId, isVerified: me.isVerified, verifiedBadgeType: me.verifiedBadgeType },
             content: payload.content, attachment_type: payload.attachment ? (payload.attachment.music ? 'music' : 'game') : null, attachment: payload.attachment,
-            poll, community_id: payload.communityId || null, timestamp: Date.now(), likedBy: [], comments: [], views: 0, isPending: true 
+            poll, community_id: payload.communityId || null, timestamp: Date.now(), reactionsMap: {}, comments: [], views: 0, isPending: true 
         };
     }
 
@@ -137,7 +131,7 @@ export class PostsStore {
         }
     }
 
-    addComment(postId, content, type = 'text', waveform = null) {
+    addComment(postId, content, type = 'text', waveform = null, replyToId = null, attachment = null) {
         const post = this.posts.find(p => p.id === postId);
         if (!post) return;
 
@@ -145,7 +139,8 @@ export class PostsStore {
         const me = this.authStore.user;
         const optimisticComment = {
             id: tempId, postId, content, type, waveform, timestamp: Date.now(),
-            author: { username: me.username, name: me.name, avatar: me.avatar, frameId: me.frameId, isVerified: me.isVerified, verifiedBadgeType: me.verifiedBadgeType },
+            reply_to_id: replyToId, attachment,
+            author: { username: me.username, name: me.name, avatar: me.avatar, frameId: me.frameId, titleId: me.titleId, fontId: me.fontId, isVerified: me.isVerified, verifiedBadgeType: me.verifiedBadgeType },
             reactionsMap: {}, isPending: true
         };
 
@@ -153,7 +148,7 @@ export class PostsStore {
         this._personalize(post);
         document.dispatchEvent(new CustomEvent('cycle:post_updated', { detail: post }));
 
-        const task = { action: 'addComment', payload: { postId, comment: { content, type, waveform } }, tempId, timestamp: Date.now() };
+        const task = { action: 'addComment', payload: { postId, comment: { content, type, waveform, replyToId, attachment } }, tempId, timestamp: Date.now() };
         PostsAPI.addComment(postId, task.payload.comment)
             .then(data => { if (data.success) this.handleOfflineCommentSuccess(postId, tempId, data.comment); })
             .catch(() => this.offlineManager.add(task));
@@ -173,17 +168,27 @@ export class PostsStore {
 
     async repostPost(postId) { await PostsAPI.repost(postId); }
 
-    async toggleLike(postId) {
+    async reactPost(postId, emoji) {
         const post = this.posts.find(p => p.id === postId);
         if (!post) return;
         
-        post.isLiked ? (post.likes--, post.isLiked = false) : (post.likes++, post.isLiked = true);
+        const me = this.authStore.user.username;
+        if (!post.reactionsMap) post.reactionsMap = {};
+        if (!post.reactionsMap[emoji]) post.reactionsMap[emoji] = [];
+        
+        const idx = post.reactionsMap[emoji].indexOf(me);
+        if (idx > -1) {
+            post.reactionsMap[emoji].splice(idx, 1);
+            if (post.reactionsMap[emoji].length === 0) delete post.reactionsMap[emoji];
+        } else {
+            post.reactionsMap[emoji].push(me);
+        }
+        
         document.dispatchEvent(new CustomEvent('cycle:post_updated', { detail: post }));
-        await PostsAPI.likePost(postId);
+        await PostsAPI.reactPost(postId, emoji);
     }
 
     async togglePostVisibility(postId) { 
-        // ИСПРАВЛЕНИЕ: Оптимистичное обновление скрытия/открытия поста
         const post = this.posts.find(p => p.id === postId);
         if (post) {
             post.visibility = post.visibility === 'public' ? 'private' : 'public';
@@ -193,7 +198,6 @@ export class PostsStore {
     }
 
     async votePoll(postId, optionId) { 
-        // ИСПРАВЛЕНИЕ: Оптимистичное обновление голоса в опросе
         const post = this.posts.find(p => p.id === postId);
         if (post && post.poll && !post.poll.votedOptionId) {
             post.poll.votedOptionId = optionId;
@@ -208,7 +212,7 @@ export class PostsStore {
     async deleteComment(postId, commentId) {
         const post = this.posts.find(p => p.id === postId);
         if (post) { 
-            post.comments = post.comments.filter(c => c.id !== commentId); 
+            post.comments = post.comments.filter(c => c.id !== commentId && c.reply_to_id !== commentId); 
             document.dispatchEvent(new CustomEvent('cycle:post_updated', { detail: post }));
             await PostsAPI.deleteComment(postId, commentId); 
         }
@@ -221,8 +225,15 @@ export class PostsStore {
 
         const me = this.authStore.user.username;
         if (!comment.reactionsMap) comment.reactionsMap = {};
-        if (comment.reactionsMap[me] === type) delete comment.reactionsMap[me];
-        else comment.reactionsMap[me] = type;
+        if (!comment.reactionsMap[type]) comment.reactionsMap[type] = [];
+        
+        const idx = comment.reactionsMap[type].indexOf(me);
+        if (idx > -1) {
+            comment.reactionsMap[type].splice(idx, 1);
+            if (comment.reactionsMap[type].length === 0) delete comment.reactionsMap[type];
+        } else {
+            comment.reactionsMap[type].push(me);
+        }
         
         this._personalize(post);
         document.dispatchEvent(new CustomEvent('cycle:post_updated', { detail: post }));

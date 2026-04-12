@@ -16,7 +16,6 @@ export class MessageContextMenu {
     }
 
     createMenu() {
-        // Удаляем старое меню, если оно вдруг "застряло"
         if (document.getElementById('msgContextMenu')) {
             document.getElementById('msgContextMenu').remove();
         }
@@ -35,7 +34,9 @@ export class MessageContextMenu {
                 <span class="ctx-reaction-btn">😂</span>
                 <span class="ctx-reaction-btn">😮</span>
                 <span class="ctx-reaction-btn">😢</span>
-                <span class="ctx-reaction-btn">🔥</span>
+                <span class="ctx-reaction-btn">😡</span>
+                <span class="ctx-reaction-btn">👎</span>
+                <span class="ctx-reaction-btn">💩</span>
             </div>
             <div class="menu-item" id="ctxMsgReply"><i class="fa-solid fa-reply"></i> <span>Ответить</span></div>
             <div class="menu-item" id="ctxMsgCopy"><i class="fa-solid fa-copy"></i> <span>Копировать</span></div>
@@ -51,12 +52,10 @@ export class MessageContextMenu {
         this.targetRaw = rawContent;
         this.targetAuthor = authorName;
 
-        // Настраиваем видимость кнопок
         document.getElementById('ctxMsgEdit').style.display = (isMe && canEdit) ? 'flex' : 'none'; 
         document.getElementById('ctxMsgDelete').style.display = isMe ? 'flex' : 'none';
         document.getElementById('ctxMsgPin').style.display = canPin ? 'flex' : 'none';
 
-        // Позиционируем
         this.menu.style.display = 'block';
         this.menu.style.top = `${y}px`;
         this.menu.style.left = `${x}px`;
@@ -70,7 +69,6 @@ export class MessageContextMenu {
     bindEvents() {
         const signal = this.abortController.signal;
 
-        // Делегируем клики внутри меню
         this.menu.addEventListener('click', (e) => {
             if (!this.targetId) return;
 
@@ -92,7 +90,6 @@ export class MessageContextMenu {
             }
         }, { signal });
 
-        // Закрытие при клике вне меню или скролле
         document.addEventListener('click', (e) => {
             if (this.menu.style.display === 'block' && !this.menu.contains(e.target) && !e.target.closest('.msg-bubble')) {
                 this.hide();
