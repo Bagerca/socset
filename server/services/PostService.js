@@ -9,7 +9,6 @@ const { randomUUID } = require('crypto');
 
 class PostService {
     
-    // Форматирование одного поста (осталось для одиночного getOne)
     _enrichPost(post, currentUser) {
         if (!post) return null;
         const author = UserRepository.findAuthorData(post.author_username);
@@ -35,9 +34,7 @@ class PostService {
         return this._enrichPost(post, currentUser);
     }
 
-    // НОВЫЙ ВЫСОКОПРОИЗВОДИТЕЛЬНЫЙ МЕТОД ЛЕНТЫ (Без N+1)
     getFeed(queryParams, currentUser) {
-        // 1. Получаем саму ленту
         const postsFromDb = PostRepository.getFeed({ ...queryParams, currentViewer: currentUser?.username });
         if (postsFromDb.length === 0) return [];
 
@@ -45,18 +42,15 @@ class PostService {
         const authorUsernames = [...new Set(postsFromDb.map(p => p.author_username))];
         const communityIds = [...new Set(postsFromDb.map(p => p.community_id).filter(Boolean))];
 
-        // 2. Делаем всего 4 батч-запроса к БД для всей ленты! (Вместо 60+)
         const allLikes = PostRepository.getLikesForPosts(postIds);
         const allComments = CommentRepository.findByPostIds(postIds);
         const allAuthors = UserRepository.findAuthorsByUsernames(authorUsernames);
         
-        // Кэшируем сообщества в Map
         const communitiesMap = new Map();
         for (const cid of communityIds) {
             communitiesMap.set(cid, CommunityRepository.findById(cid));
         }
 
-        // Превращаем массивы в словари (Map) для быстрого доступа O(1)
         const authorsMap = new Map(allAuthors.map(a => [a.username, a]));
         const likesMap = new Map();
         const commentsMap = new Map();
@@ -75,9 +69,7 @@ class PostService {
             });
         });
 
-        // 3. Собираем посты
         const enrichedPosts = postsFromDb.map(post => {
-            // Накручиваем просмотры
             if (currentUser && PostRepository.addView(post.id, currentUser.username)) {
                 PostRepository.incrementViewCount(post.id);
                 post.views += 1;
@@ -114,14 +106,23 @@ class PostService {
     repost(postId, user) {
         const originalPost = PostRepository.findById(postId);
         if (!originalPost) throw { status: 404, message: 'Post not found' };
+        
+        // ИСПРАВЛЕНИЕ: Достаем корень (Root Post)
+        let rootPostId = originalPost.id;
         let rootAuthor = originalPost.author_username;
         let rootContent = originalPost.content;
         let rootAttachment = originalPost.attachment_data ? JSON.parse(originalPost.attachment_data) : null;
+        
         if (originalPost.attachment_type === 'repost') {
             const parsed = JSON.parse(originalPost.attachment_data);
-            rootAuthor = parsed.author; rootContent = parsed.content; rootAttachment = parsed.originalAttachment;
+            rootPostId = parsed.originalPostId || originalPost.id; // Подстраховка для старых постов
+            rootAuthor = parsed.author; 
+            rootContent = parsed.content; 
+            rootAttachment = parsed.originalAttachment;
         }
-        const attachmentData = { type: 'repost', author: rootAuthor, content: rootContent, originalAttachment: rootAttachment };
+        
+        // ИСПРАВЛЕНИЕ: Сохраняем originalPostId
+        const attachmentData = { type: 'repost', originalPostId: rootPostId, author: rootAuthor, content: rootContent, originalAttachment: rootAttachment };
         return this.createPost({ content: '', attachment: attachmentData }, user);
     }
     

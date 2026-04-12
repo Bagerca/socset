@@ -110,29 +110,20 @@ export class PostRenderer {
         
         if (comment.type === 'audio' && !rawContent.includes('[AUDIO:')) {
             let waveStr = '[]';
-            if (Array.isArray(comment.waveform)) {
-                waveStr = JSON.stringify(comment.waveform);
-            } else if (typeof comment.waveform === 'string') {
-                waveStr = comment.waveform.startsWith('[') ? comment.waveform : `[${comment.waveform}]`;
-            }
+            if (Array.isArray(comment.waveform)) { waveStr = JSON.stringify(comment.waveform); } 
+            else if (typeof comment.waveform === 'string') { waveStr = comment.waveform.startsWith('[') ? comment.waveform : `[${comment.waveform}]`; }
             rawContent = `[AUDIO:${comment.content}|${waveStr}]`;
         }
 
         let { textContent, mediaHTML } = this.parseMediaContent(rawContent, true);
 
-        // --- НОВАЯ ЛОГИКА: ПАРСИНГ ОТВЕТОВ ---
         let replyBadgeHTML = '';
         const mentionMatch = textContent.match(/^@([a-zA-Z0-9_]+)[,\s]+/);
         if (mentionMatch) {
             const mentionedUser = mentionMatch[1];
             textContent = textContent.replace(/^@([a-zA-Z0-9_]+)[,\s]+/, '').trim();
-            replyBadgeHTML = `
-                <div class="comment-reply-badge">
-                    <i class="fa-solid fa-reply"></i> Ответ <span onclick="window.location.hash='#/profile/${encodeURIComponent(mentionedUser)}'">@${escapeHTML(mentionedUser)}</span>
-                </div>
-            `;
+            replyBadgeHTML = `<div class="comment-reply-badge"><i class="fa-solid fa-reply"></i> Ответ <span onclick="window.location.hash='#/profile/${encodeURIComponent(mentionedUser)}'">@${escapeHTML(mentionedUser)}</span></div>`;
         }
-        // -------------------------------------
 
         let contentHTML = '';
         if (textContent) {
@@ -145,10 +136,8 @@ export class PostRenderer {
         const dislikedClass = comment.userReaction === 'dislike' ? 'active-dislike' : '';
         const pendingIcon = comment.isPending ? `<i class="fa-regular fa-clock" style="color: var(--text-muted); font-size: 11px; margin-left: 4px;"></i>` : '';
         const profileLink = `#/profile/${encodeURIComponent(authorData.username)}`;
-
         const nameHTML = ProfileRenderer.renderUserName(authorData.name, authorData.fontId, stores.shop);
         const titleHTML = ProfileRenderer.renderUserTitle(authorData.titleId, stores.shop);
-        
         const mediaBlock = mediaHTML ? `<div class="comment-media-wrapper" style="margin-top: 4px; margin-bottom: 8px;">${mediaHTML}</div>` : '';
 
         return `
@@ -256,17 +245,33 @@ export class PostRenderer {
 
     static createAttachmentHTML(attachment, stores) {
         if (!attachment) return '';
+        
+        // ИСПРАВЛЕНИЕ РЕПОСТОВ
         if (attachment.type === 'repost') {
+            // 1. Сначала извлекаем медиа из сырого контента
+            const { textContent, mediaHTML } = this.parseMediaContent(attachment.content || '', false);
+            
+            // 2. Прогоняем оставшийся текст через форматер
+            const formattedText = parseFormatting(textContent);
+
+            // 3. Собираем вложенные игры/музыку
             let origAttHTML = this.createAttachmentHTML(attachment.originalAttachment, stores);
+            
+            // 4. Добавляем ID и иконку перехода
+            const postIdAttr = attachment.originalPostId ? `data-post-id="${attachment.originalPostId}"` : '';
+            const linkIcon = attachment.originalPostId ? `<i class="fa-solid fa-arrow-up-right-from-square" style="margin-left:auto; font-size:12px; opacity:0.5; color:var(--text-muted);"></i>` : '';
+
             return `
-                <div class="post-repost-card">
+                <div class="post-repost-card" ${postIdAttr} style="cursor: ${attachment.originalPostId ? 'pointer' : 'default'}">
                     <div class="repost-header">
                         <i class="fa-solid fa-retweet"></i> 
-                        <a href="#/profile/${encodeURIComponent(attachment.author)}" class="post-username-link" style="margin-left: 4px;">
+                        <a href="#/profile/${encodeURIComponent(attachment.author)}" class="post-username-link" style="margin-left: 4px;" onclick="event.stopPropagation()">
                             Репост от @${escapeHTML(attachment.author)}
                         </a>
+                        ${linkIcon}
                     </div>
-                    <div class="repost-content">${parseFormatting(attachment.content || '')}</div>
+                    <div class="repost-content">${formattedText}</div>
+                    ${mediaHTML}
                     ${origAttHTML}
                 </div>`;
         }

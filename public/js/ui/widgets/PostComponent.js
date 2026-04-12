@@ -9,7 +9,6 @@ export class PostComponent {
         this.post = post;
         this.stores = stores;
         
-        // Создаем корневой элемент
         this.element = document.createElement('article');
         this.element.__component = this; 
         
@@ -22,7 +21,6 @@ export class PostComponent {
     updateUI(newPostData) {
         this.post = newPostData;
         
-        // Обновляем лайки
         const likeBtn = this.element.querySelector('.like-btn');
         if (likeBtn) {
             likeBtn.classList.toggle('liked', this.post.isLiked);
@@ -32,24 +30,19 @@ export class PostComponent {
             if (count) count.textContent = this.post.likes;
         }
 
-        // Обновляем счетчик комментов
         const commentsCount = this.element.querySelector('.comments-count');
         if (commentsCount) commentsCount.textContent = this.post.comments ? this.post.comments.length : 0;
         
-        // Делегируем обновление комментов хэндлеру
         if (this.commentHandler) {
             this.commentHandler.updateComments(this.post.comments);
         }
 
-        // Обновляем полл
         const pollContainer = this.element.querySelector('.poll-wrapper-container');
         if (pollContainer && this.post.poll) pollContainer.innerHTML = PostRenderer.createPollHTML(this.post.poll);
 
-        // Обновляем просмотры
         const viewsCount = this.element.querySelector('.views-btn span');
         if (viewsCount) viewsCount.textContent = this.post.views || 0;
 
-        // Обновляем приватность
         const isPrivate = this.post.visibility === 'private';
         this.element.classList.toggle('private-post', isPrivate);
         const toggleVisBtn = this.element.querySelector('.toggle-visibility-btn');
@@ -57,10 +50,8 @@ export class PostComponent {
     }
 
     render() {
-        // 1. Получаем чистый HTML тела поста из Рендерера
         this.element.innerHTML = PostRenderer.renderPost(this.post, this.stores);
         
-        // 2. Инициализируем менеджер комментариев в отведенном контейнере
         const commentsContainer = this.element.querySelector(`#comments-sec-${this.post.id}`);
         if (commentsContainer) {
             this.commentHandler = new PostCommentHandler(commentsContainer, this.post, this.stores);
@@ -74,20 +65,26 @@ export class PostComponent {
     handleClick(e) {
         const target = e.target;
         
-        // Если кликнули внутри секции комментов - игнорируем (там работает PostCommentHandler)
         if (target.closest('.comments-section')) return;
 
-        // Переход на страницу поста при клике по телу
+        // ИСПРАВЛЕНИЕ: Обработка клика по репосту
+        const repostCard = target.closest('.post-repost-card');
+        if (repostCard && repostCard.dataset.postId && !target.closest('a')) {
+            window.location.hash = `/post/${repostCard.dataset.postId}`;
+            return;
+        }
+
         if (target.closest('.post-main-body') && 
             !target.closest('a') && !target.closest('button') && 
             !target.closest('.poll-wrapper') && !target.closest('.post-music-play-btn') &&
             !target.closest('.post-spoiler') && !target.closest('.cycle-media-img') && 
-            !target.closest('.cycle-audio-btn') && !target.closest('.post-game-card')) {
+            !target.closest('.cycle-audio-btn') && !target.closest('.post-game-card') &&
+            !target.closest('.post-repost-card')) { // Добавили исключение для репоста
+            
             if (!window.location.hash.startsWith(`#/post/${this.post.id}`)) { window.location.hash = `/post/${this.post.id}`; }
             return;
         }
 
-        // Меню опций (три точки)
         if (target.closest('.post-options-btn')) {
             const btn = target.closest('.post-options-btn');
             const menu = btn.nextElementSibling;
@@ -99,7 +96,6 @@ export class PostComponent {
             if (activeMenu && !target.closest('.options-menu')) activeMenu.classList.remove('active');
         }
 
-        // Кнопки действий
         if (target.closest('.like-btn')) return this.stores.posts.toggleLike(this.post.id);
         if (target.closest('.delete-post-btn')) return this.handleDelete();
         if (target.closest('.toggle-visibility-btn')) return this.stores.posts.togglePostVisibility(this.post.id);
@@ -114,7 +110,6 @@ export class PostComponent {
         if (target.closest('.repost-btn')) return this.handleRepost();
         if (target.closest('.share-btn')) return this.handleShare(target.closest('.share-btn'));
         if (target.closest('.gift-btn')) return this.handleGift(target.closest('.gift-btn').dataset.username);
-        
         if (target.closest('.post-music-play-btn')) return this.handlePlayMusic(target.closest('.post-music-play-btn').dataset.id);
     }
 
