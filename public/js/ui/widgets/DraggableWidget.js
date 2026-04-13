@@ -11,6 +11,7 @@ export class DraggableWidget {
             margin: 24,                      
             defaultX: 24,
             defaultY: 80,
+            handleSelector: null, 
             ...options
         };
 
@@ -39,15 +40,24 @@ export class DraggableWidget {
         this.onPointerUp = this.handlePointerUp.bind(this);
         this.onResize = this.snapToCorners.bind(this);
 
+        // Вешаем слушатели строго на виджет
         this.widget.addEventListener('pointerdown', this.onPointerDown);
-        window.addEventListener('pointermove', this.onPointerMove);
-        window.addEventListener('pointerup', this.onPointerUp);
-        window.addEventListener('pointercancel', this.onPointerUp); 
+        this.widget.addEventListener('pointermove', this.onPointerMove);
+        this.widget.addEventListener('pointerup', this.onPointerUp);
+        this.widget.addEventListener('pointercancel', this.onPointerUp); 
+        
         window.addEventListener('resize', this.onResize);
     }
 
     handlePointerDown(e) {
-        if (e.target.closest('button, input, .fmp-controls-row, .fcw-controls, .fsr-controls-area, .fmp-volume-row')) return;
+        // 1. Проверяем, кликнули ли мы по "ручке"
+        if (this.config.handleSelector && !e.target.closest(this.config.handleSelector)) return;
+        
+        // 2. Игнорируем клики по кнопкам внутри ручки (например, крестик закрытия)
+        if (e.target.closest('button, input')) return;
+
+        // Блокируем выделение текста
+        e.preventDefault(); 
 
         this.isDragging = true;
         this.hasMoved = false;
@@ -61,18 +71,19 @@ export class DraggableWidget {
             this.startY = this.currentY;
         }
 
-        // --- УМНЫЙ СИЛУЭТ: Считываем размеры и радиус виджета ---
         const rect = this.widget.getBoundingClientRect();
         const computedStyle = window.getComputedStyle(this.widget);
-        
-        // Передаем их в CSS через корневые переменные
         document.body.style.setProperty('--drag-w', `${rect.width}px`);
         document.body.style.setProperty('--drag-h', `${rect.height}px`);
         document.body.style.setProperty('--drag-r', computedStyle.borderRadius || '20px');
-        // ---------------------------------------------------------
-
+        
+        // Специальные классы для CSS (отключат клики в iframe и выделение текста)
+        document.body.classList.add('is-dragging-widget');
+        this.widget.classList.add('widget-is-dragging');
         this.widget.style.transition = 'none';
-        this.widget.setPointerCapture(e.pointerId);
+        
+        // ВАЖНО: Захватываем мышь на самом виджете
+        try { this.widget.setPointerCapture(e.pointerId); } catch(err) {}
     }
 
     handlePointerMove(e) {
@@ -81,19 +92,13 @@ export class DraggableWidget {
         const dx = e.clientX - this.startMouseX;
         const dy = e.clientY - this.startMouseY;
 
-        if (!this.hasMoved && Math.abs(dx) < 3 && Math.abs(dy) < 3) {
-            return;
-        }
+        if (!this.hasMoved && Math.abs(dx) < 3 && Math.abs(dy) < 3) return;
 
         if (!this.hasMoved) {
             this.hasMoved = true;
-            document.body.classList.add('is-dragging-widget');
-            this.widget.classList.add('grabbing');
-
             if (this.isDocked) {
                 const rect = this.widget.getBoundingClientRect();
                 this.undock();
-                
                 this.currentX = rect.left;
                 this.currentY = rect.top;
                 this.startX = rect.left;
@@ -123,22 +128,17 @@ export class DraggableWidget {
         
         try { this.widget.releasePointerCapture(e.pointerId); } catch(err) {}
 
-        if (!this.hasMoved) {
-            this.widget.style.transition = 'transform 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275), opacity 0.2s ease';
-            return;
-        }
-
         document.body.classList.remove('is-dragging-widget');
-        this.widget.classList.remove('grabbing');
+        this.widget.classList.remove('widget-is-dragging');
         this.widget.style.transition = 'transform 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275), opacity 0.2s ease';
+
+        if (!this.hasMoved) return;
 
         const isOverDock = window.innerWidth > 1100 && this.dockArea && this.dockArea.classList.contains('drag-over');
 
         if (isOverDock) {
-            if (!this.isDocked) {
-                this.dock();
-            } else {
-                this.widget.style.transition = 'transform 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275)';
+            if (!this.isDocked) this.dock();
+            else {
                 this.widget.style.transform = '';
                 this.dockArea.classList.remove('drag-over');
             }
@@ -150,8 +150,6 @@ export class DraggableWidget {
                 this.currentY = visualRect.top;
                 this.updateTransform();
             }
-            
-            this.widget.style.transition = 'transform 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275), opacity 0.2s ease';
             this.snapToCorners();
         }
     }
@@ -164,7 +162,6 @@ export class DraggableWidget {
         }
         this.widget.classList.add('widget-docked');
         this.widget.style.transform = ''; 
-
         this.widget.style.setProperty(this.cssVarX, `0px`);
         this.widget.style.setProperty(this.cssVarY, `0px`);
     }
@@ -186,7 +183,7 @@ export class DraggableWidget {
 
         const snapLeft = this.config.margin;
         const snapRight = screenW - w - this.config.margin;
-        const snapTop = 24; // Теперь виджеты будут прилипать и к самому верху экрана
+        const snapTop = 24; 
         const snapBottom = screenH - h - this.config.margin;
 
         this.currentX = Math.abs(this.currentX - snapLeft) < Math.abs(this.currentX - snapRight) ? snapLeft : snapRight;
@@ -209,9 +206,9 @@ export class DraggableWidget {
 
     destroy() {
         this.widget.removeEventListener('pointerdown', this.onPointerDown);
-        window.removeEventListener('pointermove', this.onPointerMove);
-        window.removeEventListener('pointerup', this.onPointerUp);
-        window.removeEventListener('pointercancel', this.onPointerUp);
+        this.widget.removeEventListener('pointermove', this.onPointerMove);
+        this.widget.removeEventListener('pointerup', this.onPointerUp);
+        this.widget.removeEventListener('pointercancel', this.onPointerUp);
         window.removeEventListener('resize', this.onResize);
     }
 }
