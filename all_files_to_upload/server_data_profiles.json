@@ -1,0 +1,44 @@
+{
+  "BAGERca": {
+    "password": "admin",
+    "name": "BAGERca",
+    "username": "BAGERca",
+    "bio": "Администратор и Создатель Cycle.",
+    "avatar": "https://placehold.co/150x150/7c3aed/ffffff?text=ADM",
+    "banner": "https://placehold.co/800x250/111/7c3aed?text=ADMINISTRATION",
+    "frameId": "frame_cyber",
+    "backgroundId": "bg_cyber",
+    "titleId": "title_pro",
+    "isVerified": true,
+    "verifiedBadgeType": "badge-3",
+    "coins": 999999,
+    "isAdmin": true,
+    "modules": { "music": true, "games": true, "socials": true },
+    "socials": { "telegram": "bagerca" }
+  },
+  "TetlaBot": {
+    "password": "bot",
+    "name": "TetlaBot",
+    "username": "TetlaBot",
+    "bio": "System Bot",
+    "avatar": "https://placehold.co/150x150/000/0f0?text=BOT",
+    "coins": 0,
+    "isVerified": true,
+    "verifiedBadgeType": "badge-8",
+    "frameId": "frame_none",
+    "modules": { "music": false, "games": false, "socials": false },
+    "socials": {}
+  },
+  "Ksusha Sher": {
+    "password": "123",
+    "name": "Ksusha Sher",
+    "username": "Ksusha Sher",
+    "bio": "Элитный пользователь.",
+    "avatar": "https://placehold.co/150x150/e8115b/fff?text=KS",
+    "coins": 1000,
+    "isVerified": true,
+    "verifiedBadgeType": "badge-8",
+    "frameId": "frame_none",
+    "modules": { "music": true, "games": true, "socials": true }
+  }
+}

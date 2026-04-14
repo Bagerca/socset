@@ -1,0 +1,68 @@
+[
+    {
+        "id": "track_be_mine",
+        "title": "Be Mine (Miside Song)",
+        "artist": "OR3O ft. Royale5",
+        "genre": "genre_pop",
+        "cover": "img/or3o_be_mine.jpg",
+        "url": "audio/or3o_be_mine.mp3",
+        "duration": "02:45",
+        "gameId": "game_val"
+    },
+    {
+        "id": "track_iris_out",
+        "title": "IRIS OUT",
+        "artist": "Kenshi Yonezu",
+        "genre": "genre_jpop",
+        "cover": "img/Kenshi_Yonezu_IRIS_OUT.jpg",
+        "url": "audio/Kenshi_Yonezu_IRIS_OUT.m4a",
+        "duration": "03:12"
+    },
+    {
+        "id": "track_epoch",
+        "title": "Epoch (The Living Tombstone's Remix)",
+        "artist": "Savlonic",
+        "genre": "genre_electronic",
+        "cover": "img/Savlonic_Epoch_The_Living_Tombstone_Remix.jpg",
+        "url": "audio/Savlonic_Epoch_The_Living_Tombstone_Remix.mp3",
+        "duration": "04:05"
+    },
+    {
+        "id": "track_ma_meilleure",
+        "title": "Ma Meilleure Ennemie",
+        "artist": "Stromae, Pomme",
+        "genre": "genre_indie",
+        "cover": "img/Stromae_Pomme_Ma_Meilleure_Ennemie.jpg",
+        "url": "audio/Stromae_Pomme_Ma_Meilleure_Ennemie.mp3",
+        "duration": "03:30"
+    },
+    {
+        "id": "track_rapture_rising",
+        "title": "Rapture Rising",
+        "artist": "JT Music",
+        "genre": "genre_rap",
+        "cover": "img/JT_Music_Rapture_Rising.jpg",
+        "url": "audio/JT_Music_Rapture_Rising.mp3",
+        "duration": "03:50",
+        "gameId": "game_bio"
+    },
+    {
+        "id": "track_undertaker",
+        "title": "Call on the Undertaker",
+        "artist": "JT Music",
+        "genre": "genre_rock",
+        "cover": "img/JT_Music_Call_on_the_Undertaker.jpg",
+        "url": "audio/JT_Music_Call_on_the_Undertaker.mp3",
+        "duration": "04:20"
+    },
+    {
+        "id": "track_make_me_pretty",
+        "title": "Make Me Pretty",
+        "artist": "JT Music feat. Andrea Storm Kaden",
+        "genre": "genre_alt",
+        "cover": "img/JT_Music_feat_Andrea_Storm_Kaden_Make_Me_Pretty.jpg",
+        "url": "audio/JT_Music_feat_Andrea_Storm_Kaden_Make_Me_Pretty.mp3",
+        "duration": "03:15",
+        "gameId": "game_bendy"
+    }
+]

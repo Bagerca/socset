@@ -1,0 +1,73 @@
+/* css/base/_variables.css */
+
+:root {
+    /* --- ЦВЕТА (ОСНОВА) --- */
+    --bg-base: #0a0a0c; 
+    --surface: #141416; 
+    --pill-bg: #111111; 
+    --border-color: rgba(255, 255, 255, 0.08);
+    
+    --text-main: #ffffff;
+    --text-muted: #6b6b6b;
+    
+    --accent-bg: #e8e8e8; 
+    --accent-icon: #000000;
+    --danger: #ff453a;
+    
+    /* --- ЦВЕТОВЫЕ АКЦЕНТЫ РАЗДЕЛОВ --- */
+    --accent-music: #44bd32; 
+    --accent-games: #7c3aed;
+    --accent-shop: #ffd700;  
+
+    /* --- СИСТЕМА ОТСТУПОВ (SPACING) --- */
+    --space-xs: 4px;
+    --space-sm: 8px;
+    --space-12: 12px;
+    --space-md: 16px;
+    --space-lg: 24px;
+    --space-xl: 32px;
+    --space-xxl: 48px;
+
+    /* --- ТИПОГРАФИКА (FONTS) --- */
+    --font-xs: 12px;
+    --font-sm: 14px;
+    --font-base: 15px;
+    --font-md: 16px;
+    --font-lg: 20px;
+    --font-xl: 24px;
+    --font-xxl: 32px;
+
+    /* --- СКРУГЛЕНИЯ (BORDER RADIUS) --- */
+    --radius-sm: 6px;
+    --radius-md: 12px;
+    --radius-lg: 16px;
+    --radius-xl: 24px;
+    --radius-pill: 100px;
+
+    /* --- ТЕНИ И АНИМАЦИИ --- */
+    --shadow-sm: 0 4px 10px rgba(0,0,0,0.2);
+    --shadow-md: 0 10px 30px rgba(0,0,0,0.4);
+    --shadow-lg: 0 20px 50px rgba(0,0,0,0.5);
+    
+    --transition-fast: 0.2s ease;
+    --transition-smooth: 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+}
+
+/* АДАПТАЦИЯ КОРНЕВЫХ ПЕРЕМЕННЫХ ДЛЯ МОБИЛОК */
+@media (max-width: 768px) {
+    :root {
+        /* Уменьшаем отступы */
+        --space-lg: 16px;
+        --space-xl: 20px;
+        --space-xxl: 32px;
+
+        /* Уменьшаем крупные шрифты */
+        --font-lg: 18px;
+        --font-xl: 20px;
+        --font-xxl: 26px;
+
+        /* Уменьшаем скругления, чтобы не съедали место */
+        --radius-lg: 12px;
+        --radius-xl: 16px;
+    }
+}

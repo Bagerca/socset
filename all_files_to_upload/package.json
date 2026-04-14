@@ -1,0 +1,24 @@
+{
+  "name": "cycle-social-network",
+  "version": "1.0.0",
+  "description": "Cycle Social Network",
+  "main": "server/server.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "start": "node --env-file=.env server/server.js",
+    "dev": "node --watch --env-file=.env server/server.js",
+    "share": "concurrently \"node --watch --env-file=.env server/server.js\" \"npx localtunnel --port 3000\""
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "dependencies": {
+    "better-sqlite3": "^12.6.2",
+    "multer": "^2.0.2",
+    "ws": "^8.20.0"
+  },
+  "devDependencies": {
+    "concurrently": "^8.2.2"
+  }
+}

@@ -178,7 +178,6 @@ export class ProfileController {
             this.bgLayer.style.backgroundColor = bg ? bg.color : '#0a0a0c';
         }
 
-        // ИСПРАВЛЕНА СТРОЧКА: Используем getItemById вместо getFrameById
         const frame = this.stores.shop.getItemById(p.frameId);
         ProfileRenderer.applyFrameToElement(this.avatarFrame, frame);
 
@@ -218,8 +217,8 @@ export class ProfileController {
         if (m.games) {
             const games = (this.currentUser.showcaseGames ||[]).map(id => this.stores.catalogs.getGameById(id)).filter(Boolean); 
             this.modulesContainer.insertAdjacentHTML('beforeend', ProfileRenderer.renderGamesModule(games));
-            const carousel = document.getElementById('gamesCarousel');
-            if (carousel) { carousel.addEventListener('wheel', (evt) => { if (evt.deltaY !== 0) { evt.preventDefault(); carousel.scrollLeft += evt.deltaY; } }, { passive: false }); }
+            
+            // Убрали JS-костыль для скролла витрины игр (теперь работает аппаратно через CSS)
         }
         if (m.socials && (this.currentUser.socials.telegram || this.currentUser.socials.github)) {
             this.modulesContainer.insertAdjacentHTML('beforeend', ProfileRenderer.renderSocialsModule(this.currentUser.socials));

@@ -1,0 +1,40 @@
+<svg viewBox="0 0 120 120" xmlns="http://www.w3.org/2000/svg">
+    <defs>
+        <!-- Градиенты -->
+        <linearGradient id="gradOuter" x1="0%" y1="0%" x2="100%" y2="100%">
+            <stop offset="0%" stop-color="#ffffff" />
+            <stop offset="100%" stop-color="#555555" />
+        </linearGradient>
+        <linearGradient id="gradInner" x1="100%" y1="100%" x2="0%" y2="0%">
+            <stop offset="0%" stop-color="#ffffff" />
+            <stop offset="100%" stop-color="#2a2a2c" />
+        </linearGradient>
+
+        <!-- Анимация, зашитая прямо в SVG -->
+        <style>
+            .cycle-outer {
+                transform-origin: 60px 60px;
+                animation: spinOuter 12s cubic-bezier(0.4, 0, 0.2, 1) infinite;
+            }
+            .cycle-inner {
+                transform-origin: 60px 60px;
+                animation: spinInner 8s cubic-bezier(0.4, 0, 0.2, 1) infinite;
+            }
+            @keyframes spinOuter {
+                0% { transform: rotate(0deg); }
+                50% { transform: rotate(180deg); }
+                100% { transform: rotate(360deg); }
+            }
+            @keyframes spinInner {
+                0% { transform: rotate(0deg); }
+                50% { transform: rotate(-180deg); }
+                100% { transform: rotate(-360deg); }
+            }
+        </style>
+    </defs>
+
+    <!-- Отрисовка элементов -->
+    <path class="cycle-outer" d="M 88,32 A 40,40 0 1,0 88,88" fill="none" stroke="url(#gradOuter)" stroke-width="14" stroke-linecap="round" />
+    <path class="cycle-inner" d="M 46,74 A 20,20 0 1,0 46,46" fill="none" stroke="url(#gradInner)" stroke-width="14" stroke-linecap="round" />
+    <circle cx="60" cy="60" r="5" fill="#ff453a" />
+</svg>

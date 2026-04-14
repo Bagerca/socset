@@ -1,0 +1,355 @@
+/* css/components/_player.css */
+
+/* ======================================================= */
+/* УМНАЯ ЗОНА ЗАКРЕПЛЕНИЯ ВИДЖЕТОВ (RIGHT DOCK)            */
+/* ======================================================= */
+
+/* --- АДАПТИВНАЯ ШИРИНА ПАНЕЛИ --- */
+:root {
+    --dock-width: 340px;
+}
+body.view-messages {
+    --dock-width: 280px;
+}
+/* -------------------------------- */
+
+.right-dock-area {
+    position: fixed; top: 24px; bottom: 24px; right: 24px;
+    height: auto; width: var(--dock-width);
+    z-index: 9998; pointer-events: none; display: flex;
+    flex-direction: column; gap: 20px; align-items: center;
+    transition: width 0.5s cubic-bezier(0.25, 1, 0.5, 1);
+}
+
+.right-dock-area::after {
+    content: 'ЗАКРЕПИТЬ'; display: none; 
+    width: var(--drag-w, 100%); height: var(--drag-h, 150px);
+    border: 2px dashed rgba(255, 255, 255, 0.15);
+    border-radius: var(--drag-r, 20px);
+    background: rgba(10, 10, 12, 0.4); backdrop-filter: blur(8px);
+    color: rgba(255, 255, 255, 0.3);
+    align-items: center; justify-content: center;
+    font-size: 14px; font-weight: 800; letter-spacing: 2px;
+    opacity: 0; transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+    flex-shrink: 0; transform: scale(0.95);
+}
+
+body.is-dragging-widget .right-dock-area::after { 
+    display: flex; opacity: 1; transform: scale(1);
+}
+
+body.is-dragging-widget .right-dock-area.drag-over::after {
+    border: 2px solid var(--accent-games);
+    background: rgba(124, 58, 237, 0.1);
+    color: var(--accent-games);
+    box-shadow: 0 0 40px rgba(124, 58, 237, 0.2);
+    transform: scale(1.02); 
+}
+
+.widget-docked {
+    position: relative !important;
+    top: auto !important; left: auto !important; right: auto !important; bottom: auto !important;
+    width: 100% !important; pointer-events: auto !important;
+    box-shadow: 0 10px 40px rgba(0,0,0,0.3) !important;
+    flex-shrink: 0; transform: none; 
+    animation: dockSnap 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
+    transition: width 0.5s cubic-bezier(0.25, 1, 0.5, 1), opacity 0.3s, transform 0.3s;
+}
+
+@keyframes dockSnap {
+    0% { opacity: 0.5; transform: scale(1.05); }
+    100% { opacity: 1; transform: scale(1); }
+}
+
+.grabbing,
+.widget-is-dragging { 
+    cursor: grabbing !important; 
+}
+
+@media (max-width: 1100px) {
+    .right-dock-area { 
+        right: -380px; background: rgba(20, 20, 22, 0.95);
+        backdrop-filter: blur(20px); border-left: 1px solid rgba(255,255,255,0.1);
+        padding: 20px; border-radius: 24px 0 0 24px;
+        box-shadow: -10px 0 50px rgba(0,0,0,0.5); width: 340px; 
+    }
+    .right-dock-area:not(:empty) { transform: translateX(-15px); pointer-events: auto; }
+    .right-dock-area:not(:empty):hover, .right-dock-area:not(:empty):active { right: 0; transform: translateX(0); }
+}
+
+@media (max-width: 768px) {
+    .right-dock-area { display: none !important; } 
+}
+
+
+/* ======================================================= */
+/* ПЛЕЕР МУЗЫКИ                                            */
+/* ======================================================= */
+.floating-mini-player { 
+    position: fixed; top: 0; left: 0; width: 360px; 
+    background: rgba(20, 20, 22, 0.85); border: 1px solid rgba(255, 255, 255, 0.1); 
+    border-radius: var(--radius-lg); box-shadow: var(--shadow-lg); z-index: 9999; 
+    backdrop-filter: blur(20px); overflow: hidden; 
+    transform: translate3d(var(--fmp-x, 0px), var(--fmp-y, 0px), 0); 
+    will-change: transform; transition: transform var(--transition-smooth), opacity 0.2s ease; 
+}
+.floating-mini-player.hidden { opacity: 0; pointer-events: none; transform: translate3d(var(--fmp-x, 0px), var(--fmp-y, 0px), 0) scale(0.9); }
+
+.fmp-bg-blur { position: absolute; top: -50%; left: -50%; width: 200%; height: 200%; background-size: cover; background-position: center; filter: blur(50px) brightness(0.3); z-index: -1; opacity: 0.6; }
+
+.fmp-drag-handle { width: 100%; height: 20px; display: flex; align-items: center; justify-content: center; background: transparent; position: relative; cursor: grab; touch-action: none; }
+.fmp-drag-handle:active { cursor: grabbing; }
+.drag-bar { width: 40px; height: 4px; border-radius: 2px; background: rgba(255,255,255,0.2); }
+.fmp-close-btn { position: absolute; right: 10px; top: 50%; transform: translateY(-50%); background: transparent; border: none; color: rgba(255,255,255,0.4); font-size: 16px; cursor: pointer; width: 24px; height: 24px; display: flex; align-items: center; justify-content: center; border-radius: 50%; transition: var(--transition-fast); }
+@media (hover: hover) { .fmp-close-btn:hover { color: #fff; background: rgba(255,255,255,0.1); } }
+
+.fmp-inner { padding: 0 var(--space-md) var(--space-md) var(--space-md); display: flex; flex-direction: column; gap: var(--space-12); transition: opacity 0.2s ease; }
+.fmp-progress-wrapper { margin-bottom: 4px; }
+.fmp-main-content { display: flex; align-items: center; gap: var(--space-12); }
+.fmp-cover { width: 48px; height: 48px; border-radius: var(--space-sm); object-fit: cover; box-shadow: 0 4px 10px rgba(0,0,0,0.4); pointer-events: none; }
+.fmp-info { flex: 1; min-width: 0; display: flex; flex-direction: column; justify-content: center; pointer-events: none; }
+.fmp-title { font-size: var(--font-sm); font-weight: 700; color: #fff; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-bottom: 2px; }
+.fmp-artist { font-size: 12px; color: rgba(255,255,255,0.7); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.fmp-fav { color: var(--text-muted); font-size: var(--font-md); cursor: pointer; }
+.fmp-fav.active { color: var(--danger); }
+
+.fmp-controls-row { display: flex; align-items: center; justify-content: space-between; }
+.fmp-time { font-size: 11px; color: rgba(255,255,255,0.5); font-variant-numeric: tabular-nums; width: 30px; text-align: center; pointer-events: none; }
+.fmp-buttons { display: flex; align-items: center; gap: var(--space-md); }
+.fmp-btn { background: transparent; border: none; color: #fff; font-size: var(--font-md); cursor: pointer; transition: var(--transition-fast); }
+@media (hover: hover) { .fmp-btn:hover { color: #44bd32; } }
+.fmp-btn.play { width: 36px; height: 36px; border-radius: 50%; background: #fff; color: #000; font-size: var(--font-sm); display: flex; align-items: center; justify-content: center; }
+@media (hover: hover) { .fmp-btn.play:hover { transform: scale(1.1); background: #e0e0e0; color: #000; } }
+.fmp-btn.small { font-size: var(--font-sm); color: rgba(255,255,255,0.5); position: relative; }
+.fmp-btn.small.active { color: #44bd32; }
+.fmp-btn.small.active span { position: absolute; font-size: 8px; right: -6px; top: -4px; font-weight: 800; background: #222; border-radius: 50%; width: 12px; height: 12px; display: flex; align-items: center; justify-content: center; color: #fff; }
+
+.fmp-volume-row { display: flex; align-items: center; gap: var(--space-sm); justify-content: center; }
+#fmpVolumeIcon { font-size: 12px; color: rgba(255,255,255,0.6); cursor: pointer; transition: var(--transition-fast); width: 16px; text-align: center; }
+#fmpVolumeIcon.muted { color: var(--danger); }
+.fmp-slider { -webkit-appearance: none; width: 100%; height: 4px; background: rgba(255,255,255,0.2); border-radius: 2px; outline: none; cursor: pointer; transition: height 0.2s; }
+.fmp-slider::-webkit-slider-thumb { -webkit-appearance: none; width: 0; height: 0; background: #fff; border-radius: 50%; transition: 0.2s; }
+@media (hover: hover) { .fmp-slider:hover::-webkit-slider-thumb { width: 10px; height: 10px; } }
+.fmp-slider.vol { width: 100px; height: 4px; }
+
+
+/* ======================================================= */
+/* ВХОДЯЩИЙ ЗВОНОК                                         */
+/* ======================================================= */
+.incoming-call-toast {
+    position: fixed; top: 24px; left: 50%; transform: translate(-50%, -150%);
+    background: rgba(30, 30, 34, 0.95); backdrop-filter: blur(20px);
+    border: 1px solid rgba(255,255,255,0.1); border-radius: 24px;
+    padding: 12px 20px; display: flex; align-items: center; gap: 16px;
+    box-shadow: 0 15px 40px rgba(0,0,0,0.5); z-index: 100000;
+    transition: transform 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275), opacity 0.4s ease;
+    opacity: 0; pointer-events: none;
+}
+.incoming-call-toast.active { transform: translate(-50%, 0); opacity: 1; pointer-events: auto; }
+@keyframes pulseCall { 0% { transform: scale(1); opacity: 0.8; } 100% { transform: scale(1.5); opacity: 0; } }
+.call-pulse-ring { position: absolute; inset: -10px; border-radius: 50%; border: 2px solid #44bd32; animation: pulseCall 1.5s infinite ease-out; z-index: -1; }
+
+
+/* ======================================================= */
+/* ПЛАВАЮЩИЙ ВИДЖЕТ ЗВОНКА                                 */
+/* ======================================================= */
+.floating-call-widget {
+    position: fixed; top: 0; left: 0; width: 320px; height: 480px;
+    background: #050508; border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 20px; box-shadow: 0 20px 60px rgba(0,0,0,0.6);
+    z-index: 10000; overflow: hidden; display: flex; flex-direction: column;
+    transform: translate3d(var(--fcw-x, 0px), var(--fcw-y, 0px), 0);
+    will-change: transform; transition: transform var(--transition-smooth), opacity 0.2s ease;
+}
+.floating-call-widget.hidden { opacity: 0; pointer-events: none; transform: translate3d(var(--fcw-x, 0px), var(--fcw-y, 0px), 0) scale(0.9); }
+
+.fcw-drag-handle { width: 100%; height: 24px; display: flex; align-items: center; justify-content: center; background: rgba(0,0,0,0.5); position: absolute; top: 0; left: 0; z-index: 10; cursor: grab; touch-action: none;}
+.fcw-drag-handle:active { cursor: grabbing; }
+.fcw-drag-handle .drag-bar { width: 40px; height: 4px; border-radius: 2px; background: rgba(255,255,255,0.4); }
+
+.fcw-video-grid { flex: 1; background: #0a0a0c; display: flex; flex-wrap: wrap; align-content: stretch; position: relative; overflow: hidden; }
+.fcw-status { position: absolute; top: 34px; left: 50%; transform: translateX(-50%); background: rgba(0,0,0,0.6); padding: 6px 12px; border-radius: 20px; color: #fff; font-size: 12px; font-weight: 600; backdrop-filter: blur(10px); z-index: 5; white-space: nowrap; }
+
+.video-cell { position: relative; flex: 1 1 50%; min-width: 40%; min-height: 40%; border: 1px solid #000; box-sizing: border-box; background: #111; }
+.video-cell:first-child:nth-last-child(1) { flex: 1 1 100%; }
+.video-cell video { width: 100%; height: 100%; object-fit: cover; }
+.video-cell.local video { transform: scaleX(-1); }
+.video-name-badge { position: absolute; bottom: 8px; left: 8px; background: rgba(0,0,0,0.6); color: #fff; font-size: 10px; font-weight: 600; padding: 3px 8px; border-radius: 6px; z-index: 2; text-transform: uppercase; letter-spacing: 0.5px;}
+
+.fcw-controls { height: 70px; background: rgba(20,20,22,0.95); display: flex; align-items: center; justify-content: center; gap: 16px; border-top: 1px solid var(--border-color); z-index: 10; padding: 0 10px; flex-shrink: 0;}
+.fcw-btn { width: 44px; height: 44px; background: rgba(255,255,255,0.1); color: #fff; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 16px; transition: 0.2s; border: none; cursor: pointer; }
+.fcw-btn:hover { background: rgba(255,255,255,0.2); }
+.fcw-btn.danger { background: var(--danger); box-shadow: 0 4px 15px rgba(255,69,58,0.4); }
+.fcw-btn.danger:hover { background: #ff2a1f; transform: scale(1.05); }
+
+
+/* ======================================================= */
+/* ПЛАВАЮЩИЙ ВИДЖЕТ КИНОЗАЛА                               */
+/* ======================================================= */
+.floating-sr-widget {
+    position: fixed; top: 0; left: 0; width: 480px; height: 294px; /* 270px (16:9) + 24px (шапка) */
+    background: #050508; border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 16px; box-shadow: 0 20px 60px rgba(0,0,0,0.8);
+    z-index: 9998; display: flex; flex-direction: column; overflow: hidden;
+    transform: translate3d(var(--fsr-x, 0px), var(--fsr-y, 0px), 0);
+    will-change: transform; transition: transform var(--transition-smooth), opacity 0.2s ease;
+}
+
+.floating-sr-widget.hidden { 
+    opacity: 0; pointer-events: none; 
+    transform: translate3d(var(--fsr-x, 0px), var(--fsr-y, 0px), 0) scale(0.9); 
+}
+
+/* ШАПКА ВИДЖЕТА (СТРОГО 24px, БЕЗ АБСОЛЮТА) */
+.fsr-drag-handle { 
+    width: 100%; height: 24px; flex-shrink: 0;
+    display: flex; align-items: center; justify-content: center; 
+    background: rgba(10, 10, 12, 1); border-bottom: 1px solid rgba(255,255,255,0.05);
+    cursor: grab; touch-action: none; z-index: 100;
+}
+.fsr-drag-handle:active { cursor: grabbing; }
+.fsr-drag-handle .drag-bar { width: 40px; height: 4px; border-radius: 2px; background: rgba(255,255,255,0.4); }
+
+/* ЗОНА ПАНЕЛИ ЗАПУСКА И ВИДЕО */
+.fsr-controls-area { flex: 1; padding: 20px; display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; }
+.fsr-controls-area h3 { color: #fff; font-size: 16px; margin-bottom: 12px; }
+.fsr-input-row { display: flex; gap: 8px; width: 100%; max-width: 500px;}
+.fsr-input-row input { flex: 1; background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.2); border-radius: 8px; color: #fff; padding: 8px 12px; outline: none; font-size: 13px; }
+
+.fsr-video-area { flex: 1; position: relative; background: #000; overflow: hidden; }
+.fsr-btn-close { position: absolute; top: 10px; right: 10px; z-index: 60; background: rgba(0,0,0,0.6); color: #fff; border: none; width: 32px; height: 32px; border-radius: 50%; display: flex; align-items: center; justify-content: center; cursor: pointer; transition: 0.2s; backdrop-filter: blur(4px); }
+.fsr-btn-close:hover { background: var(--danger); }
+
+/* ======================================================= */
+/* CUSTOM SCREENING ROOM PLAYER & RESIZER                  */
+/* ======================================================= */
+.fsr-resizer {
+    position: absolute; bottom: 0; right: 0; width: 20px; height: 20px;
+    cursor: nwse-resize; z-index: 100;
+    display: flex; align-items: flex-end; justify-content: flex-end; padding: 3px; touch-action: none;
+}
+.fsr-resizer::after {
+    content: ''; width: 10px; height: 10px;
+    border-right: 2px solid rgba(255,255,255,0.5);
+    border-bottom: 2px solid rgba(255,255,255,0.5);
+    border-bottom-right-radius: 4px;
+}
+
+.sr-custom-wrapper {
+    position: relative; width: 100%; height: 100%; background: #000;
+    display: flex; align-items: center; justify-content: center; overflow: hidden;
+}
+.sr-media-container { width: 100%; height: 100%; pointer-events: none; }
+.sr-media-container iframe, .sr-media-container video { width: 100%; height: 100%; object-fit: contain; }
+
+/* Оверлеи поверх видео */
+.sr-interactive-layer { position: absolute; inset: 0; z-index: 10; cursor: pointer; }
+.sr-controls-overlay {
+    position: absolute; bottom: 0; left: 0; width: 100%;
+    background: linear-gradient(to top, rgba(0,0,0,0.9) 0%, rgba(0,0,0,0) 100%);
+    padding: 40px 15px 15px 15px; z-index: 20;
+    display: flex; flex-direction: column; gap: 8px;
+    opacity: 0; transition: opacity 0.3s ease;
+}
+.sr-custom-wrapper:hover .sr-controls-overlay, 
+.sr-custom-wrapper.paused .sr-controls-overlay { opacity: 1; }
+
+/* Прогресс бар */
+.sr-progress-container { width: 100%; height: 6px; background: rgba(255,255,255,0.2); border-radius: 4px; cursor: pointer; position: relative; transition: height 0.2s; }
+.sr-progress-container:hover { height: 8px; }
+.sr-progress-filled { position: absolute; top: 0; left: 0; height: 100%; background: var(--accent-games); border-radius: 4px; pointer-events: none; }
+.sr-progress-thumb { position: absolute; top: 50%; transform: translate(-50%, -50%); width: 12px; height: 12px; background: #fff; border-radius: 50%; box-shadow: 0 0 5px rgba(0,0,0,0.5); pointer-events: none; opacity: 0; transition: opacity 0.2s; }
+.sr-progress-container:hover .sr-progress-thumb { opacity: 1; }
+
+.sr-controls-row { display: flex; align-items: center; justify-content: space-between; gap: 15px; }
+.sr-controls-left, .sr-controls-right { display: flex; align-items: center; gap: 15px; }
+
+.sr-btn { background: transparent; border: none; color: #fff; font-size: 16px; cursor: pointer; transition: transform 0.2s, color 0.2s; width: 30px; height: 30px; display: flex; align-items: center; justify-content: center; }
+.sr-btn:hover { color: var(--accent-games); transform: scale(1.1); }
+.sr-time-display { color: #fff; font-size: 13px; font-weight: 600; font-variant-numeric: tabular-nums; user-select: none; }
+
+/* Ползунок громкости */
+.sr-volume-wrapper { display: flex; align-items: center; gap: 8px; cursor: pointer; }
+.sr-volume-slider { width: 0; opacity: 0; transition: width 0.3s, opacity 0.3s; -webkit-appearance: none; height: 4px; background: rgba(255,255,255,0.3); border-radius: 2px; }
+.sr-volume-slider::-webkit-slider-thumb { -webkit-appearance: none; width: 10px; height: 10px; background: #fff; border-radius: 50%; }
+.sr-volume-wrapper:hover .sr-volume-slider { width: 60px; opacity: 1; }
+
+/* Кнопка "В эфире" для зрителей */
+.sr-live-btn { background: rgba(255, 69, 58, 0.2); color: var(--danger); border: 1px solid rgba(255,69,58,0.5); border-radius: 12px; padding: 4px 10px; font-size: 11px; font-weight: 800; cursor: pointer; text-transform: uppercase; letter-spacing: 0.5px; transition: 0.2s; display: none; }
+.sr-live-btn.desync { background: var(--danger); color: #fff; display: flex; align-items: center; gap: 4px; }
+.sr-live-btn.desync::before { content: ''; display: inline-block; width: 6px; height: 6px; background: #fff; border-radius: 50%; animation: blink 1s infinite; }
+
+/* Внутриплеерные уведомления */
+.sr-toast-container { position: absolute; top: 20px; left: 20px; z-index: 30; display: flex; flex-direction: column; gap: 8px; pointer-events: none; }
+.sr-toast { background: rgba(0,0,0,0.7); color: #fff; padding: 6px 12px; border-radius: 8px; font-size: 13px; font-weight: 600; backdrop-filter: blur(4px); animation: fadeIn 0.3s ease; transition: opacity 0.3s ease; }
+
+/* Большая кнопка Play по центру */
+.sr-big-play { position: absolute; inset: 0; background: rgba(0,0,0,0.5); z-index: 40; display: flex; flex-direction: column; align-items: center; justify-content: center; color: #fff; cursor: pointer; backdrop-filter: blur(4px); }
+.sr-big-play i { font-size: 64px; color: var(--accent-games); margin-bottom: 10px; transition: 0.2s; filter: drop-shadow(0 0 20px rgba(124, 58, 237, 0.5)); }
+.sr-big-play:hover i { transform: scale(1.1); }
+.sr-big-play p { font-size: 16px; font-weight: 600; margin: 0; }
+
+/* Фуллскрин фиксы */
+.sr-custom-wrapper:fullscreen { border-radius: 0; }
+.sr-custom-wrapper:fullscreen .fsr-resizer, .sr-custom-wrapper:fullscreen .sr-btn-close { display: none; }
+
+/* АДАПТАЦИЯ ВСЕХ ВИДЖЕТОВ */
+@media (max-width: 768px) {
+    .floating-mini-player { width: 320px; max-width: calc(100vw - 32px); border-radius: 16px; }
+    .fmp-drag-handle { display: flex; padding: 8px 0; }
+    .fmp-inner { padding: 0 12px 12px 12px; gap: 8px; }
+    .fmp-cover { width: 40px; height: 40px; }
+    .fmp-buttons { gap: 10px; }
+    .fmp-btn.play { width: 32px; height: 32px; font-size: 12px; }
+    .fmp-volume-row { display: none; }
+
+    .floating-call-widget { width: 140px; height: 220px; }
+    .fcw-controls { height: 50px; gap: 8px; }
+    .fcw-btn { width: 32px; height: 32px; font-size: 12px; }
+    .fcw-status { font-size: 10px; padding: 4px 8px; top: 28px; }
+    .video-name-badge { font-size: 8px; padding: 2px 4px; bottom: 4px; left: 4px; }
+    
+    .incoming-call-toast { width: 90%; flex-wrap: wrap; justify-content: center; text-align: center; }
+    
+    /* === КИНОЗАЛ НА МОБИЛКАХ === */
+    .floating-sr-widget { 
+        width: 100vw !important; 
+        height: 56.25vw !important; /* Четко соблюдаем пропорции 16:9 */
+        top: 0 !important; 
+        left: 0 !important; 
+        border-radius: 0; 
+        border: none;
+        transform: none !important; /* Убиваем скрипт перетаскивания на мобилке */
+        z-index: 100000; /* Поверх всего */
+    }
+    
+    /* Прячем ручки перетаскивания и ресайза */
+    .fsr-resizer, .fsr-drag-handle { display: none !important; } 
+    
+    /* Прячем ползунок звука, делаем кнопки крупнее */
+    .sr-volume-wrapper { display: none !important; } 
+    .sr-btn { width: 36px; height: 36px; font-size: 18px; }
+    .sr-controls-overlay { padding: 30px 10px 10px 10px; }
+    .sr-time-display { font-size: 11px; }
+    .fsr-btn-close { top: 10px; right: 10px; width: 36px; height: 36px; }
+}
+
+/* ======================================================= */
+/* ФИКСЫ ДЛЯ ПЕРЕТАСКИВАНИЯ И РЕСАЙЗА ВИДЖЕТОВ             */
+/* ======================================================= */
+
+/* Выключаем выделение текста по всему сайту во время перетаскивания */
+body.is-dragging-widget * {
+    user-select: none !important;
+    -webkit-user-select: none !important;
+}
+
+/* Блокируем клики по плееру (YouTube iframe), чтобы он не "съедал" мышь */
+.floating-sr-widget.widget-is-dragging .sr-media-container,
+.floating-sr-widget.widget-is-resizing .sr-media-container {
+    pointer-events: none !important;
+}
+.floating-sr-widget.widget-is-dragging,
+.floating-sr-widget.widget-is-resizing {
+    cursor: grabbing !important;
+}

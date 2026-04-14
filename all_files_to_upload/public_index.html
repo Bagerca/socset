@@ -1,0 +1,165 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Cycle</title>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.1.1/css/all.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="css/main.css">
+    <link rel="icon" href="data:,">
+</head>
+<body>
+    <div id="profileBackgroundLayer" class="profile-background-layer"></div>
+
+    <div class="app-container">
+        <div class="sidebar-wrapper">
+            <nav class="sidebar glass-pill">
+                <div class="logo-icon">
+                    <a href="#/" title="На главную">
+                        <img src="img/logo.svg" alt="Cycle Logo" class="brand-logo">
+                    </a>
+                </div>
+                <div class="nav-links">
+                    <a href="#/" class="nav-item nav-link" data-route="/"><i class="fa-solid fa-house"></i></a>
+                    <div class="nav-item" id="burgerMenuBtn" title="Сервисы"><i class="fa-solid fa-bars"></i></div>
+                    <div class="nav-item" title="Поиск"><i class="fa-solid fa-magnifying-glass"></i></div>
+                    
+                    <a href="#/messages" id="msgIcon" class="nav-item nav-link" data-route="/messages" title="Мессенджер">
+                        <i class="fa-regular fa-paper-plane"></i>
+                    </a>
+                    
+                    <a href="#/notifications" id="bellIcon" class="nav-item nav-link" data-route="/notifications" title="Уведомления">
+                        <i class="fa-solid fa-bell"></i>
+                    </a>
+                    
+                    <a href="#/profile" class="nav-item nav-link" data-route="/profile"><i class="fa-solid fa-user"></i></a>
+                </div>
+            </nav>
+
+            <nav class="sidebar glass-pill sub-sidebar" id="subSidebar">
+                <div class="nav-links">
+                    <a href="#/music" class="nav-item nav-link" data-route="/music" title="Музыка"><i class="fa-solid fa-music"></i></a>
+                    <a href="#/games" class="nav-item nav-link" data-route="/games" title="Игры"><i class="fa-solid fa-gamepad"></i></a>
+                    <a href="#/shop" class="nav-item nav-link" data-route="/shop" title="Магазин"><i class="fa-solid fa-store"></i></a>
+                </div>
+            </nav>
+        </div>
+
+        <main id="app-content" class="feed"></main>
+    </div>
+
+    <!-- ======================================= -->
+    <!-- ЗОНА ЗАКРЕПЛЕНИЯ ВИДЖЕТОВ (RIGHT DOCK)  -->
+    <!-- ======================================= -->
+    <div id="rightDockArea" class="right-dock-area"></div>
+
+
+    <!-- ГЛОБАЛЬНАЯ ГАЛЕРЕЯ КАРТИНОК -->
+    <div id="chatImageModal" class="modal-overlay" style="z-index: 9999999;">
+        <div class="modal-content" style="max-width: 95vw; max-height: 95vh; background: transparent; box-shadow: none; border: none; align-items: center; justify-content: center; padding: 0; position: relative;">
+            <div id="chatImageCounter" style="position: absolute; top: -30px; left: 50%; transform: translateX(-50%); color: #fff; background: rgba(0,0,0,0.5); padding: 4px 12px; border-radius: 12px; font-size: 14px; font-weight: 600; display: none;">1 / 1</div>
+            <img id="chatFullImage" src="" style="max-width: 100%; max-height: 85vh; border-radius: 12px; box-shadow: 0 20px 80px rgba(0,0,0,0.8); object-fit: contain;">
+            <div style="margin-top: 20px; display: flex; gap: 16px; background: rgba(0,0,0,0.5); padding: 10px 20px; border-radius: 100px; backdrop-filter: blur(10px);">
+                <button id="prevChatImageBtn" class="icon-btn" style="width: 44px; height: 44px; display: none;"><i class="fa-solid fa-chevron-left"></i></button>
+                <button id="closeChatImageModal" class="icon-btn" style="width: 44px; height: 44px;"><i class="fa-solid fa-xmark"></i></button>
+                <a id="downloadChatImageBtn" href="" download class="icon-btn" style="width: 44px; height: 44px;" title="Скачать"><i class="fa-solid fa-download"></i></a>
+                <button id="nextChatImageBtn" class="icon-btn" style="width: 44px; height: 44px; display: none;"><i class="fa-solid fa-chevron-right"></i></button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Входящий звонок -->
+    <div id="incomingCallToast" class="incoming-call-toast">
+        <div style="position:relative; width:48px; height:48px; flex-shrink:0;">
+            <img id="incomingCallAvatar" src="" style="width:100%;height:100%;border-radius:50%;object-fit:cover;">
+            <div class="call-pulse-ring" style="inset:-6px; border-width:2px;"></div>
+        </div>
+        <div style="flex:1; min-width:120px; text-align: left;">
+            <div id="incomingCallName" style="color:#fff; font-size:16px; font-weight:800; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">Имя</div>
+            <div style="color:var(--text-muted); font-size:13px;">Видеозвонок...</div>
+        </div>
+        <div style="display:flex; gap:10px;">
+            <button id="btnDeclineCall" class="icon-btn" style="background:var(--danger); color:#fff; width:44px; height:44px; border-radius:50%; box-shadow:0 4px 10px rgba(255,69,58,0.4);"><i class="fa-solid fa-phone-slash"></i></button>
+            <button id="btnAcceptCall" class="icon-btn" style="background:#44bd32; color:#fff; width:44px; height:44px; border-radius:50%; box-shadow:0 4px 10px rgba(68,189,50,0.4);"><i class="fa-solid fa-phone"></i></button>
+        </div>
+    </div>
+
+    <!-- Плавающий виджет активного звонка (Сетка) -->
+    <div class="floating-call-widget hidden" id="floatingCallWidget">
+        <div class="fcw-drag-handle">
+            <div class="drag-bar"></div>
+        </div>
+        <div class="fcw-video-grid" id="fcwVideoGrid">
+            <div id="callStatusText" class="fcw-status">Соединение...</div>
+        </div>
+        <div class="fcw-controls">
+            <button id="btnToggleMic" class="icon-btn fcw-btn"><i class="fa-solid fa-microphone"></i></button>
+            <button id="btnToggleCam" class="icon-btn fcw-btn"><i class="fa-solid fa-video"></i></button>
+            <button id="btnEndCall" class="btn-post fcw-btn danger"><i class="fa-solid fa-phone-slash"></i></button>
+        </div>
+    </div>
+
+    <!-- ГЛОБАЛЬНЫЙ КИНОЗАЛ -->
+    <div class="floating-sr-widget hidden" id="floatingSRWidget">
+        <div class="fsr-drag-handle">
+            <div class="drag-bar"></div>
+        </div>
+        <div id="fsrControlsArea" class="fsr-controls-area">
+            <h3><i class="fa-solid fa-film" style="color:var(--accent-games);"></i> Запуск Кинозала</h3>
+            <div class="fsr-input-row">
+                <input type="text" id="fsrInputUrl" placeholder="Ссылка на YouTube">
+                <button id="fsrBtnStart" class="btn-post" style="background: var(--accent-games); color: #fff;">Запуск</button>
+            </div>
+            <div style="margin: 10px 0; color: var(--text-muted); font-size:12px;">ИЛИ</div>
+            <input type="file" id="fsrInputFile" accept="video/mp4,video/webm" style="display:none;">
+            <button id="fsrBtnUpload" class="btn-post" style="background: rgba(255,255,255,0.1); color: #fff; width:100%;"><i class="fa-solid fa-upload"></i> Загрузить MP4</button>
+        </div>
+        <div id="fsrVideoArea" class="fsr-video-area" style="display: none;">
+            <button id="fsrBtnClose" class="fsr-btn-close" title="Закрыть кинозал"><i class="fa-solid fa-xmark"></i></button>
+            <div id="fsrVideoTarget" style="width: 100%; height: 100%; position: relative;"></div>
+        </div>
+    </div>
+
+    <!-- Плеер музыки -->
+    <div class="floating-mini-player hidden" id="floatingMiniPlayer">
+        <div class="fmp-bg-blur" id="fmpBg"></div>
+        <div class="fmp-drag-handle">
+            <div class="drag-bar"></div>
+            <button id="fmpCloseBtn" class="fmp-close-btn" title="Закрыть плеер"><i class="fa-solid fa-xmark"></i></button>
+        </div>
+        <div class="fmp-inner" id="fmpInner">
+            <div class="fmp-progress-wrapper">
+                <input type="range" id="fmpProgressBar" class="fmp-slider thin" value="0" min="0" max="100">
+            </div>
+            <div class="fmp-main-content">
+                <img id="fmpCover" src="" class="fmp-cover" alt="Cover">
+                <div class="fmp-info">
+                    <div class="fmp-title" id="fmpTitle">Track Title</div>
+                    <div class="fmp-artist" id="fmpArtist">Artist Name</div>
+                </div>
+                <button id="fmpFavBtn" class="icon-btn-small fmp-fav"><i class="fa-regular fa-heart"></i></button>
+            </div>
+            <div class="fmp-controls-row">
+                <div class="fmp-time" id="fmpCurrentTime">0:00</div>
+                <div class="fmp-buttons">
+                    <button id="fmpShuffle" class="fmp-btn small"><i class="fa-solid fa-shuffle"></i></button>
+                    <button id="fmpPrev" class="fmp-btn"><i class="fa-solid fa-backward-step"></i></button>
+                    <button id="fmpPlay" class="fmp-btn play"><i class="fa-solid fa-play"></i></button>
+                    <button id="fmpNext" class="fmp-btn"><i class="fa-solid fa-forward-step"></i></button>
+                    <button id="fmpRepeat" class="fmp-btn small"><i class="fa-solid fa-repeat"></i></button>
+                </div>
+                <div class="fmp-time" id="fmpDuration">0:00</div>
+            </div>
+            <div class="fmp-volume-row">
+                <i class="fa-solid fa-volume-low" id="fmpVolumeIcon"></i>
+                <input type="range" id="fmpVolumeBar" class="fmp-slider vol" value="100" min="0" max="100">
+            </div>
+        </div>
+    </div>
+
+    <audio id="globalAudioPlayer" crossorigin="anonymous"></audio>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/localforage/1.10.0/localforage.min.js"></script>
+    <script type="module" src="js/app.js"></script>
+</body>
+</html>

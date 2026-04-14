@@ -1,0 +1,18 @@
+[
+  {
+    "id": "frame_cyber",
+    "type": "frame",
+    "name": "Cyberpunk Glow",
+    "author": "System",
+    "price": 150,
+    "css": "border: 2px solid #00f0ff; box-shadow: 0 0 15px #00f0ff;"
+  },
+  {
+    "id": "frame_demon",
+    "type": "frame",
+    "name": "Demon Aura",
+    "author": "System",
+    "price": 300,
+    "css": "border: 3px dashed #ff453a; box-shadow: 0 0 20px #ff453a;"
+  }
+]

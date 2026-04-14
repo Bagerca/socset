@@ -1,4 +1,4 @@
-/* css/base/_variables.css */
+/* public/css/base/_variables.css */
 
 :root {
     /* --- ЦВЕТА (ОСНОВА) --- */
@@ -44,7 +44,7 @@
     --radius-xl: 24px;
     --radius-pill: 100px;
 
-    /* --- ТЕНИ И АНИМАЦИИ --- */
+    /* --- ТЕНИ И АНИМАЦИИ (Дефолт для ПК) --- */
     --shadow-sm: 0 4px 10px rgba(0,0,0,0.2);
     --shadow-md: 0 10px 30px rgba(0,0,0,0.4);
     --shadow-lg: 0 20px 50px rgba(0,0,0,0.5);
@@ -53,21 +53,34 @@
     --transition-smooth: 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
 }
 
-/* АДАПТАЦИЯ КОРНЕВЫХ ПЕРЕМЕННЫХ ДЛЯ МОБИЛОК */
+/* АДАПТАЦИЯ КОРНЕВЫХ ПЕРЕМЕННЫХ И GPU-ОПТИМИЗАЦИЯ ДЛЯ МОБИЛОК */
 @media (max-width: 768px) {
     :root {
-        /* Уменьшаем отступы */
+        /* Уменьшаем отступы для компактности */
         --space-lg: 16px;
         --space-xl: 20px;
         --space-xxl: 32px;
 
-        /* Уменьшаем крупные шрифты */
+        /* Уменьшаем шрифты */
         --font-lg: 18px;
         --font-xl: 20px;
         --font-xxl: 26px;
 
-        /* Уменьшаем скругления, чтобы не съедали место */
+        /* Уменьшаем скругления */
         --radius-lg: 12px;
         --radius-xl: 16px;
+
+        /* GPU ОПТИМИЗАЦИЯ: Уменьшаем радиус размытия теней (убирает лаги при скролле) */
+        --shadow-sm: 0 2px 5px rgba(0,0,0,0.3);
+        --shadow-md: 0 5px 15px rgba(0,0,0,0.4);
+        --shadow-lg: 0 10px 25px rgba(0,0,0,0.5);
+    }
+
+    /* Глобальное снижение нагрузки от Blur-эффектов на мобилках */
+    .glass-pill, .modal-content, .search-dropdown-menu, 
+    .ms-chat-header, .ms-input-pill, .adm-left-panel, .adm-right-panel,
+    .chat-details-panel, .floating-mini-player, .incoming-call-toast {
+        backdrop-filter: blur(8px) !important; /* Было 12-30px, теперь строго 8px */
+        -webkit-backdrop-filter: blur(8px) !important;
     }
 }

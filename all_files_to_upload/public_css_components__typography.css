@@ -1,0 +1,52 @@
+/* css/components/_typography.css */
+
+/* Блочное выравнивание */
+.cycle-text-center { 
+    text-align: center; 
+    display: block; 
+    width: 100%; 
+    margin: 2px 0; 
+}
+.cycle-text-right { 
+    text-align: right; 
+    display: block; 
+    width: 100%; 
+    margin: 2px 0; 
+}
+
+/* Размеры текста */
+.cycle-text-large { 
+    font-size: 1.4em; 
+    font-weight: 800; 
+    line-height: 1.3; 
+    display: inline-block; 
+    margin: 4px 0; 
+    color: #fff; 
+}
+.cycle-text-small { 
+    font-size: 0.85em; 
+    color: var(--text-muted); 
+    line-height: 1.4; 
+}
+
+/* Подчеркивание */
+.cycle-text-underline { 
+    text-decoration: underline; 
+    text-underline-offset: 3px; 
+    text-decoration-thickness: 1px; 
+}
+
+/* Гиперссылки */
+.cycle-link { 
+    color: var(--accent-games); 
+    text-decoration: none; 
+    font-weight: 600; 
+    transition: color var(--transition-fast), text-decoration var(--transition-fast); 
+}
+@media (hover: hover) { 
+    .cycle-link:hover { 
+        color: #fff; 
+        text-decoration: underline; 
+        text-underline-offset: 2px; 
+    } 
+}
