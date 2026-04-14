@@ -1,22 +1,11 @@
 // public/js/ui/modals/ConfirmModal.js
 
 export class ConfirmModal {
-    /**
-     * Вызывает кастомное окно подтверждения.
-     * @param {Object} options - Настройки окна
-     * @param {string} options.title - Заголовок
-     * @param {string} options.message - Текст сообщения
-     * @param {string} [options.confirmText='Ок'] - Текст кнопки подтверждения
-     * @param {string} [options.cancelText='Отмена'] - Текст кнопки отмены
-     * @param {boolean} [options.danger=false] - Сделать ли кнопку подтверждения красной
-     * @returns {Promise<boolean>} Возвращает true, если нажали "Ок", и false, если "Отмена"
-     */
     static show({ title, message, confirmText = 'Ок', cancelText = 'Отмена', danger = false }) {
         return new Promise((resolve) => {
-            // Создаем DOM элементы
             const overlay = document.createElement('div');
             overlay.className = 'modal-overlay active confirm-modal-overlay';
-            overlay.style.zIndex = '9999999'; // Поверх всего
+            overlay.style.zIndex = '9999999';
 
             const content = document.createElement('div');
             content.className = 'modal-content confirm-modal-content';
@@ -42,17 +31,20 @@ export class ConfirmModal {
             overlay.appendChild(content);
             document.body.appendChild(overlay);
 
-            // Обработка закрытия
+            // MEMORY LEAK FIX: Уничтожаем модалку, если юзер нажал "Назад" в браузере
+            const onHashChange = () => cleanup(false);
+            window.addEventListener('hashchange', onHashChange, { once: true });
+
             const cleanup = (result) => {
+                window.removeEventListener('hashchange', onHashChange); // Отписываемся
                 overlay.classList.remove('active');
-                setTimeout(() => overlay.remove(), 200); // Ждем конец анимации
+                setTimeout(() => overlay.remove(), 200); 
                 resolve(result);
             };
 
             content.querySelector('#confirmCancelBtn').addEventListener('click', () => cleanup(false));
             content.querySelector('#confirmAcceptBtn').addEventListener('click', () => cleanup(true));
             
-            // Закрытие по клику на фон
             overlay.addEventListener('click', (e) => {
                 if (e.target === overlay) cleanup(false);
             });

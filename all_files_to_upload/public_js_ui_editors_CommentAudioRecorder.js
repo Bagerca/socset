@@ -169,4 +169,25 @@ export class CommentAudioRecorder {
             textarea.style.height = (textarea.scrollHeight) + 'px';
         }
     }
+    // Вставить в КОНЕЦ класса CommentAudioRecorder (в файле public/js/ui/editors/CommentAudioRecorder.js)
+// Прямо перед последней закрывающей скобкой } класса
+
+    _restoreOriginalUI(containerEl, html, styles, text) {
+        containerEl.innerHTML = html;
+        containerEl.style.cssText = styles;
+        const textarea = containerEl.querySelector('.comment-textarea');
+        if (textarea) {
+            textarea.value = text;
+            textarea.style.height = 'auto';
+            textarea.style.height = (textarea.scrollHeight) + 'px';
+        }
+    }
+
+    // MEMORY LEAK FIX
+    destroy() {
+        this.cancel();
+        if (this.audioService) {
+            this.audioService._cleanup();
+        }
+    }
 }

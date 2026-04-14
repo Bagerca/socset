@@ -240,7 +240,9 @@ export class MessageInputHandler {
         }
     }
 
+    // Найди метод destroy в самом низу файла и замени его на этот:
     destroy() {
-        this.editor.destroy();
+        if (this.editor) this.editor.destroy();
+        if (this.audioRecorder) this.audioRecorder.destroy(); // Убиваем зависший микрофон
     }
 }

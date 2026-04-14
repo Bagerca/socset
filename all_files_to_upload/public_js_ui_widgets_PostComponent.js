@@ -77,47 +77,32 @@ export class PostComponent {
     bindEvents() {
         this.element.addEventListener('click', (e) => this.handleClick(e));
         
+        // GPU ОПТИМИЗАЦИЯ: Мы полностью удалили JS-код, который пытался скроллить
+        // зону реакций через мышь и touchmove. Теперь это делает нативный CSS
+        // (overflow-x: auto), что обеспечивает идеальные 60FPS без лагов процессора.
         const scrollArea = this.element.querySelector('.post-reactions-scroll-area');
         if (scrollArea) {
-            let isDown = false;
-            let startX;
-            let scrollLeft;
-
-            scrollArea.addEventListener('mousedown', (e) => {
-                isDown = true;
-                startX = e.pageX - scrollArea.offsetLeft;
-                scrollLeft = scrollArea.scrollLeft;
-                scrollArea.classList.add('grabbing');
-            });
-            scrollArea.addEventListener('mouseleave', () => { isDown = false; scrollArea.classList.remove('grabbing'); });
-            scrollArea.addEventListener('mouseup', () => { isDown = false; scrollArea.classList.remove('grabbing'); });
-            scrollArea.addEventListener('mousemove', (e) => {
-                if (!isDown) return;
-                e.preventDefault();
-                const x = e.pageX - scrollArea.offsetLeft;
-                const walk = (x - startX) * 2; 
-                scrollArea.scrollLeft = scrollLeft - walk;
-            });
-            
             scrollArea.addEventListener('wheel', (e) => {
                 if (e.deltaY !== 0) {
                     e.preventDefault();
                     scrollArea.scrollLeft += e.deltaY;
                 }
-            }, { passive: false });
+            }, { passive: false }); // Для мышки оставляем только колесико
         }
 
         let pressTimer;
         const likeBtn = this.element.querySelector('.like-btn');
         if (likeBtn) {
+            // Добавлен passive: true, чтобы браузер не ждал выполнения JS перед скроллом страницы
             likeBtn.addEventListener('touchstart', (e) => {
                 pressTimer = window.setTimeout(() => {
                     const popover = this.element.querySelector('.post-reaction-popover');
                     if (popover) popover.classList.add('force-active');
                 }, 500); 
-            });
-            likeBtn.addEventListener('touchend', () => clearTimeout(pressTimer));
-            likeBtn.addEventListener('touchmove', () => clearTimeout(pressTimer));
+            }, { passive: true });
+            
+            likeBtn.addEventListener('touchend', () => clearTimeout(pressTimer), { passive: true });
+            likeBtn.addEventListener('touchmove', () => clearTimeout(pressTimer), { passive: true });
         }
 
         document.addEventListener('click', (e) => {
@@ -140,7 +125,6 @@ export class PostComponent {
             return;
         }
 
-        // ИЗМЕНЕНО: Клик по .post-clickable-area вместо старого .post-main-body
         if (target.closest('.post-clickable-area') && 
             !target.closest('a') && !target.closest('button') && 
             !target.closest('.poll-wrapper') && !target.closest('.post-music-play-btn') &&

@@ -144,4 +144,22 @@ export class AudioRecorderUI {
         }
         this.cancel();
     }
+    // Вставить в КОНЕЦ класса AudioRecorderUI (в файле public/js/ui/editors/AudioRecorderUI.js)
+// Прямо перед последней закрывающей скобкой } класса
+
+    send() {
+        if (!this.activeRecording || !this.activeRecording.data) return;
+        if (this.onSendCallback) {
+            this.onSendCallback(this.activeRecording.data.blob, this.activeRecording.data.waveform);
+        }
+        this.cancel();
+    }
+
+    // MEMORY LEAK FIX: Принудительное уничтожение при уходе со страницы
+    destroy() {
+        this.cancel();
+        if (this.audioService) {
+            this.audioService._cleanup();
+        }
+    }
 }

@@ -1,6 +1,8 @@
+// public/js/controllers/FeedController.js
+
 import { PostComponent } from '../ui/widgets/PostComponent.js';
 import { CommentContextMenu } from '../ui/widgets/CommentContextMenu.js';
-import { ComposeWidget } from '../ui/widgets/ComposeWidget.js'; // Изменено
+import { ComposeWidget } from '../ui/widgets/ComposeWidget.js'; 
 import { CommunityCatalogHandler } from '../ui/widgets/CommunityCatalogHandler.js';
 
 export class FeedController {
@@ -16,7 +18,6 @@ export class FeedController {
         this.currentFeedType = 'main'; 
         this.isLoadingMore = false;
 
-        // Инициализация нового виджета
         this.composer = new ComposeWidget(document.getElementById('feedComposeContainer'), this.stores, {
             placeholder: 'Что происходит?',
             onSubmit: async (text, pollData, attachData) => {
@@ -43,7 +44,8 @@ export class FeedController {
         this.bindEvents();
         await this.reloadFeed();
         
-        window.addEventListener('scroll', this.handleScroll.bind(this), { signal: this.abortController.signal });
+        // GPU ОПТИМИЗАЦИЯ: passive: true для скролла, чтобы браузер не ждал JS
+        window.addEventListener('scroll', () => this.handleScroll(), { signal: this.abortController.signal, passive: true });
         
         document.addEventListener('cycle:post_added', (e) => this.handlePostAdded(e.detail), { signal: this.abortController.signal });
         document.addEventListener('cycle:post_deleted', (e) => this.handlePostDeleted(e.detail), { signal: this.abortController.signal });
@@ -92,7 +94,9 @@ export class FeedController {
         if (this.isLoadingMore || document.getElementById('catalogWrapper').style.display === 'flex') return;
         
         const { scrollTop, scrollHeight, clientHeight } = document.documentElement;
-        if (scrollTop + clientHeight >= scrollHeight - 100) {
+        
+        // Начинаем подгрузку заранее (за 300px до конца), чтобы юзер не видел "заиканий"
+        if (scrollTop + clientHeight >= scrollHeight - 300) {
             this.isLoadingMore = true;
             const oldestPost = this.stores.posts.posts[this.stores.posts.posts.length - 1];
             const beforeCursor = oldestPost ? oldestPost.timestamp : null;
@@ -105,12 +109,17 @@ export class FeedController {
             const newPosts = await this.stores.posts.loadPosts(beforeCursor, null, this.currentFeedType);
             
             if (newPosts.length > 0) {
+                // GPU ОПТИМИЗАЦИЯ: Пакетный рендер через DocumentFragment
                 const fragment = document.createDocumentFragment();
                 newPosts.forEach(p => {
                     const comp = new PostComponent(p, this.stores);
                     fragment.appendChild(comp.getElement());
                 });
-                this.container.appendChild(fragment);
+                
+                // Вставка в DOM только в свободный кадр анимации
+                requestAnimationFrame(() => {
+                    if (this.container) this.container.appendChild(fragment);
+                });
             }
             this.isLoadingMore = false;
         }
@@ -121,13 +130,19 @@ export class FeedController {
             let msg = this.currentFeedType === 'main' ? 'В этой ленте пока нет записей.' : 'Вы не состоите в сообществах или в них нет постов.';
             this.container.innerHTML = `<div style="text-align:center; padding: 40px; color: var(--text-muted);">${msg}</div>`;
         } else {
-            this.container.innerHTML = '';
+            // GPU ОПТИМИЗАЦИЯ: Пакетный рендер начальной загрузки
             const fragment = document.createDocumentFragment();
             this.stores.posts.posts.forEach(postData => {
                 const comp = new PostComponent(postData, this.stores);
                 fragment.appendChild(comp.getElement());
             });
-            this.container.appendChild(fragment);
+            
+            requestAnimationFrame(() => {
+                if (this.container) {
+                    this.container.innerHTML = '';
+                    this.container.appendChild(fragment);
+                }
+            });
         }
     }
 

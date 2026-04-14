@@ -1,12 +1,12 @@
 // public/js/ui/widgets/MessageListHandler.js
 import { MessagesAPI } from '../../api/MessagesAPI.js';
-import { MessageContextMenu } from './MessageContextMenu.js'; // ПОДКЛЮЧАЕМ НАШ НОВЫЙ КЛАСС
+import { MessageContextMenu } from './MessageContextMenu.js'; 
 
 export class MessageListHandler {
     constructor(stores, renderer, callbacks) {
         this.stores = stores;
         this.renderer = renderer;
-        this.callbacks = callbacks; // { onReply, onEdit, onPin, onDelete, canEdit, canPin }
+        this.callbacks = callbacks; 
         this.abortController = new AbortController();
 
         this.messagesList = document.getElementById('messagesList');
@@ -18,7 +18,6 @@ export class MessageListHandler {
         this.isLoadingHistory = false;
         this.hasMoreMessages = true;
 
-        // Инициализируем наше меню через отдельный класс
         this.contextMenu = new MessageContextMenu({
             onReply: (id, author, raw) => this.callbacks.onReply(id, author, this.renderer._getSnippet(raw)),
             onEdit: (id, raw) => this.callbacks.onEdit(id, raw),
@@ -52,26 +51,17 @@ export class MessageListHandler {
         if (data.success) {
             this.messages = data.messages;
             if (this.messages.length < 50) this.hasMoreMessages = false;
-            this.renderMessages(true);
+            
+            // Первая загрузка: отрисовываем все и скроллим вниз
+            this.messagesList.innerHTML = this.renderer.renderMessages(this.messages, this.stores.auth.user.username, this.activeChatType, this.activeLinkedChatId);
+            this.messagesList.scrollTop = this.messagesList.scrollHeight;
+            
+            this._initAudioElements(this.messagesList);
+            if (this.activeChatType === 'channel') {
+                this.messagesList.querySelectorAll('.message-item').forEach(el => this.viewObserver.observe(el));
+            }
         }
         return data;
-    }
-
-    renderMessages(forceScrollBottom = false) {
-        if (!this.messagesList) return;
-        const isAtBottom = this.messagesList.scrollHeight - this.messagesList.scrollTop - this.messagesList.clientHeight <= 100;
-        
-        this.messagesList.innerHTML = this.renderer.renderMessages(this.messages, this.stores.auth.user.username, this.activeChatType, this.activeLinkedChatId);
-        
-        if (forceScrollBottom || isAtBottom) {
-            this.messagesList.scrollTop = this.messagesList.scrollHeight;
-        }
-        
-        this._initAudioElements(this.messagesList);
-
-        if (this.activeChatType === 'channel') {
-            this.messagesList.querySelectorAll('.message-item').forEach(el => this.viewObserver.observe(el));
-        }
     }
 
     _initAudioElements(container) {
@@ -127,7 +117,7 @@ export class MessageListHandler {
     clear() {
         this.messages = [];
         this.hasMoreMessages = true;
-        this.renderMessages(true);
+        this.messagesList.innerHTML = '';
     }
 
     bindEvents() {
@@ -144,8 +134,25 @@ export class MessageListHandler {
                 
                 if (res.success && res.messages.length > 0) {
                     this.messages = [...res.messages, ...this.messages];
-                    this.renderMessages(false);
+                    
+                    // GPU ОПТИМИЗАЦИЯ: Мы НЕ перерисовываем весь чат через innerHTML!
+                    // Мы рендерим только новые (старые по времени) сообщения и вставляем их сверху.
+                    const htmlChunk = this.renderer.renderMessages(res.messages, this.stores.auth.user.username, this.activeChatType, this.activeLinkedChatId);
+                    
+                    // Вставляем HTML в начало списка
+                    this.messagesList.insertAdjacentHTML('afterbegin', htmlChunk);
+                    
+                    // Находим только что вставленные элементы, чтобы навесить на них аудио и обзерверы
+                    const newElements = Array.from(this.messagesList.children).slice(0, res.messages.length);
+                    
+                    newElements.forEach(el => {
+                        this._initAudioElements(el);
+                        if (this.activeChatType === 'channel') this.viewObserver.observe(el);
+                    });
+
+                    // Сохраняем позицию скролла, чтобы чат не прыгал вверх
                     this.messagesList.scrollTop = this.messagesList.scrollHeight - oldScrollHeight;
+                    
                     if (res.messages.length < 50) this.hasMoreMessages = false;
                 } else { this.hasMoreMessages = false; }
                 this.isLoadingHistory = false;
@@ -162,7 +169,6 @@ export class MessageListHandler {
             const canEdit = this.callbacks.canEdit(isMe);
             const canPin = this.callbacks.canPin();
 
-            // Делегируем открытие меню новому классу
             this.contextMenu.show(
                 e.pageX, e.pageY, 
                 b.dataset.id, b.dataset.raw, b.dataset.author, 
@@ -171,7 +177,6 @@ export class MessageListHandler {
         }, { signal });
 
         document.addEventListener('click', async (e) => {
-            // Клик по ответам (перемещение)
             const replyBlock = e.target.closest('.msg-module-reply');
             if (replyBlock) {
                 const targetMsg = document.querySelector(`.msg-row[data-id="${replyBlock.dataset.targetId}"]`);
@@ -181,7 +186,6 @@ export class MessageListHandler {
                 } return;
             }
 
-            // Клик по существующей реакции под сообщением
             const reactionBadge = e.target.closest('.msg-reaction-badge');
             if (reactionBadge) {
                 const msgBubble = reactionBadge.closest('.msg-bubble');
@@ -193,7 +197,6 @@ export class MessageListHandler {
     destroy() {
         this.abortController.abort();
         if (this.viewObserver) this.viewObserver.disconnect();
-        // Корректно убиваем меню через его собственный метод destroy
         if (this.contextMenu) this.contextMenu.destroy();
     }
 }

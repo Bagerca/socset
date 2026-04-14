@@ -1,3 +1,4 @@
+// public/js/ui/widgets/ProfileAudioWidget.js
 import { escapeHTML } from '../utils/utils.js';
 
 export class ProfileAudioWidget {
@@ -18,7 +19,6 @@ export class ProfileAudioWidget {
         this.cacheDOM();
         this.bindEvents();
         
-        // Даем браузеру отрисовать DOM, затем запускаем Canvas
         setTimeout(() => this.initVisualizer(), 50);
     }
 
@@ -65,7 +65,6 @@ export class ProfileAudioWidget {
         this.clickArea.addEventListener('mouseleave', startOverlayTimer, { signal }); 
         startOverlayTimer();
 
-        // Синхронизация UI с глобальным плеером
         const syncUI = () => {
             if (this.stores.player && !this.globalAudio.paused && this.stores.player.playlist[this.stores.player.currentIndex]?.id === this.track.id) {
                 this.wrapper.classList.add('playing');
@@ -78,12 +77,10 @@ export class ProfileAudioWidget {
         this.globalAudio.addEventListener('pause', syncUI, { signal }); 
         syncUI();
 
-        // Клик по плееру
         this.clickArea.addEventListener('click', async () => {
             showOverlay(); startOverlayTimer(); 
             if (!this.stores.player) return;
             
-            // Инициализация AudioContext для визуализатора (только по клику пользователя)
             if (!window.globalAudioAnalyser && this.globalAudio.crossOrigin === 'anonymous') {
                 try {
                     const AC = window.AudioContext || window.webkitAudioContext; 
@@ -113,8 +110,17 @@ export class ProfileAudioWidget {
         this.canvas.width = 600; 
         this.canvas.height = 100;
         
-        const drawWaveform = () => {
+        let lastFrameTime = 0;
+        // 33ms это ~30 кадров в секунду. На мобилке больше и не надо для такой простой волны.
+        const frameInterval = window.innerWidth <= 768 ? 33 : 16; 
+
+        const drawWaveform = (timestamp) => {
             this.animationId = requestAnimationFrame(drawWaveform);
+            
+            // GPU ОПТИМИЗАЦИЯ: Пропускаем кадры, если не прошло достаточно времени
+            if (timestamp - lastFrameTime < frameInterval) return;
+            lastFrameTime = timestamp;
+
             ctx.clearRect(0, 0, this.canvas.width, this.canvas.height); 
             ctx.lineWidth = 3; 
             ctx.strokeStyle = 'rgba(255, 255, 255, 0.25)'; 
@@ -145,7 +151,7 @@ export class ProfileAudioWidget {
             ctx.lineTo(this.canvas.width, this.canvas.height / 2); 
             ctx.stroke();
         };
-        drawWaveform();
+        drawWaveform(0);
     }
 
     destroy() {

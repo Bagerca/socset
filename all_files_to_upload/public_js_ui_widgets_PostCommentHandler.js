@@ -399,7 +399,9 @@ export class PostCommentHandler {
         this.updateInputButtons();
     }
 
+    // Найди метод destroy в самом низу файла и замени его на этот:
     destroy() {
         if (this.editor) this.editor.destroy();
+        if (this.audioRecorder) this.audioRecorder.destroy(); // Убиваем зависший микрофон
     }
 }

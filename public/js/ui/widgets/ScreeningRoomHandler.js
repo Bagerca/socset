@@ -5,7 +5,7 @@ import { Toast } from '../utils/Toast.js';
 import { escapeHTML } from '../utils/utils.js';
 import { DraggableWidget } from './DraggableWidget.js';
 import { ScreeningRoomPlayer } from './ScreeningRoomPlayer.js';
-import { ConfirmModal } from '../modals/ConfirmModal.js'; // ДОБАВЛЕН ИМПОРТ
+import { ConfirmModal } from '../modals/ConfirmModal.js'; 
 
 export class ScreeningRoomHandler {
     constructor(stores) {
@@ -22,22 +22,28 @@ export class ScreeningRoomHandler {
         this.controlsArea = document.getElementById('fsrControlsArea');
         
         this.btnStart = document.getElementById('fsrBtnStart');
-        this.btnClose = document.getElementById('fsrBtnClose');
         this.inputUrl = document.getElementById('fsrInputUrl');
         this.inputFile = document.getElementById('fsrInputFile');
         this.btnUpload = document.getElementById('fsrBtnUpload');
+        this.btnAddMusic = document.getElementById('fsrBtnAddMusic');
 
-        // Драггинг ИСКЛЮЧИТЕЛЬНО за верхнюю 24px панель
+        // Драгаем за сам виджет (если клик не по кнопкам) или за верхний бар
         this.draggable = new DraggableWidget(this.widget, '--fsr-x', '--fsr-y', {
             defaultX: 24,
-            defaultY: window.innerHeight - 364, 
-            handleSelector: '.fsr-drag-handle'
+            defaultY: window.innerHeight - 400, 
+            handleSelector: '.sr-top-bar, .fsr-controls-area' 
         });
 
         this.bindEvents();
         this.initResizer();
         
         SocketService.on('sr_update', (data) => this.handleSocketUpdate(data));
+        
+        document.addEventListener('cycle:incoming_message', (e) => {
+            if (this.isActive && this.currentChatId === e.detail.chat_id && this.player) {
+                this.player.shootDanmaku(e.detail);
+            }
+        });
     }
 
     initResizer() {
@@ -51,10 +57,8 @@ export class ScreeningRoomHandler {
         resizer.addEventListener('pointerdown', (e) => {
             e.preventDefault(); e.stopPropagation();
             isResizing = true;
-            
             startWidth = this.widget.offsetWidth;
             startX = e.clientX;
-            
             document.body.classList.add('is-dragging-widget');
             this.widget.classList.add('widget-is-resizing');
             this.widget.style.transition = 'none';
@@ -64,13 +68,9 @@ export class ScreeningRoomHandler {
         resizer.addEventListener('pointermove', (e) => {
             if (!isResizing) return;
             let newWidth = startWidth + (e.clientX - startX);
-            
             if (newWidth < 320) newWidth = 320;
             if (newWidth > window.innerWidth * 0.9) newWidth = window.innerWidth * 0.9;
-            
-            // Жестко держим пропорции 16:9 + 24px для шапки
-            let newHeight = (newWidth * (9 / 16)) + 24;
-
+            let newHeight = (newWidth * (9 / 16)); // Убрали +24, так как шапка поверх видео
             this.widget.style.width = `${newWidth}px`;
             this.widget.style.height = `${newHeight}px`;
         });
@@ -97,7 +97,7 @@ export class ScreeningRoomHandler {
                 if (!url) return Toast.show('Введите ссылку', 'error');
                 SocketService.emit('sr_action', { 
                     action: 'start', chatId: this.currentChatId, 
-                    payload: { videoUrl: url } 
+                    payload: { type: 'youtube', url } 
                 });
             };
         }
@@ -113,7 +113,7 @@ export class ScreeningRoomHandler {
                 try {
                     const res = await UploadAPI.uploadFile(e.target.files[0]);
                     if (res.success) {
-                        SocketService.emit('sr_action', { action: 'start', chatId: this.currentChatId, payload: { videoUrl: res.url } });
+                        SocketService.emit('sr_action', { action: 'start', chatId: this.currentChatId, payload: { type: 'mp4', url: res.url } });
                     } else { Toast.show('Ошибка загрузки', 'error'); }
                 } catch(err) { Toast.show('Слишком большой файл', 'error'); }
                 finally {
@@ -124,98 +124,120 @@ export class ScreeningRoomHandler {
             };
         }
 
-        if (this.btnClose) {
-            // ИСПРАВЛЕНО: Кастомная модалка подтверждения
-            this.btnClose.onclick = async () => {
-                if (this.isHost && this.currentChatId) {
-                    const confirmed = await ConfirmModal.show({
-                        title: 'Завершить трансляцию?',
-                        message: 'Вы уверены, что хотите закрыть Кинозал? Воспроизведение остановится для всех участников.',
-                        confirmText: 'Завершить',
-                        cancelText: 'Отмена',
-                        danger: true
+        if (this.btnAddMusic) {
+            this.btnAddMusic.onclick = () => {
+                const modal = document.getElementById('selectionModal');
+                const modalList = document.getElementById('modalList');
+                const modalTitle = document.getElementById('modalTitle');
+                
+                modal.classList.add('active');
+                modalList.innerHTML = ''; 
+                modalTitle.textContent = 'Включить музыку';
+                
+                const items = this.stores.catalogs.music;
+                items.forEach(item => {
+                    const el = document.createElement('div'); el.className = 'select-item';
+                    el.innerHTML = `<img src="${item.cover}"><div class="select-info"><span class="select-title">${escapeHTML(item.title)}</span><span class="select-subtitle">${escapeHTML(item.artist)}</span></div>`;
+                    el.addEventListener('click', () => {
+                        modal.classList.remove('active');
+                        SocketService.emit('sr_action', { 
+                            action: 'start', chatId: this.currentChatId, 
+                            payload: { type: 'site_music', url: item.url, title: item.title, cover: item.cover, artist: item.artist } 
+                        });
                     });
-                    if (confirmed) {
-                        SocketService.emit('sr_action', { action: 'close', chatId: this.currentChatId });
-                    }
-                } else { 
-                    this._resetUI(); 
-                }
+                    modalList.appendChild(el);
+                });
             };
         }
     }
 
     openHost(chatId) {
-        if (this.isActive) return Toast.show('Кинозал уже запущен', 'warning');
+        if (this.isActive) return Toast.show('Гостиная уже запущена', 'warning');
         this.currentChatId = chatId;
         
         if (window.innerWidth > 768) {
-            this.widget.style.width = '480px';
-            this.widget.style.height = '294px';
+            this.widget.style.width = '560px';
+            this.widget.style.height = '315px';
         }
         
         this.widget.classList.remove('hidden');
         this.controlsArea.style.display = 'flex';
         this.videoArea.style.display = 'none';
-        this.btnClose.style.display = 'flex';
         this.isHost = true;
         
-        // Добавляем класс для адаптации мобилок
         if (window.innerWidth <= 768) document.body.classList.add('sr-active-mobile');
     }
 
     joinRoom(chatId, state) {
         this.currentChatId = chatId;
         this.roomState = state;
-        this.isHost = false;
+        this.isHost = state.host === this.stores.auth.user.username;
         
         if (window.innerWidth > 768) {
-            this.widget.style.width = '480px';
-            this.widget.style.height = '294px';
+            this.widget.style.width = '560px';
+            this.widget.style.height = '315px';
         }
         
         this._initPlayerAndUI();
     }
 
     handleSocketUpdate(data) {
-        const { action, roomState, username, chatId } = data;
+        const { action, roomState, username, chatId, newHost, viewers, queue } = data;
         if (this.currentChatId && this.currentChatId !== chatId) return;
 
         if (action === 'started' || action === 'state') {
             this.roomState = roomState;
             if (roomState.host === this.stores.auth.user.username) {
                 this.isHost = true; this.isActive = true; this._initPlayerAndUI();
-            } 
-            else if (this.isActive && !this.isHost) {
-                if (this.player) this.player.syncWithServer(roomState.state, roomState.time, roomState.timestamp, SocketService.getServerTimeNow());
+            } else if (this.isActive && !this.isHost && this.player) {
+                this.player.syncWithServer(roomState.state, roomState.time, roomState.timestamp, SocketService.getServerTimeNow());
             }
         } 
         else if (action === 'sync') {
             if (!this.isActive) return;
             this.roomState = roomState;
-            
-            if (roomState.state === 'paused' && this.player && !this.isHost) {
-                this.player.showToast(`⏸ Хост поставил на паузу`);
-            }
-            if (!this.isHost && this.player) {
-                this.player.syncWithServer(roomState.state, roomState.time, roomState.timestamp, SocketService.getServerTimeNow());
-            }
+            if (roomState.state === 'paused' && this.player && !this.isHost) this.player.showToast(`⏸ Хост поставил на паузу`);
+            if (!this.isHost && this.player) this.player.syncWithServer(roomState.state, roomState.time, roomState.timestamp, SocketService.getServerTimeNow());
         }
         else if (action === 'closed') {
-            if (this.isActive) { this._resetUI(); Toast.show('Кинозал закрыт', 'info'); }
+            if (this.isActive) { this._resetUI(); Toast.show('Гостиная закрыта', 'info'); }
         }
         else if (action === 'buffering_start') {
-            if (this.isActive && this.player) this.player.showToast(`⏳ ${escapeHTML(username)} грузит видео...`);
+            if (this.isActive && this.player) this.player.showToast(`⏳ ${username} грузит медиа...`);
+        }
+        else if (action === 'viewers_updated') {
+            this.roomState.viewers = viewers;
+            if (this.player) this.player.renderViewers(viewers, this.roomState.host);
+        }
+        else if (action === 'host_migrated') {
+            this.roomState.host = newHost;
+            this.isHost = newHost === this.stores.auth.user.username;
+            if (this.player) {
+                this.player.isHost = this.isHost;
+                this.player.renderViewers(this.roomState.viewers, newHost);
+                this.player.showToast(`👑 Новый хост: @${newHost}`);
+            }
+        }
+        else if (action === 'queue_updated') {
+            this.roomState.queue = queue;
+            if (this.player) this.player.renderQueue();
+        }
+        else if (action === 'video_changed') {
+            this.roomState = roomState;
+            if (this.player) {
+                this.player.load(this.roomState.queue[this.roomState.currentIndex]);
+                this.player.renderQueue();
+                if (!this.isHost) this.player.syncWithServer(this.roomState.state, this.roomState.time, this.roomState.timestamp, SocketService.getServerTimeNow());
+            }
         }
     }
 
     _initPlayerAndUI() {
         this.widget.classList.remove('hidden');
         this.controlsArea.style.display = 'none';
-        this.videoArea.style.display = 'block';
+        this.videoArea.style.display = 'flex';
         this.isActive = true;
         
-        // Добавляем класс для адаптации мобилок
         if (window.innerWidth <= 768) document.body.classList.add('sr-active-mobile');
 
         if (this.player) this.player.destroy();
@@ -229,13 +251,51 @@ export class ScreeningRoomHandler {
         }
 
         this.player = new ScreeningRoomPlayer(
-            'fsrVideoTarget', this.isHost, 
+            'fsrVideoTarget', this,
             (state, time) => { SocketService.emit('sr_action', { action: 'sync', chatId: this.currentChatId, payload: { state, time } }); },
             (isBuffering) => { SocketService.emit('sr_action', { action: 'buffering', chatId: this.currentChatId, payload: { isBuffering } }); }
         );
         
-        this.player.load(this.roomState.videoUrl);
+        this.player.load(this.roomState.queue[this.roomState.currentIndex]);
         if (!this.isHost) this.player.syncWithServer(this.roomState.state, this.roomState.time, this.roomState.timestamp, SocketService.getServerTimeNow());
+        
+        this.player.renderViewers(this.roomState.viewers, this.roomState.host);
+
+        // Говорим серверу, что мы смотрим
+        SocketService.emit('sr_action', { action: 'join_view', chatId: this.currentChatId });
+        
+        // Подключаем WebRTC в скрытом режиме (микрофон/камера выключены)
+        if (window.cycleCallHandler) {
+            window.cycleCallHandler.joinCall(this.currentChatId, false, null, true); 
+        }
+    }
+
+    async askClose() {
+        if (this.isHost && this.currentChatId) {
+            const confirmed = await ConfirmModal.show({
+                title: 'Завершить трансляцию?',
+                message: 'Вы уверены, что хотите закрыть Гостиную? Воспроизведение остановится для всех.',
+                confirmText: 'Завершить',
+                cancelText: 'Отмена',
+                danger: true
+            });
+            if (confirmed) {
+                SocketService.emit('sr_action', { action: 'close', chatId: this.currentChatId });
+            }
+        } else {
+            SocketService.emit('sr_action', { action: 'leave_view', chatId: this.currentChatId });
+            this._resetUI(); 
+        }
+    }
+
+    addToQueue(payload) {
+        if (!payload.url) return;
+        SocketService.emit('sr_action', { action: 'add_to_queue', chatId: this.currentChatId, payload });
+    }
+
+    skipVideo(index) {
+        if (!this.isHost) return;
+        SocketService.emit('sr_action', { action: 'skip_video', chatId: this.currentChatId, payload: { index } });
     }
 
     _resetUI() {
@@ -244,11 +304,18 @@ export class ScreeningRoomHandler {
         this.currentChatId = null;
         if (this.player) { this.player.destroy(); this.player = null; }
         this.widget.classList.add('hidden');
+        this.controlsArea.style.display = 'flex';
+        this.videoArea.style.display = 'none';
         this.draggable.reset(); 
-        
-        // Убираем класс адаптации мобилок
         document.body.classList.remove('sr-active-mobile');
+        
+        if (window.cycleCallHandler && window.cycleCallHandler.activeChatId) {
+            window.cycleCallHandler.endCall();
+        }
     }
 
-    destroy() { this._resetUI(); }
+    destroy() { 
+        if (this.isActive && this.currentChatId) SocketService.emit('sr_action', { action: 'leave_view', chatId: this.currentChatId });
+        this._resetUI(); 
+    }
 }
