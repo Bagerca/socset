@@ -62,8 +62,16 @@ export class ChatListHandler {
         }
         const sorted = [...filtered].sort((a, b) => { return (this.pinnedChats.includes(b.id) ? 1 : 0) - (this.pinnedChats.includes(a.id) ? 1 : 0) || b.updated_at - a.updated_at; });
         
-        if (sorted.length === 0) { this.chatListContainer.innerHTML = '<div style="text-align:center; color:var(--text-muted); padding: 20px;">Диалоги не найдены</div>'; } 
-        else { this.chatListContainer.innerHTML = this.renderer.renderChatList(sorted, this.activeChatId, this.pinnedChats); }
+        if (sorted.length === 0) { 
+            this.chatListContainer.innerHTML = '<div style="text-align:center; color:var(--text-muted); padding: 20px;">Диалоги не найдены</div>'; 
+        } 
+        else { 
+            // GPU ОПТИМИЗАЦИЯ: Оборачиваем тяжелую вставку в requestAnimationFrame
+            const html = this.renderer.renderChatList(sorted, this.activeChatId, this.pinnedChats);
+            requestAnimationFrame(() => {
+                if (this.chatListContainer) this.chatListContainer.innerHTML = html;
+            });
+        }
     }
 
     bindEvents() {

@@ -1,4 +1,4 @@
-/* css/components/_messages.css */
+/* public/css/components/_messages.css */
 
 body.messenger-active-layout .app-container { max-width: 1200px; }
 
@@ -27,7 +27,12 @@ body.messenger-active-layout .app-container { max-width: 1200px; }
 /* СПИСОК ЧАТОВ */
 .ms-chat-list { flex: 1; overflow-y: auto; overflow-x: hidden; display: flex; flex-direction: column; padding: 10px 0; scrollbar-width: none; -ms-overflow-style: none; }
 .ms-chat-list::-webkit-scrollbar { display: none; }
-.ms-chat-item { display: flex; align-items: center; gap: 14px; padding: 12px 14px; margin: 2px 12px; border-radius: 14px; cursor: pointer; transition: all 0.2s cubic-bezier(0.25, 1, 0.5, 1); border: 1px solid transparent; }
+.ms-chat-item { 
+    display: flex; align-items: center; gap: 14px; padding: 12px 14px; margin: 2px 12px; border-radius: 14px; cursor: pointer; transition: all 0.2s cubic-bezier(0.25, 1, 0.5, 1); border: 1px solid transparent; 
+    /* GPU ОПТИМИЗАЦИЯ: Ускоряет рендер длинного списка чатов */
+    content-visibility: auto;
+    contain-intrinsic-size: 74px;
+}
 .ms-chat-item:hover { background: rgba(255,255,255,0.03); }
 .ms-chat-item.active { background: rgba(124, 58, 237, 0.1); border: 1px solid rgba(124, 58, 237, 0.2); box-shadow: 0 4px 15px rgba(0,0,0,0.2); }
 .ms-chat-item-info { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 4px; }
@@ -63,7 +68,12 @@ body.messenger-active-layout .app-container { max-width: 1200px; }
 .ms-messages-list { flex: 1; overflow-y: auto; overflow-x: hidden; padding: 20px 20px 100px 20px; display: flex; flex-direction: column; gap: 16px; scroll-behavior: smooth; scrollbar-width: none; -ms-overflow-style: none; }
 .ms-messages-list::-webkit-scrollbar { display: none; }
 
-.msg-row { display: flex; flex-direction: row; gap: 10px; width: 100%; position: relative; align-items: flex-end; }
+.msg-row { 
+    display: flex; flex-direction: row; gap: 10px; width: 100%; position: relative; align-items: flex-end; 
+    /* GPU ОПТИМИЗАЦИЯ: Видеокарта не рендерит сообщения, которые не влезли в экран! */
+    content-visibility: auto;
+    contain-intrinsic-size: 60px;
+}
 .msg-row.me { justify-content: flex-end; }
 .msg-row.them { justify-content: flex-start; }
 
@@ -71,7 +81,7 @@ body.messenger-active-layout .app-container { max-width: 1200px; }
 .msg-content-col.me { align-items: flex-end; }
 .msg-content-col.them { align-items: flex-start; }
 
-/* МОДУЛЬНЫЙ ПУЗЫРЬ (БЕЗ ОТСТУПОВ) */
+/* МОДУЛЬНЫЙ ПУЗЫРЬ */
 .msg-bubble { 
     max-width: 100%; width: fit-content; font-size: 15px; line-height: 1.45; 
     position: relative; box-shadow: 0 4px 15px rgba(0,0,0,0.15); 
@@ -455,14 +465,12 @@ body.chat-active-mobile .sidebar-wrapper { display: none !important; }
 /* АДАПТАЦИЯ МОБИЛОК: ЧАТ + КИНОЗАЛ                        */
 /* ======================================================= */
 @media (max-width: 768px) {
-    /* Когда кинозал открыт, опускаем весь мессенджер под него */
     body.sr-active-mobile .messenger-container {
         top: 56.25vw !important; /* 100vw * (9/16) - высота видео */
         height: calc(100dvh - 56.25vw) !important;
         transition: top 0.3s ease, height 0.3s ease;
     }
     
-    /* Шапка чата остается прилипшей, но уже с учетом сдвига контейнера */
     body.sr-active-mobile .ms-chat-header {
         border-radius: 0;
     }
