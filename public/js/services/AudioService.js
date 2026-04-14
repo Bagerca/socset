@@ -1,4 +1,4 @@
-// js/services/AudioService.js
+// public/js/services/AudioService.js
 
 export class AudioService {
     constructor() {
@@ -13,6 +13,8 @@ export class AudioService {
 
     async start() {
         try {
+            this._cleanup(); // Превентивная очистка мусора
+            
             this.stream = await navigator.mediaDevices.getUserMedia({ audio: true });
             this.mediaRecorder = new MediaRecorder(this.stream);
             this.audioChunks = [];
@@ -46,8 +48,8 @@ export class AudioService {
     stop() {
         return new Promise((resolve) => {
             if (!this.mediaRecorder || this.mediaRecorder.state !== 'recording') {
-                resolve(null);
-                return;
+                this._cleanup();
+                return resolve(null);
             }
             
             this.mediaRecorder.onstop = async () => {
@@ -55,16 +57,27 @@ export class AudioService {
                 const audioUrl = URL.createObjectURL(audioBlob);
                 const waveform = await this.analyzeAudioWaveform(audioBlob);
                 
-                this.stream.getTracks().forEach(track => track.stop());
-                if(this.audioContext && this.audioContext.state !== 'closed') {
-                    this.audioContext.close();
-                }
-                
+                this._cleanup(); // Обязательно убиваем аппаратный процесс
                 resolve({ blob: audioBlob, url: audioUrl, waveform });
             };
             
             this.mediaRecorder.stop();
         });
+    }
+
+    // MEMORY LEAK FIX: Жесткая остановка всех потоков
+    _cleanup() {
+        if (this.stream) {
+            this.stream.getTracks().forEach(track => track.stop());
+            this.stream = null;
+        }
+        if (this.audioContext && this.audioContext.state !== 'closed') {
+            this.audioContext.close().catch(()=>{});
+            this.audioContext = null;
+        }
+        this.analyser = null;
+        this.source = null;
+        this.mediaRecorder = null;
     }
 
     async analyzeAudioWaveform(audioBlob) {
@@ -78,7 +91,6 @@ export class AudioService {
             const blockSize = Math.floor(rawData.length / samples);
             const waveform = [];
             
-            // Шаг 1: Ищем пиковую громкость для нормализации
             let maxPeak = 0;
             const blockMeans = [];
             for (let i = 0; i < samples; i++) {
@@ -91,15 +103,16 @@ export class AudioService {
                 if (mean > maxPeak) maxPeak = mean;
             }
 
-            // Шаг 2: Нормализуем значения (от 15% до 100%)
             for (let i = 0; i < samples; i++) {
                 let percent = maxPeak > 0 ? (blockMeans[i] / maxPeak) * 100 : 15;
                 waveform.push(Math.max(15, Math.min(100, Math.round(percent))));
             }
             
+            // Важно: закрываем оффлайн-контекст
+            if (offlineCtx.state !== 'closed') offlineCtx.close().catch(()=>{});
+            
             return waveform;
         } catch (e) {
-            // Красивый дефолтный паттерн волны, если анализ сломался
             return [15, 20, 35, 50, 75, 60, 40, 20, 15, 25, 45, 80, 95, 70, 35, 20, 15, 30, 55, 85, 65, 40, 25, 15, 20, 35, 50, 35, 20, 15];
         }
     }
